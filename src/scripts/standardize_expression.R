@@ -129,15 +129,15 @@ rlp6_threshold <- set_std_threshold(rlp6)
 rlp6 <- rlp6 %>% 
     mutate(active = ifelse(expn_med_fitted_scaled >= rlp6_threshold, 'active', 'inactive'))
 
-write.table(tss, file = '../data/processed_data/linear_model/rLP5_Endo2_lb_expression_formatted_std.txt',
+write.table(tss, file = '../data/processed_data/replicated_models/rLP5_Endo2_lb_expression_formatted_std.txt',
             row.names = F, quote = F, sep = '\t')
-write.table(scramble, file = '../data/processed_data/linear_model/endo_scramble_expression_formatted_std.txt',
+write.table(scramble, file = '../data/processed_data/replicated_models/endo_scramble_expression_formatted_std.txt',
             row.names = F, quote = F, sep = '\t')
-write.table(peak_tile, file = '../data/processed_data/linear_model/peak_tile_expression_formatted_std.txt',
+write.table(peak_tile, file = '../data/processed_data/replicated_models/peak_tile_expression_formatted_std.txt',
             row.names = F, quote = F, sep = '\t')
-write.table(flp3, file = '../data/processed_data/linear_model/fLP3_Endo2_lb_expression_formatted_std.txt',
+write.table(flp3, file = '../data/processed_data/replicated_models/fLP3_Endo2_lb_expression_formatted_std.txt',
             row.names = F, quote = F, sep = '\t')
-write.table(rlp6, file = '../data/processed_data/linear_model/rLP6_Endo2_lb_expression_formatted_std.txt',
+write.table(rlp6, file = '../data/processed_data/replicated_models/rLP6_Endo2_lb_expression_formatted_std.txt',
             row.names = F, quote = F, sep = '\t')
 
 # combine datasets for modeling
