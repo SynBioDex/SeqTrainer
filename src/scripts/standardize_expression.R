@@ -147,13 +147,13 @@ combined <- bind_rows(tss,
                       peak_tile) %>% 
     select(variant, expn_med_fitted_scaled, start, end, name, active)
 
-write.table(combined, '../data/processed_data/linear_model/tss_scramble_peak_expression_model_format.txt',
+write.table(combined, '../data/processed_data/replicated_models/tss_scramble_peak_expression_model_format.txt',
             row.names = F, col.names = F, quote = F, sep = '\t')
 write.table(select(combined, variant, expn_med_fitted_scaled), 
-            '../data/processed_data/linear_model/tss_scramble_peak_expression_model_format_values_only.txt',
+            '../data/processed_data/replicated_models/tss_scramble_peak_expression_model_format_values_only.txt',
             row.names = F, col.names = F, quote = F, sep = '\t')
 # just TSS for gkmSVM
 tss %>% 
     select(variant, expn_med_fitted_scaled, start, end, name, active) %>% 
-    write.table('../data/processed_data/linear_model/tss_expression_model_format.txt',
+    write.table('../data/processed_data/replicated_models/tss_expression_model_format.txt',
                 row.names = F, col.names = F, quote = F, sep = '\t')
