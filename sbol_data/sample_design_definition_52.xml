@@ -1,0 +1,169 @@
+<rdf:RDF xmlns:brick="https://brickschema.org/schema/Brick#" xmlns:csvw="http://www.w3.org/ns/csvw#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcat="http://www.w3.org/ns/dcat#" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcam="http://purl.org/dc/dcam/" xmlns:doap="http://usefulinc.com/ns/doap#" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:geo="http://www.opengis.net/ont/geosparql#" xmlns:odrl="http://www.w3.org/ns/odrl/2/" xmlns:org="http://www.w3.org/ns/org#" xmlns:prof="http://www.w3.org/ns/dx/prof/" xmlns:prov="http://www.w3.org/ns/prov#" xmlns:qb="http://purl.org/linked-data/cube#" xmlns:schema="https://schema.org/" xmlns:sh="http://www.w3.org/ns/shacl#" xmlns:skos="http://www.w3.org/2004/02/skos/core#" xmlns:sosa="http://www.w3.org/ns/sosa/" xmlns:ssn="http://www.w3.org/ns/ssn/" xmlns:time="http://www.w3.org/2006/time#" xmlns:vann="http://purl.org/vocab/vann/" xmlns:void="http://rdfs.org/ns/void#" xmlns:wgs="https://www.w3.org/2003/01/geo/wgs84_pos#" xmlns:owl="http://www.w3.org/2002/07/owl#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:xsd="http://www.w3.org/2001/XMLSchema#" xmlns:sbol="http://sbols.org/v2#" xmlns:xsd1="http://www.w3.org/2001/XMLSchema#dateTime/" xmlns:om="http://www.ontology-of-units-of-measure.org/resource/om-2/" xmlns:synbiohub="http://synbiohub.org#" xmlns:sbh="http://wiki.synbiohub.org/wiki/Terms/synbiohub#" xmlns:sybio="http://www.sybio.ncl.ac.uk#" xmlns:ncbi="http://www.ncbi.nlm.nih.gov#" xmlns:igem="http://wiki.synbiohub.org/wiki/Terms/igem#" xmlns:genbank="http://www.ncbi.nlm.nih.gov/genbank#" xmlns:gbconv="http://sbols.org/genBankConversion#" xmlns:obo="http://purl.obolibrary.org/obo/">
+  <sbol:ModuleDefinition rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/1">
+    <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+    <sbol:module>
+      <sbol:Module rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/strain_module_52/1">
+        <sbol:version>1</sbol:version>
+        <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/1"/>
+        <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/strain_module_52"/>
+        <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+        <sbol:displayId>strain_module_52</sbol:displayId>
+        <sbol:definition rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_strain_definition_52/1"/>
+      </sbol:Module>
+    </sbol:module>
+    <sbol:displayId>ModuleDefinition_sample_design_definition_52</sbol:displayId>
+    <sbol:functionalComponent>
+      <sbol:FunctionalComponent rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/gfp_52/1">
+        <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/gfp_52"/>
+        <sbol:definition rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_gfp_52/1"/>
+        <sbol:access rdf:resource="http://sbols.org/v2#public"/>
+        <sbol:direction rdf:resource="http://sbols.org/v2#out"/>
+        <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/1"/>
+        <sbol:displayId>gfp_52</sbol:displayId>
+        <sbol:version>1</sbol:version>
+        <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+        <sbol:measure>
+          <om:Measure rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/gfp_52/exp_ave_52/1">
+            <sbol:version>1</sbol:version>
+            <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/1"/>
+            <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/gfp_52/exp_ave_52"/>
+            <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+            <om:hasNumericalValue>0.797764510000215</om:hasNumericalValue>
+            <sbol:displayId>exp_ave_52</sbol:displayId>
+            <om:hasUnit rdf:resource="http://www.ontology-of-units-of-measure.org/resource/om-2/RatioUnit"/>
+          </om:Measure>
+        </sbol:measure>
+      </sbol:FunctionalComponent>
+    </sbol:functionalComponent>
+    <sbol:module>
+      <sbol:Module rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/media_module_52/1">
+        <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/1"/>
+        <sbol:version>1</sbol:version>
+        <sbol:definition rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_LB/1"/>
+        <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+        <sbol:displayId>media_module_52</sbol:displayId>
+        <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/media_module_52"/>
+      </sbol:Module>
+    </sbol:module>
+    <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52"/>
+    <sbol:role rdf:resource="http://identifiers.org/obo/OBI:0000073"/>
+    <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_sample_design_definition_52/1"/>
+    <sbol:version>1</sbol:version>
+  </sbol:ModuleDefinition>
+  <sbol:ModuleDefinition rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_LB/1">
+    <sbol:role rdf:resource="http://identifiers.org/ncit/NCIT:C48164"/>
+    <sbol:version>1</sbol:version>
+    <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+    <sbol:displayId>ModuleDefinition_LB</sbol:displayId>
+    <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_LB"/>
+    <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_LB/1"/>
+  </sbol:ModuleDefinition>
+  <sbol:ModuleDefinition rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_strain_definition_52/1">
+    <sbol:functionalComponent>
+      <sbol:FunctionalComponent rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_strain_definition_52/cicuit_fc_52/1">
+        <sbol:direction rdf:resource="http://sbols.org/v2#out"/>
+        <sbol:definition rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52/1"/>
+        <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_strain_definition_52/1"/>
+        <sbol:access rdf:resource="http://sbols.org/v2#public"/>
+        <sbol:version>1</sbol:version>
+        <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_strain_definition_52/cicuit_fc_52"/>
+        <sbol:displayId>cicuit_fc_52</sbol:displayId>
+        <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+      </sbol:FunctionalComponent>
+    </sbol:functionalComponent>
+    <sbol:module>
+      <sbol:Module rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_strain_definition_52/chassis_module_52/1">
+        <sbol:definition rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_E_coli_chassis/1"/>
+        <sbol:version>1</sbol:version>
+        <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_strain_definition_52/chassis_module_52"/>
+        <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_strain_definition_52/1"/>
+        <sbol:displayId>chassis_module_52</sbol:displayId>
+        <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+      </sbol:Module>
+    </sbol:module>
+    <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_strain_definition_52"/>
+    <sbol:version>1</sbol:version>
+    <sbol:displayId>ModuleDefinition_strain_definition_52</sbol:displayId>
+    <sbol:role rdf:resource="http://identifiers.org/ncit/NCIT:C14419"/>
+    <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_strain_definition_52/1"/>
+    <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+  </sbol:ModuleDefinition>
+  <sbol:ModuleDefinition rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_E_coli_chassis/1">
+    <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_E_coli_chassis/1"/>
+    <sbol:displayId>ModuleDefinition_E_coli_chassis</sbol:displayId>
+    <sbol:role rdf:resource="http://identifiers.org/ncit/NCIT:C14419"/>
+    <sbol:version>1</sbol:version>
+    <prov:wasDerivedFrom rdf:resource="https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=511145"/>
+    <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ModuleDefinition_E_coli_chassis"/>
+    <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+  </sbol:ModuleDefinition>
+  <sbol:ComponentDefinition rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_gfp_52/1">
+    <sbol:role rdf:resource="http://identifiers.org/so/SO:0000316"/>
+    <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_gfp_52"/>
+    <sbol:version>1</sbol:version>
+    <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_gfp_52/1"/>
+    <sbol:displayId>ComponentDefinition_gfp_52</sbol:displayId>
+    <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+    <sbol:type rdf:resource="http://www.biopax.org/release/biopax-level3.owl#Protein"/>
+  </sbol:ComponentDefinition>
+  <sbol:ComponentDefinition rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52/1">
+    <sbol:component>
+      <sbol:Component rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52/promoter/1">
+        <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52/1"/>
+        <sbol:access rdf:resource="http://sbols.org/v2#public"/>
+        <sbol:version>1</sbol:version>
+        <sbol:definition rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_promoter_definition_52/1"/>
+        <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52/promoter"/>
+        <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+        <sbol:displayId>promoter</sbol:displayId>
+      </sbol:Component>
+    </sbol:component>
+    <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52"/>
+    <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52/1"/>
+    <sbol:sequenceAnnotation>
+      <sbol:SequenceAnnotation rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52/promoter_52_location/1">
+        <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+        <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52/promoter_52_location"/>
+        <sbol:location>
+          <sbol:Range rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52/promoter_52_location/prange/1">
+            <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+            <sbol:start>924875</sbol:start>
+            <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52/1"/>
+            <sbol:end>925119</sbol:end>
+            <sbol:version>1</sbol:version>
+            <sbol:displayId>prange</sbol:displayId>
+            <sbol:orientation rdf:resource="http://sbols.org/v2#reverseComplement"/>
+            <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52/promoter_52_location/prange"/>
+          </sbol:Range>
+        </sbol:location>
+        <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_circuit_definition_52/1"/>
+        <sbol:version>1</sbol:version>
+        <sbol:displayId>promoter_52_location</sbol:displayId>
+      </sbol:SequenceAnnotation>
+    </sbol:sequenceAnnotation>
+    <sbol:displayId>ComponentDefinition_circuit_definition_52</sbol:displayId>
+    <sbol:type rdf:resource="http://www.biopax.org/release/biopax-level3.owl#DnaRegion"/>
+    <sbol:role rdf:resource="https://identifiers.org/so/SO:0000804"/>
+    <sbol:version>1</sbol:version>
+    <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+  </sbol:ComponentDefinition>
+  <sbol:ComponentDefinition rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_promoter_definition_52/1">
+    <sbol:type rdf:resource="http://www.biopax.org/release/biopax-level3.owl#DnaRegion"/>
+    <sbol:role rdf:resource="http://identifiers.org/so/SO:0000167"/>
+    <sbol:sequence rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/Sequence_promoter_seq_52/1"/>
+    <sbol:version>1</sbol:version>
+    <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_promoter_definition_52/1"/>
+    <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+    <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/ComponentDefinition_promoter_definition_52"/>
+    <sbol:displayId>ComponentDefinition_promoter_definition_52</sbol:displayId>
+  </sbol:ComponentDefinition>
+  <sbol:Sequence rdf:about="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/Sequence_promoter_seq_52/1">
+    <sbh:ownedBy rdf:resource="https://synbiohub.org/user/cywong"/>
+    <sbh:topLevel rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/Sequence_promoter_seq_52/1"/>
+    <sbol:persistentIdentity rdf:resource="https://synbiohub.org/user/cywong/Ecolipromoterexpdataalt/Sequence_promoter_seq_52"/>
+    <sbol:encoding rdf:resource="http://www.chem.qmul.ac.uk/iubmb/misc/naseq.html"/>
+    <sbol:version>1</sbol:version>
+    <sbol:elements>CCCCTCACCGCCATATTTAAAGAAGAGCTCGTACGAAAGTGCGAGCTTTTTTTTCGCATTTTATCTGTCTGTACGGCAGTGAACATGGTGGGCGGGTGGAGTATGTTACCTGTGAATTTCTAAGCTGCCTGTACGGCAGTGAACTCAAATACTACACGTTTAGCCCGTTGTTAATAAAGCAAAACCATCCCATTCTCCTGCAGCACCCTTTTTTATCCTTACCTTCCCGCAGCACTAATTATCA</sbol:elements>
+    <sbol:displayId>Sequence_promoter_seq_52</sbol:displayId>
+  </sbol:Sequence>
+</rdf:RDF>
