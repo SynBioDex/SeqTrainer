@@ -757,7 +757,6 @@ def edge_label_encode_categorical_columns(df):
 
 def edge_one_hot_encode_categorical_columns(df):
     cat_cols = [col for col in df.columns if df[col].dtype == 'object' and 1 <= df[col].nunique() <= 5]
-
     for col in cat_cols:
         if col not in cols_to_keep:
             # One-hot encode with NaN as a separate category
@@ -779,10 +778,7 @@ def edge_one_hot_encode_categorical_columns(df):
     
 #     df.to_csv(file_path, index=False, header=False)
 
-
-
 print(f"## Result saved at: {save_path_mapping=} {save_path_numeric_graph}")
-
 print(f"## Finished creating the graph dataset!")
 
 ######## Automatic graph creation done ########

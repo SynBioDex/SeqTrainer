@@ -7,7 +7,6 @@ from copy import deepcopy
 
 
 def create_splits(train_fraction):
-
 	test_fraction = 1 - train_fraction
 	split_fraction = test_fraction / 2
 	split_size = int(floor(genome_size * split_fraction))
