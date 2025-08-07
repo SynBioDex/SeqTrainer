@@ -63,7 +63,7 @@ print (f'## Configs: input:{file_path} / {nld_class=} / {embedding_model=} / out
 #get the defined names for the classes and edges from the config file
 class_names = config.get('Nodes', 'classes').split(', ')
 edge_names_simple = config.get('SimpleEdges', 'edge_names').split(', ')
-edge_names_n_aray = config.get('N-ArayEdges', 'edge_names').split(', ')
+# edge_names_n_aray = config.get('N-ArayEdges', 'edge_names').split(', ')
 edge_names_n_hop = config.get('N-HopEdges', 'edge_names').split(', ')
 
 graph = rdflib.Graph()
@@ -93,22 +93,22 @@ for edge_name in edge_names_simple:
     end_node = class_dict[end_node_name]
     simple_edge_dict[edge_name] = [start_node, properties, end_node]
 
-#create dictonaries for n-aray edges
-n_aray_edge_dict = {}
-for edge_name in edge_names_n_aray:
-    start_node_name = config.get('N-ArayEdges', f'{edge_name}_start_node')
-    start_node = class_dict[start_node_name]
-    properties = config.get('N-ArayEdges', f'{edge_name}_properties').split(', ')
-    end_node_name = config.get('N-ArayEdges', f'{edge_name}_end_node')
-    end_node = class_dict[end_node_name]
-    n_aray_edge_dict[edge_name] = [start_node, properties, end_node]
+# #create dictonaries for n-aray edges
+# n_aray_edge_dict = {}
+# for edge_name in edge_names_n_aray:
+#     start_node_name = config.get('N-ArayEdges', f'{edge_name}_start_node')
+#     start_node = class_dict[start_node_name]
+#     properties = config.get('N-ArayEdges', f'{edge_name}_properties').split(', ')
+#     end_node_name = config.get('N-ArayEdges', f'{edge_name}_end_node')
+#     end_node = class_dict[end_node_name]
+#     n_aray_edge_dict[edge_name] = [start_node, properties, end_node]
 
-#create dictonaryies for n-aray feature paths and feature values
-n_aray_feature_path_dict = {}
-n_aray_feature_value_dict = {}
-for edge_name in edge_names_n_aray:
-    n_aray_feature_path_dict[edge_name + '_feature_path'] = config.get('N-ArayFeaturePath', edge_name + '_feature_path').split(', ')
-    n_aray_feature_value_dict[edge_name + '_feature_value'] = config.get('N-ArayFeatureValue', edge_name + '_feature_value')
+# #create dictonaryies for n-aray feature paths and feature values
+# n_aray_feature_path_dict = {}
+# n_aray_feature_value_dict = {}
+# for edge_name in edge_names_n_aray:
+#     n_aray_feature_path_dict[edge_name + '_feature_path'] = config.get('N-ArayFeaturePath', edge_name + '_feature_path').split(', ')
+#     n_aray_feature_value_dict[edge_name + '_feature_value'] = config.get('N-ArayFeatureValue', edge_name + '_feature_value')
 
 #create dictonaries for n-hop edges
 n_hop_edge_dict = {}
@@ -514,58 +514,58 @@ for edges, edge_list in zip(simple_edge_dict.values(), simple_edge_lists.values(
 
 ##### binary edges done ######
 
-#N-aray edges with features
-n_aray_edge_lists = {}
-for var_name in n_aray_edge_dict.keys():
-    edge_list_name = f"edge_list_{var_name}"
-    globals()[edge_list_name] = []
-    n_aray_edge_lists[edge_list_name] = globals()[edge_list_name]
+# #N-aray edges with features
+# n_aray_edge_lists = {}
+# for var_name in n_aray_edge_dict.keys():
+#     edge_list_name = f"edge_list_{var_name}"
+#     globals()[edge_list_name] = []
+#     n_aray_edge_lists[edge_list_name] = globals()[edge_list_name]
 
-n_aray_edge_feature_lists = {}
-for var_name in n_aray_edge_dict.keys():
-    edge_list_name = f"edge_feature_list_{var_name}"
-    globals()[edge_list_name] = []
-    n_aray_edge_feature_lists[edge_list_name] = globals()[edge_list_name]
+# n_aray_edge_feature_lists = {}
+# for var_name in n_aray_edge_dict.keys():
+#     edge_list_name = f"edge_feature_list_{var_name}"
+#     globals()[edge_list_name] = []
+#     n_aray_edge_feature_lists[edge_list_name] = globals()[edge_list_name]
 
-for naray_e, naray_feature_path, naray_feature_value, edge_list, edge_feature_list in zip(n_aray_edge_dict.values(), n_aray_feature_path_dict.values(), n_aray_feature_value_dict.values(), n_aray_edge_lists.values(), n_aray_edge_feature_lists.values()):
-    subject_value, predicte_value, object_value = naray_e
+# for naray_e, naray_feature_path, naray_feature_value, edge_list, edge_feature_list in zip(n_aray_edge_dict.values(), n_aray_feature_path_dict.values(), n_aray_feature_value_dict.values(), n_aray_edge_lists.values(), n_aray_edge_feature_lists.values()):
+#     subject_value, predicte_value, object_value = naray_e
     
-    for a in subject_value:
-        for b in object_value:
-            for p in predicte_value:
-                query_a = """
-                        SELECT DISTINCT ?a ?c
-                        WHERE {
-                            ?a rdf:type ?class_a .
-                            ?c rdf:type ?class_b .
-                            ?a ?b ?c .
-                        }
-                    """
-                query_replace_a = query_a.replace("?class_a", f"<{a}>").replace("?class_b", f"<{b}>").replace("?b", f"<{p}>")
-                for row in graph.query(query_replace_a):
-                    edge_list.append(row)
+#     for a in subject_value:
+#         for b in object_value:
+#             for p in predicte_value:
+#                 query_a = """
+#                         SELECT DISTINCT ?a ?c
+#                         WHERE {
+#                             ?a rdf:type ?class_a .
+#                             ?c rdf:type ?class_b .
+#                             ?a ?b ?c .
+#                         }
+#                     """
+#                 query_replace_a = query_a.replace("?class_a", f"<{a}>").replace("?class_b", f"<{b}>").replace("?b", f"<{p}>")
+#                 for row in graph.query(query_replace_a):
+#                     edge_list.append(row)
     
     
-    for row in edge_list:
-        uri_a = row[0]
-        uri_b = row[1]
+#     for row in edge_list:
+#         uri_a = row[0]
+#         uri_b = row[1]
 
 
-        query_b = """
-        SELECT DISTINCT ?f
-        WHERE {
-            $uri_a ?b ?c .
-            ?c ?d $uri_b .
-            ?c ?e ?f .
-        }
-        """  
-        propertie_a = naray_feature_path[0]
-        propertie_b = naray_feature_path[1]
-        propertie_c = naray_feature_value
-        query_replace_b = query_b.replace("$uri_a", f"<{uri_a}>").replace("$uri_b", f"<{uri_b}>").replace("?b", f"<{propertie_a}>").replace("?d", f"<{propertie_b}>").replace("?e", f"<{propertie_c}>")
+#         query_b = """
+#         SELECT DISTINCT ?f
+#         WHERE {
+#             $uri_a ?b ?c .
+#             ?c ?d $uri_b .
+#             ?c ?e ?f .
+#         }
+#         """  
+#         propertie_a = naray_feature_path[0]
+#         propertie_b = naray_feature_path[1]
+#         propertie_c = naray_feature_value
+#         query_replace_b = query_b.replace("$uri_a", f"<{uri_a}>").replace("$uri_b", f"<{uri_b}>").replace("?b", f"<{propertie_a}>").replace("?d", f"<{propertie_b}>").replace("?e", f"<{propertie_c}>")
 
-        result = [row["f"].toPython() for row in graph.query(query_replace_b)]
-        edge_feature_list.append(result)
+#         result = [row["f"].toPython() for row in graph.query(query_replace_b)]
+#         edge_feature_list.append(result)
                     
 ##### n-aray edges done ######
 
@@ -707,19 +707,19 @@ for key, value in simple_edge_lists.items():
 
 
 
-#save n-aray edges
-for key, value in n_aray_edge_lists.items():
-    df = pd.DataFrame(value)
+# #save n-aray edges
+# for key, value in n_aray_edge_lists.items():
+#     df = pd.DataFrame(value)
     
-    for key_mapping, value_mapping in mapping_df.items():
-        inverted_mapping = invert_mapping(value_mapping)
-        df = df.astype(str)
-        df = df.replace(inverted_mapping) 
+#     for key_mapping, value_mapping in mapping_df.items():
+#         inverted_mapping = invert_mapping(value_mapping)
+#         df = df.astype(str)
+#         df = df.replace(inverted_mapping) 
 
-    filename = key + ".csv" 
-    file_path = os.path.join(save_path_numeric_graph, filename) 
+#     filename = key + ".csv" 
+#     file_path = os.path.join(save_path_numeric_graph, filename) 
     
-    df.to_csv(file_path, index=False, header=False)
+#     df.to_csv(file_path, index=False, header=False)
 
 
 #save n-hop edges

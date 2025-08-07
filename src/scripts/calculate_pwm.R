@@ -14,10 +14,10 @@ train_name <- args[1]
 test_name <- args[2]
 output_name <- args[3]
 
-train <- read.table(train_name, col.names = c('variant', 'expn_med_fitted_scaled')) %>% 
+train <- read.table(train_name, col.names = c('variant')) %>% 
     mutate(dataset = 'train')
 
-test <- read.table(test_name, col.names = c('variant', 'expn_med_fitted_scaled')) %>% 
+test <- read.table(test_name, col.names = c('variant')) %>% 
     mutate(dataset = 'test')
 
 data <- bind_rows(train, test)

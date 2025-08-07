@@ -1,0 +1,10 @@
+node1,uritype,node2
+http://sbols.org/v2#ModuleDefinition,http://sbols.org/v2#module,http://sbols.org/v2#Module
+http://sbols.org/v2#ModuleDefinition,http://sbols.org/v2#functionalComponent,http://sbols.org/v2#FunctionalComponent
+http://sbols.org/v2#Module,http://sbols.org/v2#definition,http://sbols.org/v2#ModuleDefinition
+http://sbols.org/v2#FunctionalComponent,http://sbols.org/v2#definition,http://sbols.org/v2#ComponentDefinition
+http://sbols.org/v2#ComponentDefinition,http://sbols.org/v2#sequence,http://sbols.org/v2#Sequence
+http://sbols.org/v2#ComponentDefinition,http://sbols.org/v2#sequenceAnnotation,http://sbols.org/v2#SequenceAnnotation
+http://sbols.org/v2#ComponentDefinition,http://sbols.org/v2#component,http://sbols.org/v2#Component
+http://sbols.org/v2#SequenceAnnotation,http://sbols.org/v2#location,http://sbols.org/v2#Range
+http://sbols.org/v2#Component,http://sbols.org/v2#definition,http://sbols.org/v2#ComponentDefinition

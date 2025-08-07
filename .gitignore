@@ -1,4 +1,4 @@
 .env
-autordf-env/
+trainvenv/
 nt_data/
 sbol_data/
