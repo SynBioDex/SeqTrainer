@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seqtrainer"
+version = "0.0.1"
+description = "SeqTrainer: Encoding Synthetic Biology Data for Machine Learning"
+readme = "README.md"
+requires-python = ">=3.8,<=3.9.9"
+license = {file = "LICENSE"}
+keywords = ["seqtrainer", "sbol", "machine learning", "preprocessing", "synthetic biology"]
+authors = [
+  {name="Gonzalo Vidal", email="Gonzalo.VidalPena@colorado.edu"},
+  {name="Sai Wong", email="sai.wong@sjsu.edu" }
+]
+maintainers = [
+  {name="Gonzalo Vidal", email="Gonzalo.VidalPena@colorado.edu"}
+
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "sbol2",
+    "matplotlib",
+    "rdflib==6.3.2",
+    "pandas==1.3.5",
+    "numpy==1.23.5",
+    "configparser==6.0.0",
+    "scikit-learn==1.3.0",
+    "transformers==4.30.2",
+    "tqdm==4.65.0",
+]
+
+[project.optional-dependencies]
+gnn = [
+    "torch==1.13.0+cpu",
+    "torch-geometric==2.4.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/SynBioDex/SeqTrainer"
+"Bug Tracker" = "https://github.com/SynBioDex/SeqTrainer/issues"

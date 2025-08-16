@@ -2,3 +2,7 @@
 trainvenv/
 nt_data/
 sbol_data/
+testervenv/
+src/seqtrainer.egg-info/
+src/saved-data
+dist
