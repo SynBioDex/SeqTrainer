@@ -1,0 +1,135 @@
+<rdf:RDF xmlns:brick="https://brickschema.org/schema/Brick#" xmlns:csvw="http://www.w3.org/ns/csvw#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcat="http://www.w3.org/ns/dcat#" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcam="http://purl.org/dc/dcam/" xmlns:doap="http://usefulinc.com/ns/doap#" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:geo="http://www.opengis.net/ont/geosparql#" xmlns:odrl="http://www.w3.org/ns/odrl/2/" xmlns:org="http://www.w3.org/ns/org#" xmlns:prof="http://www.w3.org/ns/dx/prof/" xmlns:prov="http://www.w3.org/ns/prov#" xmlns:qb="http://purl.org/linked-data/cube#" xmlns:schema="https://schema.org/" xmlns:sh="http://www.w3.org/ns/shacl#" xmlns:skos="http://www.w3.org/2004/02/skos/core#" xmlns:sosa="http://www.w3.org/ns/sosa/" xmlns:ssn="http://www.w3.org/ns/ssn/" xmlns:time="http://www.w3.org/2006/time#" xmlns:vann="http://purl.org/vocab/vann/" xmlns:void="http://rdfs.org/ns/void#" xmlns:wgs="https://www.w3.org/2003/01/geo/wgs84_pos#" xmlns:owl="http://www.w3.org/2002/07/owl#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:xsd="http://www.w3.org/2001/XMLSchema#" xmlns:sbol="http://sbols.org/v2#" xmlns:ns0="http://www.ontology-of-units-of-measure.org/resource/om-2/">
+  <sbol:ModuleDefinition rdf:about="http://github.com/cywlol/promoters/ModuleDefinition/LB/1">
+    <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/LB"/>
+    <sbol:role rdf:resource="http://identifiers.org/ncit/NCIT:C48164"/>
+    <sbol:displayId>LB</sbol:displayId>
+    <sbol:version>1</sbol:version>
+  </sbol:ModuleDefinition>
+  <sbol:ModuleDefinition rdf:about="http://github.com/cywlol/promoters/ModuleDefinition/E_coli_chassis/1">
+    <prov:wasDerivedFrom rdf:resource="https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=511145"/>
+    <sbol:displayId>E_coli_chassis</sbol:displayId>
+    <sbol:version>1</sbol:version>
+    <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/E_coli_chassis"/>
+    <sbol:role rdf:resource="http://identifiers.org/ncit/NCIT:C14419"/>
+  </sbol:ModuleDefinition>
+  <sbol:ModuleDefinition rdf:about="http://github.com/cywlol/promoters/ModuleDefinition/strain_definition_42/1">
+    <sbol:role rdf:resource="http://identifiers.org/ncit/NCIT:C14419"/>
+    <sbol:displayId>strain_definition_42</sbol:displayId>
+    <sbol:module>
+      <sbol:Module rdf:about="http://github.com/cywlol/promoters/ModuleDefinition/strain_definition_42/chassis_module_42/1">
+        <sbol:definition rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/E_coli_chassis/1"/>
+        <sbol:displayId>chassis_module_42</sbol:displayId>
+        <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/strain_definition_42/chassis_module_42"/>
+        <sbol:version>1</sbol:version>
+      </sbol:Module>
+    </sbol:module>
+    <sbol:functionalComponent>
+      <sbol:FunctionalComponent rdf:about="http://github.com/cywlol/promoters/ModuleDefinition/strain_definition_42/cicuit_fc_42/1">
+        <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/strain_definition_42/cicuit_fc_42"/>
+        <sbol:direction rdf:resource="http://sbols.org/v2#out"/>
+        <sbol:access rdf:resource="http://sbols.org/v2#public"/>
+        <sbol:displayId>cicuit_fc_42</sbol:displayId>
+        <sbol:version>1</sbol:version>
+        <sbol:definition rdf:resource="http://github.com/cywlol/promoters/ComponentDefinition/circuit_definition_42/1"/>
+      </sbol:FunctionalComponent>
+    </sbol:functionalComponent>
+    <sbol:version>1</sbol:version>
+    <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/strain_definition_42"/>
+  </sbol:ModuleDefinition>
+  <sbol:ModuleDefinition rdf:about="http://github.com/cywlol/promoters/ModuleDefinition/sample_design_definition_42/1">
+    <sbol:role rdf:resource="http://identifiers.org/obo/OBI:0000073"/>
+    <sbol:functionalComponent>
+      <sbol:FunctionalComponent rdf:about="http://github.com/cywlol/promoters/ModuleDefinition/sample_design_definition_42/gfp_42/1">
+        <sbol:direction rdf:resource="http://sbols.org/v2#out"/>
+        <sbol:access rdf:resource="http://sbols.org/v2#public"/>
+        <sbol:version>1</sbol:version>
+        <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/sample_design_definition_42/gfp_42"/>
+        <sbol:measure>
+          <ns0:Measure rdf:about="http://github.com/cywlol/promoters/ModuleDefinition/sample_design_definition_42/gfp_42/exp_ave_42/1">
+            <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/sample_design_definition_42/gfp_42/exp_ave_42"/>
+            <sbol:version>1</sbol:version>
+            <ns0:hasNumericalValue>0.739531287451089</ns0:hasNumericalValue>
+            <ns0:hasUnit rdf:resource="http://www.ontology-of-units-of-measure.org/resource/om-2/RatioUnit"/>
+            <sbol:displayId>exp_ave_42</sbol:displayId>
+          </ns0:Measure>
+        </sbol:measure>
+        <sbol:definition rdf:resource="http://github.com/cywlol/promoters/ComponentDefinition/gfp_42/1"/>
+        <sbol:displayId>gfp_42</sbol:displayId>
+      </sbol:FunctionalComponent>
+    </sbol:functionalComponent>
+    <sbol:displayId>sample_design_definition_42</sbol:displayId>
+    <sbol:module>
+      <sbol:Module rdf:about="http://github.com/cywlol/promoters/ModuleDefinition/sample_design_definition_42/media_module_42/1">
+        <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/sample_design_definition_42/media_module_42"/>
+        <sbol:definition rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/LB/1"/>
+        <sbol:displayId>media_module_42</sbol:displayId>
+        <sbol:version>1</sbol:version>
+      </sbol:Module>
+    </sbol:module>
+    <sbol:version>1</sbol:version>
+    <sbol:module>
+      <sbol:Module rdf:about="http://github.com/cywlol/promoters/ModuleDefinition/sample_design_definition_42/strain_module_42/1">
+        <sbol:version>1</sbol:version>
+        <sbol:displayId>strain_module_42</sbol:displayId>
+        <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/sample_design_definition_42/strain_module_42"/>
+        <sbol:definition rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/strain_definition_42/1"/>
+      </sbol:Module>
+    </sbol:module>
+    <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ModuleDefinition/sample_design_definition_42"/>
+  </sbol:ModuleDefinition>
+  <sbol:ComponentDefinition rdf:about="http://github.com/cywlol/promoters/ComponentDefinition/promoter_definition_42/1">
+    <sbol:displayId>promoter_definition_42</sbol:displayId>
+    <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ComponentDefinition/promoter_definition_42"/>
+    <sbol:version>1</sbol:version>
+    <sbol:role rdf:resource="http://identifiers.org/so/SO:0000167"/>
+    <sbol:sequence rdf:resource="http://github.com/cywlol/promoters/Sequence/promoter_seq_42/1"/>
+    <sbol:type rdf:resource="http://www.biopax.org/release/biopax-level3.owl#DnaRegion"/>
+  </sbol:ComponentDefinition>
+  <sbol:ComponentDefinition rdf:about="http://github.com/cywlol/promoters/ComponentDefinition/circuit_definition_42/1">
+    <sbol:type rdf:resource="http://www.biopax.org/release/biopax-level3.owl#DnaRegion"/>
+    <sbol:sequenceAnnotation>
+      <sbol:SequenceAnnotation rdf:about="http://github.com/cywlol/promoters/ComponentDefinition/circuit_definition_42/promoter_42_location/1">
+        <sbol:version>1</sbol:version>
+        <sbol:location>
+          <sbol:Range rdf:about="http://github.com/cywlol/promoters/ComponentDefinition/circuit_definition_42/promoter_42_location/prange/1">
+            <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ComponentDefinition/circuit_definition_42/promoter_42_location/prange"/>
+            <sbol:version>1</sbol:version>
+            <sbol:start>923837</sbol:start>
+            <sbol:end>923987</sbol:end>
+            <sbol:displayId>prange</sbol:displayId>
+            <sbol:orientation rdf:resource="http://sbols.org/v2#reverseComplement"/>
+          </sbol:Range>
+        </sbol:location>
+        <sbol:displayId>promoter_42_location</sbol:displayId>
+        <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ComponentDefinition/circuit_definition_42/promoter_42_location"/>
+      </sbol:SequenceAnnotation>
+    </sbol:sequenceAnnotation>
+    <sbol:displayId>circuit_definition_42</sbol:displayId>
+    <sbol:role rdf:resource="https://identifiers.org/so/SO:0000804"/>
+    <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ComponentDefinition/circuit_definition_42"/>
+    <sbol:version>1</sbol:version>
+    <sbol:component>
+      <sbol:Component rdf:about="http://github.com/cywlol/promoters/ComponentDefinition/circuit_definition_42/promoter/1">
+        <sbol:definition rdf:resource="http://github.com/cywlol/promoters/ComponentDefinition/promoter_definition_42/1"/>
+        <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ComponentDefinition/circuit_definition_42/promoter"/>
+        <sbol:displayId>promoter</sbol:displayId>
+        <sbol:access rdf:resource="http://sbols.org/v2#public"/>
+        <sbol:version>1</sbol:version>
+      </sbol:Component>
+    </sbol:component>
+  </sbol:ComponentDefinition>
+  <sbol:ComponentDefinition rdf:about="http://github.com/cywlol/promoters/ComponentDefinition/gfp_42/1">
+    <sbol:displayId>gfp_42</sbol:displayId>
+    <sbol:type rdf:resource="http://www.biopax.org/release/biopax-level3.owl#Protein"/>
+    <sbol:version>1</sbol:version>
+    <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/ComponentDefinition/gfp_42"/>
+    <sbol:role rdf:resource="http://identifiers.org/so/SO:0000316"/>
+  </sbol:ComponentDefinition>
+  <sbol:Sequence rdf:about="http://github.com/cywlol/promoters/Sequence/promoter_seq_42/1">
+    <sbol:version>1</sbol:version>
+    <sbol:displayId>promoter_seq_42</sbol:displayId>
+    <sbol:persistentIdentity rdf:resource="http://github.com/cywlol/promoters/Sequence/promoter_seq_42"/>
+    <sbol:elements>TCCCGACCCCGGTAGGGCCGGCAAACAGGAACGAACCAACCGGTTTATGTTCGTGACCTAAACCTGCACGCGCCATCTTAATGGCTTCAGTCAGCGCCTCAATGGCTTTATCCTGACCGAAGACCAGCATTTTCAAGCGATCGCCGAGGT</sbol:elements>
+    <sbol:encoding rdf:resource="http://www.chem.qmul.ac.uk/iubmb/misc/naseq.html"/>
+  </sbol:Sequence>
+</rdf:RDF>

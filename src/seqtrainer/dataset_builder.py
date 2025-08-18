@@ -23,14 +23,14 @@ def get_sequence_from_sbol(file_path):
     if query_result:
         for row in query_result:
             if isinstance(row, ResultRow):
-                return row.sequence
+                return str(row.sequence)
             else:
                 print(row)
     else:
         print("No sequence found.")
 
 
-def get_y_label(file_path, uri="<http://www.ontology-of-units-of-measure.org/resource/om-2/hasNumericalValue>"):
+def get_y_label(file_path, uri="http://www.ontology-of-units-of-measure.org/resource/om-2/hasNumericalValue"):
     g = Graph()
     g.parse(file_path, format="xml")
 
@@ -38,7 +38,7 @@ def get_y_label(file_path, uri="<http://www.ontology-of-units-of-measure.org/res
 
     SELECT ?numericalValue
     WHERE {{
-    ?s {uri} ?numericalValue .
+    ?s <{uri}> ?numericalValue .
     }}
     '''
     query_result = g.query(sparql_query)
