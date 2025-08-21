@@ -1,0 +1,57 @@
+    [InputPath]
+input_path = c:\Users\Sai\Documents\GitHub\SBOLtrainer\src\seqtrainer\..\..\data\sbol_data\sample_design_0.xml
+
+[SavePath]
+save_path_numeric_graph = .
+save_path_mapping = .
+
+[NLD]
+nld_class = ModuleDefinition
+
+[EMBEDDING]
+embedding_model = allenai/scibert_scivocab_uncased
+
+[Nodes]
+classes = classes, ModuleDefinition, FunctionalComponent, Module, ComponentDefinition, Component, SequenceAnnotation, Range, Sequence
+ModuleDefinition = http://sbols.org/v2#ModuleDefinition
+FunctionalComponent = http://sbols.org/v2#FunctionalComponent
+Module = http://sbols.org/v2#Module
+ComponentDefinition = http://sbols.org/v2#ComponentDefinition
+Component = http://sbols.org/v2#Component
+SequenceAnnotation = http://sbols.org/v2#SequenceAnnotation
+Range = http://sbols.org/v2#Range
+Sequence = http://sbols.org/v2#Sequence
+
+
+[SimpleEdges]
+edge_names = ModuleDefinition_FunctionalComponent, ModuleDefinition_Module, FunctionalComponent_ComponentDefinition, Module_ModuleDefinition, ComponentDefinition_Sequence, ComponentDefinition_Component, ComponentDefinition_SequenceAnnotation, Component_ComponentDefinition, SequenceAnnotation_Range
+ModuleDefinition_FunctionalComponent_start_node = ModuleDefinition
+ModuleDefinition_FunctionalComponent_properties = http://sbols.org/v2#functionalComponent
+ModuleDefinition_FunctionalComponent_end_node = FunctionalComponent
+ModuleDefinition_Module_start_node = ModuleDefinition
+ModuleDefinition_Module_properties = http://sbols.org/v2#module
+ModuleDefinition_Module_end_node = Module
+FunctionalComponent_ComponentDefinition_start_node = FunctionalComponent
+FunctionalComponent_ComponentDefinition_properties = http://sbols.org/v2#definition
+FunctionalComponent_ComponentDefinition_end_node = ComponentDefinition
+Module_ModuleDefinition_start_node = Module
+Module_ModuleDefinition_properties = http://sbols.org/v2#definition
+Module_ModuleDefinition_end_node = ModuleDefinition
+ComponentDefinition_Sequence_start_node = ComponentDefinition
+ComponentDefinition_Sequence_properties = http://sbols.org/v2#sequence
+ComponentDefinition_Sequence_end_node = Sequence
+ComponentDefinition_Component_start_node = ComponentDefinition
+ComponentDefinition_Component_properties = http://sbols.org/v2#component
+ComponentDefinition_Component_end_node = Component
+ComponentDefinition_SequenceAnnotation_start_node = ComponentDefinition
+ComponentDefinition_SequenceAnnotation_properties = http://sbols.org/v2#sequenceAnnotation
+ComponentDefinition_SequenceAnnotation_end_node = SequenceAnnotation
+Component_ComponentDefinition_start_node = Component
+Component_ComponentDefinition_properties = http://sbols.org/v2#definition
+Component_ComponentDefinition_end_node = ComponentDefinition
+SequenceAnnotation_Range_start_node = SequenceAnnotation
+SequenceAnnotation_Range_properties = http://sbols.org/v2#location
+SequenceAnnotation_Range_end_node = Range
+
+[N-HopEdges]
+

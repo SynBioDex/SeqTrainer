@@ -38,7 +38,6 @@ def xml_to_nt(input_path, output_path):
     g.parse(input_path, format="xml")
     g.serialize(destination=output_path, format="nt")
 
-
 #os.path.join(nt_path, file_name.replace(".xml", ".nt"))
 
 def get_y_label(input_path, base_uri="http://www.ontology-of-units-of-measure.org/resource/om-2/"):
