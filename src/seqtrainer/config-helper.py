@@ -144,7 +144,7 @@ def build_content_config(input_path, save_path_numeric, save_path, nld_class, al
         classes_dict[uri.split("#")[1]] = uri
     classes_dict["classes"] = ", ".join(list(classes_dict.keys()))
 
-    
+
     edges_dict = {"edge_names": []}
     for _, row in edges.iterrows():
         node1_uri = row["node1"].split("#")[1]
@@ -181,7 +181,6 @@ def build_content_config(input_path, save_path_numeric, save_path, nld_class, al
     config["N-HopEdges"] = {
     }
 
-
     config["EmbeddingClasses"] = {
         "class_list": classes_dict["classes"]
     }   
@@ -202,10 +201,7 @@ n_hop = [["ModuleDefinition_FunctionalComponent", "FunctionalComponent_Component
 def create_n_hop_edges(config_path, n_hop_edges):
     cfg = configparser.ConfigParser()
     cfg.optionxform = str
-
     cfg.read(config_path)
-
-
     n_hop_dict = {}
     connections = []
     n_hop_dict["edge_names"] = ", ".join([f"{properties[0].split('_')[0]}_{properties[-1].split('_')[1]}"for properties in n_hop_edges])
@@ -226,16 +222,14 @@ def create_n_hop_edges(config_path, n_hop_edges):
             for suffix in ["_start_node", "_end_node", "_properties"]:
                 cfg.remove_option("SimpleEdges", f"{connection}{suffix}")
     
-    print(cfg["SimpleEdges"]["edge_names"].split(", "))
-    
     cfg["SimpleEdges"]["edge_names"] = ", ".join([edge for edge in cfg["SimpleEdges"]["edge_names"].split(", ") if edge not in connections])
-
     cfg["N-HopEdges"] = n_hop_dict
 
-    with open("config_nhop.txt", "w") as configfile:
-        cfg.write(configfile)
+    cfg.write(".")
+
     print("Config file created successfully.")
-    return True
+
+
 
 s = create_n_hop_edges("config.txt", n_hop)
 
@@ -255,8 +249,6 @@ edges = get_all_edges(os.path.join(sbol_path,'sample_design_0.xml'), nodes)
 
 # ComponentDefinition_Range, ModuleDefinition_ComponentDefinition,
 # ModuleDefinition_ModuleDefinition, ComponentDefinition_ComponentDefinition
-
-
 
 # ask user to define which n hop to have etc. (ModuleDefinition_FunctionalComponent -> FunctionalComponent_ComponentDefinition)
 # validate that the user defined n hops are valid

@@ -5,3 +5,4 @@ src/seqtrainer.egg-info/
 src/saved-data
 dist
 testvenv/
+seqtrainer-data

@@ -1,3 +1,4 @@
+
 import pandas as pd
 import sbol2
 import os
@@ -17,7 +18,9 @@ import torch.nn.functional as F
 from torch_geometric.nn import HeteroConv, Linear, SAGEConv, GCNConv, GATConv, global_mean_pool
 import sys 
 from tqdm import tqdm
+import configparser
 import pickle
+from dataset_builder import get_y_label
 python_executable = sys.executable
 
 current_dir = os.path.abspath('')
@@ -40,45 +43,42 @@ def xml_to_nt(input_path, output_path):
 
 #os.path.join(nt_path, file_name.replace(".xml", ".nt"))
 
-def get_y_label(input_path, base_uri="http://www.ontology-of-units-of-measure.org/resource/om-2/"):
+# def get_y_label(input_path, base_uri="http://www.ontology-of-units-of-measure.org/resource/om-2/"):
 
-    # Load xml file
-    g = Graph()
-    g.parse(input_path, format="xml")
+#     # Load xml file
+#     g = Graph()
+#     g.parse(input_path, format="xml")
 
-    sparql_query = f'''
-    PREFIX om: <{base_uri}>
-    SELECT ?numericalValue
-    WHERE {{
-    ?s om:hasNumericalValue ?numericalValue .
-    }}
-    '''
-    query_result = g.query(sparql_query)
+#     sparql_query = f'''
+#     PREFIX om: <{base_uri}>
+#     SELECT ?numericalValue
+#     WHERE {{
+#     ?s om:hasNumericalValue ?numericalValue .
+#     }}
+#     '''
+#     query_result = g.query(sparql_query)
 
-    if query_result:
-        for row in query_result:
-            if isinstance(row, ResultRow):
-                return float(row.numericalValue) 
+#     if query_result:
+#         for row in query_result:
+#             if isinstance(row, ResultRow):
+#                 return float(row.numericalValue) 
                 
-            else:
-                print(row)
-    else:
-        print("No numerical values found.")
+#             else:
+#                 print(row)
+#     else:
+#         print("No numerical values found.")
     
-
 def convert_all_xml_to_nt_and_get_y_measures(sbol_data_path, output_data_path, y_uri):
     y_measures = []
 
-    # For each sbol (.xml) file in this data path
     for file_name in os.listdir(sbol_data_path):
-    
-        # Convert to nt and get y measure
         xml_to_nt(os.path.join(sbol_data_path, file_name), os.path.join(output_data_path, file_name.replace(".xml", ".nt")))
         y = get_y_label(os.path.join(sbol_data_path, file_name), y_uri)
         y_measures.append(y)
+
     return y_measures
 
-def return_heterograph_for_one_nt(nt_file_name, node_names, edge_names):
+def return_heterograph_for_one_nt(nt_path, node_names, content_config_dir, topo_config_dir, edge_names):
     
     with tempfile.TemporaryDirectory() as temp_dir:
         save_path_numeric = os.path.join(temp_dir, "save_path_numeric")
@@ -86,146 +86,19 @@ def return_heterograph_for_one_nt(nt_file_name, node_names, edge_names):
         os.makedirs(save_path_numeric, exist_ok=True)
         os.makedirs(path, exist_ok=True)
 
-        content_config_string = f'''
-        [InputPath]
-        input_path = {os.path.join(nt_path, nt_file_name)}
+        cfg = configparser.ConfigParser()
+        cfg.optionxform = str
 
-        [SavePath]
-        save_path_numeric_graph = {save_path_numeric}
-        save_path_mapping = {path}
+        cfg.read(content_config_dir)
+        cfg["InputPath"]["input_path"] = nt_path
+        cfg.write(content_config_dir)
 
-        [NLD]
-        nld_class = ModuleDefinition
+        cfg.read(topo_config_dir)
+        cfg["InputPath"]["input_path"] = nt_path
+        cfg.write(topo_config_dir)
 
-        [EMBEDDING]
-        embedding_model = allenai/scibert_scivocab_uncased
-
-        [Nodes]
-        classes = ComponentDefinition, Sequence, ModuleDefinition, Module, FunctionalComponent, Component, SequenceAnnotation, Range
-
-        ComponentDefinition = http://sbols.org/v2#ComponentDefinition
-        Sequence = http://sbols.org/v2#Sequence
-        ModuleDefinition = http://sbols.org/v2#ModuleDefinition
-        Module = http://sbols.org/v2#Module
-        FunctionalComponent = http://sbols.org/v2#FunctionalComponent
-        Component = http://sbols.org/v2#Component
-        SequenceAnnotation = http://sbols.org/v2#SequenceAnnotation
-        Range = http://sbols.org/v2#Range
-
-        [SimpleEdges]
-        edge_names = ComponentDefinition_Sequence, ComponentDefinition_SequenceAnnotation
-        ComponentDefinition_Sequence_start_node = ComponentDefinition
-        ComponentDefinition_Sequence_properties = http://sbols.org/v2#sequence
-        ComponentDefinition_Sequence_end_node = Sequence
-        ComponentDefinition_SequenceAnnotation_start_node = ComponentDefinition
-        ComponentDefinition_SequenceAnnotation_properties = http://sbols.org/v2#sequenceAnnotation
-        ComponentDefinition_SequenceAnnotation_end_node = SequenceAnnotation
-
-        [N-HopEdges]
-        edge_names = ComponentDefinition_Range, ModuleDefinition_ComponentDefinition, ModuleDefinition_ModuleDefinition, ComponentDefinition_ComponentDefinition
-        ComponentDefinition_Range_start_node = ComponentDefinition
-        ComponentDefinition_Range_hop1_properties = http://sbols.org/v2#sequenceAnnotation
-        ComponentDefinition_Range_hop2_properties = http://sbols.org/v2#location
-        ComponentDefinition_Range_end_node = Range
-        ModuleDefinition_ComponentDefinition_start_node = ModuleDefinition
-        ModuleDefinition_ComponentDefinition_hop1_properties = http://sbols.org/v2#functionalComponent
-        ModuleDefinition_ComponentDefinition_hop2_properties = http://sbols.org/v2#definition
-        ModuleDefinition_ComponentDefinition_end_node = ComponentDefinition
-        ModuleDefinition_ModuleDefinition_start_node = ModuleDefinition
-        ModuleDefinition_ModuleDefinition_hop1_properties = http://sbols.org/v2#module
-        ModuleDefinition_ModuleDefinition_hop2_properties = http://sbols.org/v2#definition
-        ModuleDefinition_ModuleDefinition_end_node = ModuleDefinition
-        ComponentDefinition_ComponentDefinition_start_node = ComponentDefinition
-        ComponentDefinition_ComponentDefinition_hop1_properties = http://sbols.org/v2#component
-        ComponentDefinition_ComponentDefinition_hop2_properties = http://sbols.org/v2#definition
-        ComponentDefinition_ComponentDefinition_end_node = ComponentDefinition
-
-        [N-ArayEdges]
-        edge_names = ComponentDefinition_Range
-        ComponentDefinition_Range_start_node = ComponentDefinition
-        ComponentDefinition_Range_properties = http://sbols.org/v2#sequenceAnnotation, http://sbols.org/v2#location
-        ComponentDefinition_Range_end_node = Range
-
-        [N-ArayFeaturePath]
-        ComponentDefinition_Range_feature_path = http://sbols.org/v2#sequenceAnnotation, http://sbols.org/v2#location
-
-        [N-ArayFeatureValue]
-        ComponentDefinition_Range_feature_value = http://sbols.org/v2#start, http://sbols.org/v2#end
-        '''
-
-        topo_config_string = f'''
-        [InputPath]
-        input_path = {os.path.join(nt_path, nt_file_name)}
-
-        [SavePath]
-        save_path_numeric_graph = {save_path_numeric}
-        save_path_mapping = {path}
-
-        [MODEL] ;required, options = transe / complex / distmult / rotate
-        kge_model = distmult
-
-        [Nodes]
-        classes = ComponentDefinition, Sequence, ModuleDefinition, Module, FunctionalComponent, Component, SequenceAnnotation, Range
-
-        ComponentDefinition = http://sbols.org/v2#ComponentDefinition
-        Sequence = http://sbols.org/v2#Sequence
-        ModuleDefinition = http://sbols.org/v2#ModuleDefinition
-        Module = http://sbols.org/v2#Module
-        FunctionalComponent = http://sbols.org/v2#FunctionalComponent
-        Component = http://sbols.org/v2#Component
-        SequenceAnnotation = http://sbols.org/v2#SequenceAnnotation
-        Range = http://sbols.org/v2#Range
-
-        [SimpleEdges]
-        edge_names = ComponentDefinition_Sequence, ComponentDefinition_SequenceAnnotation
-        ComponentDefinition_Sequence_start_node = ComponentDefinition
-        ComponentDefinition_Sequence_properties = http://sbols.org/v2#sequence
-        ComponentDefinition_Sequence_end_node = Sequence
-        ComponentDefinition_SequenceAnnotation_start_node = ComponentDefinition
-        ComponentDefinition_SequenceAnnotation_properties = http://sbols.org/v2#sequenceAnnotation
-        ComponentDefinition_SequenceAnnotation_end_node = SequenceAnnotation
-
-        [N-HopEdges]
-        edge_names = ComponentDefinition_Range, ModuleDefinition_ComponentDefinition, ModuleDefinition_ModuleDefinition, ComponentDefinition_ComponentDefinition
-        ComponentDefinition_Range_start_node = ComponentDefinition
-        ComponentDefinition_Range_hop1_properties = http://sbols.org/v2#sequenceAnnotation
-        ComponentDefinition_Range_hop2_properties = http://sbols.org/v2#location
-        ComponentDefinition_Range_end_node = Range
-        ModuleDefinition_ComponentDefinition_start_node = ModuleDefinition
-        ModuleDefinition_ComponentDefinition_hop1_properties = http://sbols.org/v2#functionalComponent
-        ModuleDefinition_ComponentDefinition_hop2_properties = http://sbols.org/v2#definition
-        ModuleDefinition_ComponentDefinition_end_node = ComponentDefinition
-        ModuleDefinition_ModuleDefinition_start_node = ModuleDefinition
-        ModuleDefinition_ModuleDefinition_hop1_properties = http://sbols.org/v2#module
-        ModuleDefinition_ModuleDefinition_hop2_properties = http://sbols.org/v2#definition
-        ModuleDefinition_ModuleDefinition_end_node = ModuleDefinition
-        ComponentDefinition_ComponentDefinition_start_node = ComponentDefinition
-        ComponentDefinition_ComponentDefinition_hop1_properties = http://sbols.org/v2#component
-        ComponentDefinition_ComponentDefinition_hop2_properties = http://sbols.org/v2#definition
-        ComponentDefinition_ComponentDefinition_end_node = ComponentDefinition
-
-        [N-ArayEdges]
-        edge_names = ComponentDefinition_Range
-        ComponentDefinition_Range_start_node = ComponentDefinition
-        ComponentDefinition_Range_properties = http://sbols.org/v2#sequenceAnnotation, http://sbols.org/v2#location
-        ComponentDefinition_Range_end_node = Range
-
-        [EmbeddingClasses] 
-        class_list = http://sbols.org/v2#ComponentDefinition, http://sbols.org/v2#Sequence, http://sbols.org/v2#ModuleDefinition, http://sbols.org/v2#Module, http://sbols.org/v2#FunctionalComponent, http://sbols.org/v2#Component, http://sbols.org/v2#SequenceAnnotation, http://sbols.org/v2#Range
-
-        [EmbeddingPredicates] 
-        pred_list = http://sbols.org/v2#location, http://sbols.org/v2#sequenceAnnotation, http://sbols.org/v2#functionalComponent, http://sbols.org/v2#definition, http://sbols.org/v2#module, http://sbols.org/v2#component, https://sbols.org/v2#sequence, http://www.w3.org/1999/02/22-rdf-syntax-ns#type
-        '''
-
-        with open(os.path.join(temp_dir,'config.ini'), 'w') as file:
-            file.write(content_config_string)
-
-        with open(os.path.join(temp_dir,'topo-config.ini'), 'w') as file:
-            file.write(topo_config_string)
-
-        # Get the .csv files with edges and numerical vectors
-        content_result = subprocess.run([python_executable, "autordf2gml.py", "--config_path", os.path.join(temp_dir,"config.ini")], shell=False, capture_output=True, text=True)
-        topo_result = subprocess.run([python_executable, "autordf2gml-tb.py", "--config_path", os.path.join(temp_dir,"topo-config.ini")], shell=False, capture_output=True, text=True, encoding='utf-8', errors='replace')
+        content_result = subprocess.run([python_executable, "autordf2gml.py", "--config_path", content_config_dir], shell=False, capture_output=True, text=True)
+        topo_result = subprocess.run([python_executable, "autordf2gml-tb.py", "--config_path", topo_config_dir], shell=False, capture_output=True, text=True, encoding='utf-8', errors='replace')
 
         print(topo_result.stderr)
         if (topo_result.returncode == 0):
