@@ -6,3 +6,5 @@ src/saved-data
 dist
 testvenv/
 seqtrainer-data
+dnabert-out
+dnabertvenv
