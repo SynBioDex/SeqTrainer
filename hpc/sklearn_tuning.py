@@ -31,7 +31,7 @@ def main():
     ap.add_argument("--n_jobs", type=int, default=-1)
     ap.add_argument("--random_state", type=int, default=42)
     ap.add_argument("--test_split", type=float, default=0.2)
-    ap.add_argument("--save_path")
+    ap.add_argument("--save_path", default=".", help="Path to folder to save results.")
     ap.add_argument("--log_label", default=True)
     args = ap.parse_args()
 
