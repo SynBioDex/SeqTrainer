@@ -1,4 +1,10 @@
 .env
-autordf-env/
-nt_data/
-sbol_data/
+trainvenv/
+testervenv/
+src/seqtrainer.egg-info/
+src/saved-data
+dist
+testvenv/
+seqtrainer-data
+dnabert-out
+dnabertvenv
