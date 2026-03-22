@@ -31,7 +31,7 @@ def sbol_to_csv(input_file, output_file="dataset.csv"):
     df = pd.DataFrame(data)
     df.to_csv(output_file, index=False)
 
-    print(f"✅ Dataset saved to {output_file}")
+    print(f"Dataset saved to {output_file}")
 
 
 if __name__ == "__main__":
