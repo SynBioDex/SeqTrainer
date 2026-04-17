@@ -1,22 +1,54 @@
 # SeqTrainer
 
-ML package for generating tabular and graph datasets from Synthetic Biology data in SBOL, preprocesing, ML models, trainning and metrics.
+SeqTrainer is a synthetic biology ML domain toolkit focused on connecting **SBOL / SynBioHub data** to modern model workflows.
 
+It is designed to be complementary to Keras and PyTorch rather than replacing them.
 
-## High Performance Computing (HPC) Usage
+## What this refactor introduces
 
-first you need to get the original datasets
+- Clear package layering under `seqtrainer/`
+- Framework-neutral core (`clients`, `sparql`, `data`, `transforms`, `models`)
+- Optional framework adapters (`seqtrainer.keras`, `seqtrainer.torch`)
+- Graph-focused utilities in `seqtrainer.graph`
+- Application-level API entrypoints in `seqtrainer.applications`
+- CLI foundation (`seqtrainer` command)
 
-navigate to https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE144621
+## Install
 
-download GSE144621_U00096.2_frag-rLP5_LB_expression.txt.gz and GSE144621_U00096.2_frag-rLP5_M9_expression.txt.gz
+```bash
+pip install -e .
+```
 
-unzip those files and add them to the data/original_data folder
+Optional extras:
 
-the names that we used for those files is frag-rLP5-LB_expression.txt and frag-rLP5-M9_expression.txt
+```bash
+pip install -e '.[torch]'
+pip install -e '.[keras]'
+pip install -e '.[gnn]'
+pip install -e '.[dev]'
+```
 
-navigate to the folder hpc
+## Package layout
 
-run 300K_preprocessing.py
+- `seqtrainer/clients`: SynBioHub and remote clients
+- `seqtrainer/sparql`: prefixes, builders, and query recipes
+- `seqtrainer/data`: SBOL loaders, recipes, materialized datasets
+- `seqtrainer/transforms`: DNA transforms and feature extraction
+- `seqtrainer/models`: framework-neutral backbone/head registry stubs
+- `seqtrainer/keras`: Keras adapters/factories (optional dependency)
+- `seqtrainer/torch`: PyTorch adapters/fine-tune helpers (optional dependency)
+- `seqtrainer/graph`: RDF/SBOL graph conversion utilities
+- `seqtrainer/applications`: task-oriented blueprints
+- `seqtrainer/cli`: command-line entrypoints
 
+## CLI examples
 
+```bash
+seqtrainer sparql prefixes
+seqtrainer inspect-sbol data/sbol_data/sample_design_0.xml
+seqtrainer build-dataset data/sbol_data/sample_design_0.xml
+```
+
+## Status
+
+This is the first architecture-focused cleanup. Some framework integrations are intentionally placeholders with TODOs to keep a stable, minimal public surface.
