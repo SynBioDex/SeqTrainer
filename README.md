@@ -52,3 +52,13 @@ seqtrainer build-dataset data/sbol_data/sample_design_0.xml
 ## Status
 
 This is the first architecture-focused cleanup. Some framework integrations are intentionally placeholders with TODOs to keep a stable, minimal public surface.
+
+
+## Tutorial notebooks
+
+A starter notebook series is available in `notebooks/tutorials/`:
+
+- `00_quickstart.ipynb`: core API objects and basic transforms
+- `01_sbol_to_dataset.ipynb`: extract sequences/targets from SBOL files
+- `02_dna_features.ipynb`: one-hot, GC content, and k-mer features
+- `03_dataset_splits.ipynb`: reproducible train/val/test splits
