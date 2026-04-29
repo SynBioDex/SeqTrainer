@@ -62,3 +62,4 @@ A starter notebook series is available in `notebooks/tutorials/`:
 - `01_sbol_to_dataset.ipynb`: extract sequences/targets from SBOL files
 - `02_dna_features.ipynb`: one-hot, GC content, and k-mer features
 - `03_dataset_splits.ipynb`: reproducible train/val/test splits
+- `04_end_to_end_cnn_classification.ipynb`: end-to-end mini CNN classifier demo (10 cycles)
