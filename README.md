@@ -65,3 +65,4 @@ A starter notebook series is available in `notebooks/tutorials/`:
 - `04_end_to_end_cnn_classification.ipynb`: end-to-end mini CNN classifier demo (10 cycles)
 - `05_end_to_end_cnn_regression.ipynb`: end-to-end mini CNN regressor for promoter activity (10 cycles)
 - `06_nucleotide_transformer_v2_promoter_tasks.ipynb`: SeqTrainer-based Nucleotide Transformer v2 fine-tuning for promoter classification and regression
+- `07_hyena2_promoter_classification_regression.ipynb`: SeqTrainer-based Hyena2/HyenaDNA workflow for promoter classification and regression
