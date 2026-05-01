@@ -16,8 +16,14 @@ class HuggingFaceBackbone:
     trust_remote_code: bool = True
 
 
-def nucleotide_transformer_v2(*, variant: str = "500m_human_ref") -> HuggingFaceBackbone:
-    """Return a Nucleotide Transformer v2 backbone descriptor."""
+def nucleotide_transformer_v2(*, variant: str = "500m-multi-species") -> HuggingFaceBackbone:
+    """Return a Nucleotide Transformer v2 backbone descriptor.
+
+    Parameters
+    ----------
+    variant:
+        Suffix of the Hugging Face checkpoint name, e.g. ``"500m-multi-species"``.
+    """
 
     model_id = f"InstaDeepAI/nucleotide-transformer-v2-{variant}"
     return HuggingFaceBackbone(
