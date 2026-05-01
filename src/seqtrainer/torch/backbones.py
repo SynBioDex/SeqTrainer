@@ -85,3 +85,16 @@ def evo2(*, variant: str = "1b_base") -> HuggingFaceBackbone:
         tokenizer_id=model_id,
         max_length=max_length,
     )
+
+
+
+def gemma3_4b(*, instruct_tuned: bool = True) -> HuggingFaceBackbone:
+    """Return a Gemma 3 4B backbone descriptor."""
+
+    model_id = "google/gemma-3-4b-it" if instruct_tuned else "google/gemma-3-4b-pt"
+    return HuggingFaceBackbone(
+        name="gemma3-4b-it" if instruct_tuned else "gemma3-4b-pt",
+        model_id=model_id,
+        tokenizer_id=model_id,
+        max_length=2048,
+    )

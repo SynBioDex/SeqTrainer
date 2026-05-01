@@ -67,3 +67,4 @@ A starter notebook series is available in `notebooks/tutorials/`:
 - `06_nucleotide_transformer_v2_promoter_tasks.ipynb`: SeqTrainer-based Nucleotide Transformer v2 fine-tuning for promoter classification and regression
 - `07_hyena2_promoter_classification_regression.ipynb`: SeqTrainer-based Hyena2/HyenaDNA workflow for promoter classification and regression
 - `08_evo2_promoter_classification_regression.ipynb`: SeqTrainer-based Evo 2 workflow for promoter classification and regression
+- `09_gemma3_4b_promoter_classification_regression.ipynb`: SeqTrainer-based Gemma 3 4B workflow for promoter classification and regression
