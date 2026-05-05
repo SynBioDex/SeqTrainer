@@ -19,3 +19,17 @@ __all__ = [
     "evo2",
     "gemma3_4b",
 ]
+
+try:  # optional torch extra
+    from .titans import DNATokenizer, NeuralLongTermMemory, TitansMIRASConfig, TitansMemoryAsContextClassifier
+
+    __all__.extend(
+        [
+            "TitansMIRASConfig",
+            "DNATokenizer",
+            "NeuralLongTermMemory",
+            "TitansMemoryAsContextClassifier",
+        ]
+    )
+except ModuleNotFoundError:
+    pass

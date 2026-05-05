@@ -70,3 +70,4 @@ A starter notebook series is available in `notebooks/tutorials/`:
 - `08_evo2_promoter_classification_regression.ipynb`: SeqTrainer-based Evo 2 workflow for promoter classification and regression
 - `09_gemma3_4b_promoter_classification_regression.ipynb`: SeqTrainer-based Gemma 3 4B workflow for promoter classification and regression
 - `10_promoter_activity_knn_retrieval.ipynb`: KNN retrieval workflow that returns ranked DNA sequences closest to a requested promoter activity
+- `11_titans_miras_memory_context_promoter_classification.ipynb`: simplified Titans/MIRAS Memory-as-Context promoter classification workflow

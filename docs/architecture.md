@@ -35,3 +35,7 @@
 ## Experimental code policy
 
 Prototype scripts and notebooks remain available, but stable APIs should be surfaced through modules under `seqtrainer/*`.
+
+## Experimental backbones
+
+- Experimental sequence backbones and prototype training loops should live under `seqtrainer.torch`, while stable framework-neutral metadata and registries remain under `seqtrainer.models`.
