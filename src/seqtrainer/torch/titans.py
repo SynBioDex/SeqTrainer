@@ -103,7 +103,8 @@ class NeuralLongTermMemory(nn.Module):
         batch_summary = chunk_embeddings.mean(dim=1)
         new_content = self.memory_mlp(batch_summary).mean(dim=0)
         expanded = new_content.unsqueeze(0).expand(self.slots, -1)
-        self.memory_state = self.retention_gate * self.memory_state + (1.0 - self.retention_gate) * expanded
+        with torch.no_grad():
+            self.memory_state.mul_(self.retention_gate).add_((1.0 - self.retention_gate) * expanded.detach())
         return self.memory_state
 
     def retrieve_context(self, token_embeddings: Tensor, context_tokens: int) -> Tensor:
