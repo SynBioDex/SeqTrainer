@@ -12,6 +12,7 @@ It is designed to be complementary to Keras and PyTorch rather than replacing th
 - Graph-focused utilities in `seqtrainer.graph`
 - Application-level API entrypoints in `seqtrainer.applications`
 - CLI foundation (`seqtrainer` command)
+- Lightweight KNN retrieval utilities for scalar-label sequence design workflows
 
 ## Install
 
@@ -34,7 +35,7 @@ pip install -e '.[dev]'
 - `seqtrainer/sparql`: prefixes, builders, and query recipes
 - `seqtrainer/data`: SBOL loaders, recipes, materialized datasets
 - `seqtrainer/transforms`: DNA transforms and feature extraction
-- `seqtrainer/models`: framework-neutral backbone/head registry stubs
+- `seqtrainer/models`: framework-neutral backbone/head registry stubs and KNN retrieval helpers
 - `seqtrainer/keras`: Keras adapters/factories (optional dependency)
 - `seqtrainer/torch`: PyTorch adapters/fine-tune helpers (optional dependency)
 - `seqtrainer/graph`: RDF/SBOL graph conversion utilities
@@ -64,3 +65,9 @@ A starter notebook series is available in `notebooks/tutorials/`:
 - `03_dataset_splits.ipynb`: reproducible train/val/test splits
 - `04_end_to_end_cnn_classification.ipynb`: end-to-end mini CNN classifier demo (10 cycles)
 - `05_end_to_end_cnn_regression.ipynb`: end-to-end mini CNN regressor for promoter activity (10 cycles)
+- `06_nucleotide_transformer_v2_promoter_tasks.ipynb`: SeqTrainer-based Nucleotide Transformer v2 fine-tuning for promoter classification and regression
+- `07_hyena2_promoter_classification_regression.ipynb`: SeqTrainer-based Hyena2/HyenaDNA workflow for promoter classification and regression
+- `08_evo2_promoter_classification_regression.ipynb`: SeqTrainer-based Evo 2 workflow for promoter classification and regression
+- `09_gemma3_4b_promoter_classification_regression.ipynb`: SeqTrainer-based Gemma 3 4B workflow for promoter classification and regression
+- `10_promoter_activity_knn_retrieval.ipynb`: KNN retrieval workflow that returns ranked DNA sequences closest to a requested promoter activity
+- `11_titans_miras_memory_context_promoter_classification.ipynb`: simplified Titans/MIRAS Memory-as-Context promoter classification workflow
