@@ -1,6 +1,7 @@
 def test_import_smoke():
     import seqtrainer
     import seqtrainer.applications
+    import seqtrainer.benchmarks
     import seqtrainer.clients
     import seqtrainer.data
     import seqtrainer.graph
