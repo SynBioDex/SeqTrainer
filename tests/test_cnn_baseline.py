@@ -110,6 +110,9 @@ def test_cnn_csv_split_smoke_run_writes_artifacts(tmp_path):
             cycles=1,
             model_variant="enhanced",
             weight_decay=1e-4,
+            optimizer_name="adamw",
+            scheduler_name="one_cycle",
+            select_best_by_mcc=True,
             class_weighting=True,
             seed=42,
         )
@@ -120,3 +123,10 @@ def test_cnn_csv_split_smoke_run_writes_artifacts(tmp_path):
     assert result.manifest["dataset"]["splits"]["train"]["rows"] == 4
     assert result.manifest["model"]["variant"] == "enhanced"
     assert result.manifest["threshold_selection"]["strategy"] == "validation_mcc"
+    predictions = pd.read_csv(tmp_path / "outputs" / "predictions.csv")
+    assert "threshold" in predictions.columns
+    assert "logit_argmax_prediction" in predictions.columns
+    assert (
+        predictions["prediction"]
+        == (predictions["probability"] >= predictions["threshold"]).astype(int)
+    ).all()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import random
+from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -65,6 +66,10 @@ class CnnCsvSplitConfig:
     cycles: int = 10
     learning_rate: float = 1e-3
     weight_decay: float = 0.0
+    optimizer_name: str = "adam"
+    scheduler_name: str = "none"
+    select_best_by_mcc: bool = False
+    early_stopping_patience: int | None = None
     model_variant: str = "tiny"
     dropout: float = 0.25
     class_weighting: bool = False
@@ -112,32 +117,32 @@ class EnhancedDNACNN(nn.Module):
     def __init__(self, channels: int = 5, n_classes: int = 2, dropout: float = 0.25) -> None:
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv1d(channels, 64, kernel_size=7, padding=3),
+            nn.Conv1d(channels, 64, kernel_size=15, padding=7),
             nn.BatchNorm1d(64),
-            nn.ReLU(),
+            nn.GELU(),
             nn.Conv1d(64, 64, kernel_size=7, padding=3),
             nn.BatchNorm1d(64),
-            nn.ReLU(),
+            nn.GELU(),
             nn.MaxPool1d(kernel_size=2),
             nn.Dropout(dropout * 0.5),
-            nn.Conv1d(64, 128, kernel_size=5, padding=2),
+            nn.Conv1d(64, 128, kernel_size=7, padding=6, dilation=2),
             nn.BatchNorm1d(128),
-            nn.ReLU(),
-            nn.Conv1d(128, 128, kernel_size=5, padding=2),
+            nn.GELU(),
+            nn.Conv1d(128, 128, kernel_size=7, padding=12, dilation=4),
             nn.BatchNorm1d(128),
-            nn.ReLU(),
+            nn.GELU(),
             nn.MaxPool1d(kernel_size=2),
             nn.Dropout(dropout * 0.5),
             nn.Conv1d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm1d(256),
-            nn.ReLU(),
+            nn.GELU(),
         )
         self.avg_pool = nn.AdaptiveAvgPool1d(1)
         self.max_pool = nn.AdaptiveMaxPool1d(1)
         self.head = nn.Sequential(
             nn.Flatten(),
             nn.Linear(512, 128),
-            nn.ReLU(),
+            nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(128, n_classes),
         )
@@ -204,39 +209,70 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
     device = torch.device(config.device)
     model = _build_csv_model(config).to(device)
     criterion = _csv_criterion(frames["train"], config, device)
-    optimizer = torch.optim.Adam(
-        model.parameters(),
-        lr=config.learning_rate,
-        weight_decay=config.weight_decay,
-    )
-
     loaders = {
         split: _loader_for_frame(frame, config, shuffle=(split == "train"))
         for split, frame in frames.items()
     }
+    optimizer = _csv_optimizer(model, config)
+    scheduler = _csv_scheduler(optimizer, loaders["train"], config)
 
     history: list[dict[str, float]] = []
+    best_state = deepcopy(model.state_dict())
+    best_threshold = 0.5
+    best_validation_mcc = -1.0
+    bad_cycles = 0
+
     for cycle in range(1, config.cycles + 1):
-        train_loss, train_acc = _run_epoch(model, loaders["train"], criterion, optimizer, device, train=True)
-        val_loss, val_acc = _run_epoch(model, loaders["validation"], criterion, optimizer, device, train=False)
-        history.append(
-            {
-                "cycle": float(cycle),
-                "train_loss": train_loss,
-                "train_accuracy": train_acc,
-                "validation_loss": val_loss,
-                "validation_accuracy": val_acc,
-            }
+        train_loss, train_acc = _run_epoch(
+            model,
+            loaders["train"],
+            criterion,
+            optimizer,
+            device,
+            train=True,
+            scheduler=scheduler,
         )
+        val_loss, val_acc = _run_epoch(model, loaders["validation"], criterion, optimizer, device, train=False)
+        val_pred = _predict(model, loaders["validation"], criterion, device)
+        val_threshold, val_mcc = best_threshold_by_mcc(val_pred["label"], val_pred["probability"])
+
+        history_row = {
+            "cycle": float(cycle),
+            "train_loss": train_loss,
+            "train_accuracy": train_acc,
+            "validation_loss": val_loss,
+            "validation_accuracy": val_acc,
+            "validation_mcc": float(val_mcc),
+            "validation_threshold": float(val_threshold),
+        }
+        history.append(history_row)
+
+        if config.select_best_by_mcc or config.early_stopping_patience is not None:
+            if val_mcc > best_validation_mcc:
+                best_validation_mcc = float(val_mcc)
+                best_threshold = float(val_threshold)
+                best_state = deepcopy(model.state_dict())
+                bad_cycles = 0
+            else:
+                bad_cycles += 1
+                if config.early_stopping_patience is not None and bad_cycles >= config.early_stopping_patience:
+                    history_row["stopped_early"] = 1.0
+                    break
+
+    if config.select_best_by_mcc or config.early_stopping_patience is not None:
+        model.load_state_dict(best_state)
 
     predictions = {
         split: _predict(model, loader, criterion, device)
         for split, loader in loaders.items()
     }
-    threshold, validation_mcc = best_threshold_by_mcc(
-        predictions["validation"]["label"],
-        predictions["validation"]["probability"],
-    )
+    if config.select_best_by_mcc or config.early_stopping_patience is not None:
+        threshold, validation_mcc = best_threshold, best_validation_mcc
+    else:
+        threshold, validation_mcc = best_threshold_by_mcc(
+            predictions["validation"]["label"],
+            predictions["validation"]["probability"],
+        )
 
     metrics = {}
     prediction_frames = []
@@ -244,7 +280,7 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
         split_metrics = binary_classification_metrics(pred["label"], pred["probability"], threshold=threshold)
         split_metrics["loss"] = pred["loss"]
         metrics[split] = split_metrics
-        prediction_frames.append(_csv_prediction_frame(split, frames[split], config, pred))
+        prediction_frames.append(_csv_prediction_frame(split, frames[split], config, pred, threshold))
 
     manifest = _csv_manifest(config, frames, metrics, threshold, validation_mcc)
     output_dir = Path(config.output_dir)
@@ -337,6 +373,39 @@ def _csv_criterion(frame: pd.DataFrame, cfg: CnnCsvSplitConfig, device: torch.de
     return nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
 
 
+def _csv_optimizer(model: nn.Module, cfg: CnnCsvSplitConfig) -> torch.optim.Optimizer:
+    if cfg.optimizer_name == "adam":
+        return torch.optim.Adam(
+            model.parameters(),
+            lr=cfg.learning_rate,
+            weight_decay=cfg.weight_decay,
+        )
+    if cfg.optimizer_name == "adamw":
+        return torch.optim.AdamW(
+            model.parameters(),
+            lr=cfg.learning_rate,
+            weight_decay=cfg.weight_decay,
+        )
+    raise ValueError("optimizer_name must be either 'adam' or 'adamw'")
+
+
+def _csv_scheduler(
+    optimizer: torch.optim.Optimizer,
+    train_loader: DataLoader,
+    cfg: CnnCsvSplitConfig,
+) -> torch.optim.lr_scheduler.LRScheduler | None:
+    if cfg.scheduler_name == "none":
+        return None
+    if cfg.scheduler_name == "one_cycle":
+        return torch.optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=cfg.learning_rate,
+            epochs=cfg.cycles,
+            steps_per_epoch=len(train_loader),
+        )
+    raise ValueError("scheduler_name must be either 'none' or 'one_cycle'")
+
+
 def _loader_for_frame(frame: pd.DataFrame, cfg: CnnCsvSplitConfig, shuffle: bool) -> DataLoader:
     sequences = [pad_or_trim(seq, length=cfg.sequence_length) for seq in frame[cfg.sequence_field].astype(str)]
     encoded = one_hot_encode(sequences)
@@ -375,6 +444,7 @@ def _run_epoch(
     optimizer: torch.optim.Optimizer,
     device: torch.device,
     train: bool,
+    scheduler: torch.optim.lr_scheduler.LRScheduler | None = None,
 ) -> tuple[float, float]:
     model.train(train)
     total_loss, total_correct, total = 0.0, 0, 0
@@ -389,6 +459,8 @@ def _run_epoch(
         if train:
             loss.backward()
             optimizer.step()
+            if scheduler is not None:
+                scheduler.step()
 
         total_loss += loss.item() * xb.size(0)
         total_correct += (logits.argmax(dim=1) == yb).sum().item()
@@ -444,7 +516,9 @@ def _csv_prediction_frame(
     frame: pd.DataFrame,
     cfg: CnnCsvSplitConfig,
     prediction: dict[str, Any],
+    threshold: float,
 ) -> pd.DataFrame:
+    thresholded_prediction = (prediction["probability"] >= threshold).astype(int)
     rows = pd.DataFrame(
         {
             "split": split,
@@ -452,7 +526,9 @@ def _csv_prediction_frame(
             "sequence": frame[cfg.sequence_field].astype(str),
             "label": frame[cfg.label_field].astype(int),
             "probability": prediction["probability"],
-            "prediction": prediction["prediction"],
+            "threshold": float(threshold),
+            "prediction": thresholded_prediction,
+            "logit_argmax_prediction": prediction["prediction"],
         }
     )
     return rows
@@ -522,28 +598,28 @@ def _csv_model_metadata(config: CnnCsvSplitConfig) -> dict[str, Any]:
             "variant": "enhanced",
             "dropout": float(config.dropout),
             "architecture": [
-                "Conv1d(5, 64, kernel_size=7, padding=3)",
+                "Conv1d(5, 64, kernel_size=15, padding=7)",
                 "BatchNorm1d(64)",
-                "ReLU",
+                "GELU",
                 "Conv1d(64, 64, kernel_size=7, padding=3)",
                 "BatchNorm1d(64)",
-                "ReLU",
+                "GELU",
                 "MaxPool1d(kernel_size=2)",
                 "Dropout",
-                "Conv1d(64, 128, kernel_size=5, padding=2)",
+                "Conv1d(64, 128, kernel_size=7, padding=6, dilation=2)",
                 "BatchNorm1d(128)",
-                "ReLU",
-                "Conv1d(128, 128, kernel_size=5, padding=2)",
+                "GELU",
+                "Conv1d(128, 128, kernel_size=7, padding=12, dilation=4)",
                 "BatchNorm1d(128)",
-                "ReLU",
+                "GELU",
                 "MaxPool1d(kernel_size=2)",
                 "Dropout",
                 "Conv1d(128, 256, kernel_size=3, padding=1)",
                 "BatchNorm1d(256)",
-                "ReLU",
+                "GELU",
                 "AdaptiveAvgPool1d(1) + AdaptiveMaxPool1d(1)",
                 "Linear(512, 128)",
-                "ReLU",
+                "GELU",
                 "Dropout",
                 "Linear(128, 2)",
             ],
