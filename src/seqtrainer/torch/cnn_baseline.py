@@ -64,6 +64,10 @@ class CnnCsvSplitConfig:
     batch_size: int = 16
     cycles: int = 10
     learning_rate: float = 1e-3
+    weight_decay: float = 0.0
+    model_variant: str = "tiny"
+    dropout: float = 0.25
+    class_weighting: bool = False
     device: str = "cpu"
     deterministic: bool = True
 
@@ -100,6 +104,48 @@ class TinyDNACNN(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.head(self.backbone(x))
+
+
+class EnhancedDNACNN(nn.Module):
+    """Stronger Conv1D classifier for controlled CNN baseline improvements."""
+
+    def __init__(self, channels: int = 5, n_classes: int = 2, dropout: float = 0.25) -> None:
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv1d(channels, 64, kernel_size=7, padding=3),
+            nn.BatchNorm1d(64),
+            nn.ReLU(),
+            nn.Conv1d(64, 64, kernel_size=7, padding=3),
+            nn.BatchNorm1d(64),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2),
+            nn.Dropout(dropout * 0.5),
+            nn.Conv1d(64, 128, kernel_size=5, padding=2),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Conv1d(128, 128, kernel_size=5, padding=2),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2),
+            nn.Dropout(dropout * 0.5),
+            nn.Conv1d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+        )
+        self.avg_pool = nn.AdaptiveAvgPool1d(1)
+        self.max_pool = nn.AdaptiveMaxPool1d(1)
+        self.head = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(512, 128),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(128, n_classes),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        features = self.features(x)
+        pooled = torch.cat([self.avg_pool(features), self.max_pool(features)], dim=1)
+        return self.head(pooled)
 
 
 def run_cnn_baseline(config: CnnBaselineConfig | None = None) -> CnnBaselineResult:
@@ -156,9 +202,13 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
 
     frames = _load_csv_split_frames(config)
     device = torch.device(config.device)
-    model = TinyDNACNN().to(device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
+    model = _build_csv_model(config).to(device)
+    criterion = _csv_criterion(frames["train"], config, device)
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=config.learning_rate,
+        weight_decay=config.weight_decay,
+    )
 
     loaders = {
         split: _loader_for_frame(frame, config, shuffle=(split == "train"))
@@ -264,6 +314,27 @@ def _load_csv_split_frames(cfg: CnnCsvSplitConfig) -> dict[str, pd.DataFrame]:
             raise ValueError(f"{path} is empty")
         frames[split] = frame.copy()
     return frames
+
+
+def _build_csv_model(cfg: CnnCsvSplitConfig) -> nn.Module:
+    if cfg.model_variant == "tiny":
+        return TinyDNACNN()
+    if cfg.model_variant == "enhanced":
+        return EnhancedDNACNN(dropout=cfg.dropout)
+    raise ValueError("model_variant must be either 'tiny' or 'enhanced'")
+
+
+def _csv_criterion(frame: pd.DataFrame, cfg: CnnCsvSplitConfig, device: torch.device) -> nn.Module:
+    if not cfg.class_weighting:
+        return nn.CrossEntropyLoss()
+
+    labels = frame[cfg.label_field].astype(int).to_numpy(dtype=np.int64)
+    counts = np.bincount(labels, minlength=2).astype(float)
+    if counts.min() == 0:
+        return nn.CrossEntropyLoss()
+
+    weights = counts.sum() / (len(counts) * counts)
+    return nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
 
 
 def _loader_for_frame(frame: pd.DataFrame, cfg: CnnCsvSplitConfig, shuffle: bool) -> DataLoader:
@@ -426,6 +497,61 @@ def _manifest(cfg: CnnBaselineConfig, data: dict[str, Any], metrics: dict[str, d
     }
 
 
+def _csv_model_metadata(config: CnnCsvSplitConfig) -> dict[str, Any]:
+    if config.model_variant == "tiny":
+        return {
+            "name": "TinyDNACNN",
+            "variant": "tiny",
+            "architecture": [
+                "Conv1d(5, 32, kernel_size=7, padding=3)",
+                "ReLU",
+                "MaxPool1d(kernel_size=2)",
+                "Conv1d(32, 64, kernel_size=5, padding=2)",
+                "ReLU",
+                "AdaptiveMaxPool1d(1)",
+                "Flatten",
+                "Linear(64, 32)",
+                "ReLU",
+                "Linear(32, 2)",
+            ],
+        }
+
+    if config.model_variant == "enhanced":
+        return {
+            "name": "EnhancedDNACNN",
+            "variant": "enhanced",
+            "dropout": float(config.dropout),
+            "architecture": [
+                "Conv1d(5, 64, kernel_size=7, padding=3)",
+                "BatchNorm1d(64)",
+                "ReLU",
+                "Conv1d(64, 64, kernel_size=7, padding=3)",
+                "BatchNorm1d(64)",
+                "ReLU",
+                "MaxPool1d(kernel_size=2)",
+                "Dropout",
+                "Conv1d(64, 128, kernel_size=5, padding=2)",
+                "BatchNorm1d(128)",
+                "ReLU",
+                "Conv1d(128, 128, kernel_size=5, padding=2)",
+                "BatchNorm1d(128)",
+                "ReLU",
+                "MaxPool1d(kernel_size=2)",
+                "Dropout",
+                "Conv1d(128, 256, kernel_size=3, padding=1)",
+                "BatchNorm1d(256)",
+                "ReLU",
+                "AdaptiveAvgPool1d(1) + AdaptiveMaxPool1d(1)",
+                "Linear(512, 128)",
+                "ReLU",
+                "Dropout",
+                "Linear(128, 2)",
+            ],
+        }
+
+    raise ValueError("model_variant must be either 'tiny' or 'enhanced'")
+
+
 def _csv_manifest(
     cfg: CnnCsvSplitConfig,
     frames: dict[str, pd.DataFrame],
@@ -461,21 +587,7 @@ def _csv_manifest(
             "encoding": "one_hot",
             "channels": ["A", "C", "G", "T", "N"],
         },
-        "model": {
-            "name": "TinyDNACNN",
-            "architecture": [
-                "Conv1d(5, 32, kernel_size=7, padding=3)",
-                "ReLU",
-                "MaxPool1d(kernel_size=2)",
-                "Conv1d(32, 64, kernel_size=5, padding=2)",
-                "ReLU",
-                "AdaptiveMaxPool1d(1)",
-                "Flatten",
-                "Linear(64, 32)",
-                "ReLU",
-                "Linear(32, 2)",
-            ],
-        },
+        "model": _csv_model_metadata(config=cfg),
         "training": asdict(cfg),
         "threshold_selection": {
             "strategy": "validation_mcc",

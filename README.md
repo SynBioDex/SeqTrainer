@@ -65,3 +65,4 @@ A starter notebook series is available in `notebooks/tutorials/`:
 - `04_end_to_end_cnn_classification.ipynb`: end-to-end mini CNN classifier demo (10 cycles)
 - `05_end_to_end_cnn_regression.ipynb`: end-to-end mini CNN regressor for promoter activity (10 cycles)
 - `06_colab_cnn_csv_benchmark.ipynb`: Colab-ready CNN benchmark on predefined train/eval/test CSV splits
+- `07_colab_cnn_improvement_experiments.ipynb`: Colab-ready CNN improvement grid with longer training, stronger CNN variants, and full metrics

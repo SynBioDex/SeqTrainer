@@ -12,6 +12,8 @@ from sklearn.metrics import (
     confusion_matrix,
     f1_score,
     matthews_corrcoef,
+    precision_score,
+    recall_score,
     roc_auc_score,
 )
 
@@ -38,6 +40,8 @@ def binary_classification_metrics(
         "threshold": float(threshold),
         "accuracy": float(accuracy_score(labels, predictions)),
         "balanced_accuracy": float(balanced_accuracy_score(labels, predictions)),
+        "precision": float(precision_score(labels, predictions, zero_division=0)),
+        "recall": float(recall_score(labels, predictions, zero_division=0)),
         "f1": float(f1_score(labels, predictions, zero_division=0)),
         "mcc": float(matthews_corrcoef(labels, predictions)),
         "sensitivity": float(tp / positives) if positives else None,

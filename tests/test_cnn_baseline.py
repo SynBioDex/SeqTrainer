@@ -10,6 +10,7 @@ from seqtrainer.metrics import best_threshold_by_mcc, binary_classification_metr
 from seqtrainer.torch.cnn_baseline import (
     CnnBaselineConfig,
     CnnCsvSplitConfig,
+    EnhancedDNACNN,
     TinyDNACNN,
     run_cnn_baseline,
     run_cnn_csv_splits,
@@ -18,6 +19,14 @@ from seqtrainer.torch.cnn_baseline import (
 
 def test_tiny_dna_cnn_forward_shape():
     model = TinyDNACNN()
+    x = torch.zeros((2, 5, 120), dtype=torch.float32)
+    logits = model(x)
+
+    assert logits.shape == (2, 2)
+
+
+def test_enhanced_dna_cnn_forward_shape():
+    model = EnhancedDNACNN()
     x = torch.zeros((2, 5, 120), dtype=torch.float32)
     logits = model(x)
 
@@ -35,6 +44,8 @@ def test_binary_classification_metrics_include_required_fields():
     assert "balanced_accuracy" in metrics
     assert "auroc" in metrics
     assert "auprc" in metrics
+    assert "precision" in metrics
+    assert "recall" in metrics
     assert "mcc" in metrics
     assert metrics["confusion_matrix"] == {"tn": 2, "fp": 0, "fn": 1, "tp": 1}
 
@@ -97,6 +108,9 @@ def test_cnn_csv_split_smoke_run_writes_artifacts(tmp_path):
             sequence_length=32,
             batch_size=2,
             cycles=1,
+            model_variant="enhanced",
+            weight_decay=1e-4,
+            class_weighting=True,
             seed=42,
         )
     )
@@ -104,4 +118,5 @@ def test_cnn_csv_split_smoke_run_writes_artifacts(tmp_path):
     assert (tmp_path / "outputs" / "metrics.json").exists()
     assert (tmp_path / "outputs" / "predictions.csv").exists()
     assert result.manifest["dataset"]["splits"]["train"]["rows"] == 4
+    assert result.manifest["model"]["variant"] == "enhanced"
     assert result.manifest["threshold_selection"]["strategy"] == "validation_mcc"
