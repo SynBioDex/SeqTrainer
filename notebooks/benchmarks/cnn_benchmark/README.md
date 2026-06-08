@@ -36,6 +36,42 @@ data/promoter_classification/
 Google Drive copy of the split data:
 [AIxBio promoter classification data](https://drive.google.com/drive/folders/1rH47oJEjQjkJvHXKX_rwDjDb--dGPGx2)
 
+## Reference CNN
+
+The reference notebook keeps the package CNN intentionally small so later models can be compared against a clear baseline.
+
+Input preprocessing:
+
+- fixed sequence length: 300 bp for the shared CSV benchmark
+- encoding: one-hot over `A`, `C`, `G`, `T`, and `N`
+- PyTorch tensor shape: `[batch, channels, length]`
+
+Reference model:
+
+```text
+Conv1d(5, 32, kernel_size=7, padding=3)
+ReLU
+MaxPool1d(kernel_size=2)
+Conv1d(32, 64, kernel_size=5, padding=2)
+ReLU
+AdaptiveMaxPool1d(1)
+Flatten
+Linear(64, 32)
+ReLU
+Linear(32, 2)
+```
+
+Reference training settings:
+
+- loss: `CrossEntropyLoss`
+- optimizer: `Adam`
+- learning rate: `1e-3`
+- batch size: `16`
+- cycles: `10`
+- seed: `42`
+
+The older SBOL tutorial baseline uses `data/sbol_data`, the first 40 `sample_design_*.xml` files, 120 bp sequence windows, and median-thresholded numeric `target` labels. The shared model comparison in this benchmark folder uses the predefined GSE144621 train/eval/test CSV split instead.
+
 ## Run On Colab
 
 Open:
@@ -112,6 +148,32 @@ REPO_DIR = Path.cwd()
 ```
 
 Run the notebook from the repository root so relative paths resolve correctly.
+
+### Option 4: Run With The Package CLI
+
+The shared CSV benchmark can also be run without opening the notebooks:
+
+```bash
+seqtrainer run-cnn-benchmark \
+  --config config-examples/benchmarks/cnn.toml
+```
+
+For a quick smoke test:
+
+```bash
+seqtrainer run-cnn-benchmark \
+  --config config-examples/benchmarks/cnn.toml \
+  --cycles 1 \
+  --output-dir outputs/cnn_csv_smoke
+```
+
+The older SBOL tutorial reproduction runner is still available for package smoke tests:
+
+```bash
+seqtrainer reproduce-cnn-baseline \
+  --data-dir data/sbol_data \
+  --output-dir outputs/cnn_baseline_reference
+```
 
 ## Metrics
 
