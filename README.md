@@ -64,5 +64,9 @@ A starter notebook series is available in `notebooks/tutorials/`:
 - `03_dataset_splits.ipynb`: reproducible train/val/test splits
 - `04_end_to_end_cnn_classification.ipynb`: end-to-end mini CNN classifier demo (10 cycles)
 - `05_end_to_end_cnn_regression.ipynb`: end-to-end mini CNN regressor for promoter activity (10 cycles)
-- `06_colab_cnn_csv_benchmark.ipynb`: Colab-ready CNN benchmark on predefined train/eval/test CSV splits
-- `07_colab_cnn_improvement_experiments.ipynb`: Colab-ready CNN improvement grid with longer training, stronger CNN variants, and full metrics
+
+Benchmark notebooks are grouped by model family under `notebooks/benchmarks/`.
+The current CNN benchmark suite is available in `notebooks/benchmarks/cnn_benchmark/`:
+
+- `notebooks/benchmarks/cnn_benchmark/cnn_reference_benchmark_colab.ipynb`: Colab-ready reference CNN benchmark on predefined train/eval/test CSV splits
+- `notebooks/benchmarks/cnn_benchmark/cnn_v2_final_benchmark_colab.ipynb`: Colab-ready CNN-v2 benchmark with stronger regularized candidates and full metrics
