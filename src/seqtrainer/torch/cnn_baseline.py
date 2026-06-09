@@ -219,7 +219,7 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
     history: list[dict[str, float]] = []
     best_state = deepcopy(model.state_dict())
     best_threshold = 0.5
-    best_validation_mcc = -1.0
+    best_validation_mcc = float("-inf")
     bad_cycles = 0
 
     for cycle in range(1, config.cycles + 1):

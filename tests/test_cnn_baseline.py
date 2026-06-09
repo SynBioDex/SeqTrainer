@@ -61,6 +61,28 @@ def test_best_threshold_by_mcc_uses_validation_scores():
     assert score == 1.0
 
 
+def test_best_threshold_by_mcc_handles_low_confidence_scores():
+    scores = torch.tensor([0.01, 0.04]).numpy()
+    threshold, score = best_threshold_by_mcc(
+        y_true=torch.tensor([0, 1]).numpy(),
+        y_score=scores,
+    )
+
+    assert ((scores.astype(float) >= threshold).astype(int) == [0, 1]).all()
+    assert score == 1.0
+
+
+def test_best_threshold_by_mcc_handles_high_confidence_scores():
+    scores = torch.tensor([0.96, 0.99]).numpy()
+    threshold, score = best_threshold_by_mcc(
+        y_true=torch.tensor([0, 1]).numpy(),
+        y_score=scores,
+    )
+
+    assert ((scores.astype(float) >= threshold).astype(int) == [0, 1]).all()
+    assert score == 1.0
+
+
 def test_cnn_baseline_smoke_run_writes_artifacts(tmp_path):
     repo_root = Path(__file__).resolve().parents[1]
     result = run_cnn_baseline(

@@ -18,6 +18,22 @@ from sklearn.metrics import (
 )
 
 
+def _default_mcc_thresholds(scores: np.ndarray) -> np.ndarray:
+    """Build MCC threshold candidates from fixed grid values and observed scores."""
+    finite_scores = np.sort(np.unique(scores[np.isfinite(scores)]))
+    if finite_scores.size == 0:
+        raise ValueError("Cannot select a threshold when all scores are non-finite")
+
+    candidates = [np.linspace(0.0, 1.0, 201)]
+    candidates.append(finite_scores)
+    if finite_scores.size > 1:
+        candidates.append((finite_scores[:-1] + finite_scores[1:]) / 2.0)
+
+    candidates.append(np.array([np.nextafter(finite_scores[0], -np.inf)]))
+    candidates.append(np.array([np.nextafter(finite_scores[-1], np.inf)]))
+    return np.unique(np.concatenate(candidates))
+
+
 def binary_classification_metrics(
     y_true: np.ndarray,
     y_score: np.ndarray,
@@ -77,8 +93,8 @@ def best_threshold_by_mcc(
     if labels.shape[0] != scores.shape[0]:
         raise ValueError("y_true and y_score must have the same length")
 
-    candidates = thresholds if thresholds is not None else np.linspace(0.05, 0.95, 181)
-    best_threshold, best_mcc = 0.5, -1.0
+    candidates = np.asarray(thresholds, dtype=float) if thresholds is not None else _default_mcc_thresholds(scores)
+    best_threshold, best_mcc = 0.5, float("-inf")
     for threshold in candidates:
         predictions = (scores >= threshold).astype(int)
         score = float(matthews_corrcoef(labels, predictions))
