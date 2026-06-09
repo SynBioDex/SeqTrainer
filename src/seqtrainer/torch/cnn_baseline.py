@@ -168,6 +168,10 @@ def run_cnn_baseline(config: CnnBaselineConfig | None = None) -> CnnBaselineResu
         split: _loader_for_split(data["x"], data["y"], indices, cfg.batch_size, cfg.seed, split == "train")
         for split, indices in data["indices"].items()
     }
+    prediction_loaders = {
+        split: _loader_for_split(data["x"], data["y"], indices, cfg.batch_size, cfg.seed, False)
+        for split, indices in data["indices"].items()
+    }
 
     history: list[dict[str, float]] = []
     for cycle in range(1, cfg.cycles + 1):
@@ -185,7 +189,7 @@ def run_cnn_baseline(config: CnnBaselineConfig | None = None) -> CnnBaselineResu
 
     predictions = {
         split: _predict(model, loader, criterion, device)
-        for split, loader in loaders.items()
+        for split, loader in prediction_loaders.items()
     }
     metrics = {}
     prediction_frames = []
@@ -211,6 +215,10 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
     criterion = _csv_criterion(frames["train"], config, device)
     loaders = {
         split: _loader_for_frame(frame, config, shuffle=(split == "train"))
+        for split, frame in frames.items()
+    }
+    prediction_loaders = {
+        split: _loader_for_frame(frame, config, shuffle=False)
         for split, frame in frames.items()
     }
     optimizer = _csv_optimizer(model, config)
@@ -264,7 +272,7 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
 
     predictions = {
         split: _predict(model, loader, criterion, device)
-        for split, loader in loaders.items()
+        for split, loader in prediction_loaders.items()
     }
     if config.select_best_by_mcc or config.early_stopping_patience is not None:
         threshold, validation_mcc = best_threshold, best_validation_mcc
@@ -504,6 +512,9 @@ def _prediction_frame(
     prediction: dict[str, Any],
 ) -> pd.DataFrame:
     rows = frame.iloc[indices.numpy()].copy()
+    if "label" in rows and not np.array_equal(rows["label"].astype(int).to_numpy(), prediction["label"]):
+        raise ValueError(f"Predictions for split {split!r} are not aligned with source rows")
+
     rows.insert(0, "split", split)
     rows.insert(1, "idx", indices.numpy())
     rows["probability"] = prediction["probability"]
@@ -518,13 +529,17 @@ def _csv_prediction_frame(
     prediction: dict[str, Any],
     threshold: float,
 ) -> pd.DataFrame:
+    labels = frame[cfg.label_field].astype(int).to_numpy()
+    if not np.array_equal(labels, prediction["label"]):
+        raise ValueError(f"Predictions for split {split!r} are not aligned with source rows")
+
     thresholded_prediction = (prediction["probability"] >= threshold).astype(int)
     rows = pd.DataFrame(
         {
             "split": split,
             "idx": np.arange(len(frame)),
             "sequence": frame[cfg.sequence_field].astype(str),
-            "label": frame[cfg.label_field].astype(int),
+            "label": labels,
             "probability": prediction["probability"],
             "threshold": float(threshold),
             "prediction": thresholded_prediction,
