@@ -19,6 +19,7 @@ REQUIRED_CLASSIFICATION_METRICS = {
     "auprc",
     "f1",
     "mcc",
+    "precision",
     "sensitivity",
     "specificity",
     "confusion_matrix",

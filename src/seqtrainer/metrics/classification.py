@@ -8,10 +8,8 @@ import numpy as np
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
-    balanced_accuracy_score,
     confusion_matrix,
     f1_score,
-    matthews_corrcoef,
     precision_score,
     recall_score,
     roc_auc_score,
@@ -34,6 +32,12 @@ def _default_mcc_thresholds(scores: np.ndarray) -> np.ndarray:
     return np.unique(np.concatenate(candidates))
 
 
+def threshold_predictions(y_score: np.ndarray, threshold: float) -> np.ndarray:
+    """Convert class-one scores into binary predictions."""
+    scores = np.asarray(y_score, dtype=float)
+    return (scores >= threshold).astype(int)
+
+
 def binary_classification_metrics(
     y_true: np.ndarray,
     y_score: np.ndarray,
@@ -47,21 +51,23 @@ def binary_classification_metrics(
     if labels.shape[0] != scores.shape[0]:
         raise ValueError("y_true and y_score must have the same length")
 
-    predictions = (scores >= threshold).astype(int)
+    predictions = threshold_predictions(scores, threshold)
     tn, fp, fn, tp = confusion_matrix(labels, predictions, labels=[0, 1]).ravel()
 
     positives = tp + fn
     negatives = tn + fp
+    sensitivity = float(tp / positives) if positives else None
+    specificity = float(tn / negatives) if negatives else None
     metrics: dict[str, Any] = {
         "threshold": float(threshold),
         "accuracy": float(accuracy_score(labels, predictions)),
-        "balanced_accuracy": float(balanced_accuracy_score(labels, predictions)),
+        "balanced_accuracy": _balanced_accuracy(sensitivity, specificity),
         "precision": float(precision_score(labels, predictions, zero_division=0)),
         "recall": float(recall_score(labels, predictions, zero_division=0)),
         "f1": float(f1_score(labels, predictions, zero_division=0)),
-        "mcc": float(matthews_corrcoef(labels, predictions)),
-        "sensitivity": float(tp / positives) if positives else None,
-        "specificity": float(tn / negatives) if negatives else None,
+        "mcc": _mcc_from_counts(tn, fp, fn, tp),
+        "sensitivity": sensitivity,
+        "specificity": specificity,
         "confusion_matrix": {
             "tn": int(tn),
             "fp": int(fp),
@@ -76,8 +82,39 @@ def binary_classification_metrics(
     else:
         metrics["auroc"] = None
         metrics["auprc"] = None
+        metrics["warning"] = "AUROC/AUPRC undefined because the split contains one observed class."
 
     return metrics
+
+
+def best_threshold_by_metric(
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    metric: str = "mcc",
+    thresholds: np.ndarray | None = None,
+) -> tuple[float, float]:
+    """Choose a binary threshold by maximizing a validation metric."""
+    labels = np.asarray(y_true, dtype=int)
+    scores = np.asarray(y_score, dtype=float)
+    if labels.shape[0] == 0:
+        raise ValueError("Cannot select a threshold for an empty label array")
+    if labels.shape[0] != scores.shape[0]:
+        raise ValueError("y_true and y_score must have the same length")
+
+    metric_key = metric.lower()
+    if metric_key not in {"mcc", "f1", "balanced_accuracy"}:
+        raise ValueError("metric must be one of: mcc, f1, balanced_accuracy")
+
+    candidates = np.asarray(thresholds, dtype=float) if thresholds is not None else _default_mcc_thresholds(scores)
+    best_threshold, best_score = 0.5, float("-inf")
+    for threshold in candidates:
+        predictions = threshold_predictions(scores, float(threshold))
+        score = _threshold_metric(labels, predictions, metric_key)
+        if score > best_score:
+            best_threshold = float(threshold)
+            best_score = float(score)
+
+    return best_threshold, best_score
 
 
 def best_threshold_by_mcc(
@@ -86,20 +123,31 @@ def best_threshold_by_mcc(
     thresholds: np.ndarray | None = None,
 ) -> tuple[float, float]:
     """Choose a binary threshold by maximizing MCC on validation data."""
-    labels = np.asarray(y_true, dtype=int)
-    scores = np.asarray(y_score, dtype=float)
-    if labels.shape[0] == 0:
-        raise ValueError("Cannot select a threshold for an empty label array")
-    if labels.shape[0] != scores.shape[0]:
-        raise ValueError("y_true and y_score must have the same length")
+    return best_threshold_by_metric(y_true, y_score, metric="mcc", thresholds=thresholds)
 
-    candidates = np.asarray(thresholds, dtype=float) if thresholds is not None else _default_mcc_thresholds(scores)
-    best_threshold, best_mcc = 0.5, float("-inf")
-    for threshold in candidates:
-        predictions = (scores >= threshold).astype(int)
-        score = float(matthews_corrcoef(labels, predictions))
-        if score > best_mcc:
-            best_threshold = float(threshold)
-            best_mcc = score
 
-    return best_threshold, best_mcc
+def _threshold_metric(labels: np.ndarray, predictions: np.ndarray, metric: str) -> float:
+    if metric == "mcc":
+        tn, fp, fn, tp = confusion_matrix(labels, predictions, labels=[0, 1]).ravel()
+        return _mcc_from_counts(tn, fp, fn, tp)
+    if metric == "f1":
+        return float(f1_score(labels, predictions, zero_division=0))
+
+    tn, fp, fn, tp = confusion_matrix(labels, predictions, labels=[0, 1]).ravel()
+    sensitivity = float(tp / (tp + fn)) if (tp + fn) else None
+    specificity = float(tn / (tn + fp)) if (tn + fp) else None
+    return float(_balanced_accuracy(sensitivity, specificity) or 0.0)
+
+
+def _balanced_accuracy(sensitivity: float | None, specificity: float | None) -> float | None:
+    observed_rates = [value for value in (sensitivity, specificity) if value is not None]
+    if not observed_rates:
+        return None
+    return float(sum(observed_rates) / len(observed_rates))
+
+
+def _mcc_from_counts(tn: int, fp: int, fn: int, tp: int) -> float:
+    denominator = (tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)
+    if denominator == 0:
+        return 0.0
+    return float(((tp * tn) - (fp * fn)) / np.sqrt(denominator))

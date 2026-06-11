@@ -44,6 +44,14 @@ def _build_parser() -> argparse.ArgumentParser:
     cnn_csv.add_argument("--learning-rate", type=float)
     cnn_csv.add_argument("--device")
 
+    benchmark_manifest = subparsers.add_parser(
+        "benchmark-manifest",
+        help="Validate a benchmark config and write shared manifest artifacts",
+    )
+    benchmark_manifest.add_argument("--config", type=Path, required=True)
+    benchmark_manifest.add_argument("--output-dir", type=Path)
+    benchmark_manifest.add_argument("--base-dir", type=Path, default=Path.cwd())
+
     sparql = subparsers.add_parser("sparql", help="SPARQL helpers")
     sparql_sub = sparql.add_subparsers(dest="sparql_command", required=True)
     sparql_sub.add_parser("prefixes", help="Print default prefixes")
@@ -124,7 +132,29 @@ def main(argv: list[str] | None = None) -> int:
                 f"accuracy={metrics['accuracy']:.3f} "
                 f"balanced_accuracy={metrics['balanced_accuracy']:.3f} "
                 f"mcc={metrics['mcc']:.3f}"
-            )
+        )
+        return 0
+
+    if args.command == "benchmark-manifest":
+        from seqtrainer.benchmarks import (
+            build_run_manifest,
+            load_benchmark_config,
+            load_predefined_split_frames,
+            summarize_split_frames,
+            write_benchmark_outputs,
+        )
+
+        benchmark = load_benchmark_config(args.config)
+        frames = load_predefined_split_frames(benchmark, base_dir=args.base_dir)
+        split_summary = summarize_split_frames(benchmark, frames)
+        manifest = build_run_manifest(benchmark, split_summary=split_summary)
+        output_dir = args.output_dir or Path(benchmark.outputs.output_dir)
+        written = write_benchmark_outputs(output_dir, manifest=manifest, config=benchmark)
+
+        print(f"output_dir={output_dir}")
+        print(f"manifest={written['manifest']}")
+        for split, summary in split_summary.items():
+            print(f"{split}: rows={summary['rows']} class_counts={summary['class_counts']}")
         return 0
 
     if args.command == "sparql" and args.sparql_command == "prefixes":
