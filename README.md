@@ -47,7 +47,16 @@ pip install -e '.[dev]'
 seqtrainer sparql prefixes
 seqtrainer inspect-sbol data/sbol_data/sample_design_0.xml
 seqtrainer build-dataset data/sbol_data/sample_design_0.xml
+seqtrainer benchmark run config-examples/benchmarks/cnn.toml
+seqtrainer benchmark run config-examples/benchmarks/cnn_v2.toml
 ```
+
+Benchmark configs for CNN, CNN-v2, DNABERT2, and iPro-MP live in
+`config-examples/benchmarks/`. The benchmark runner writes shared artifacts such
+as `metrics.csv`, `metrics.json`, `predictions.csv`, `manifest.json`, and model
+checkpoints when a model is trained. DNABERT2 and iPro-MP runs are
+dependency-gated so missing external model files are recorded as skipped
+manifests rather than silent failures.
 
 ## Status
 

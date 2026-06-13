@@ -52,6 +52,22 @@ def _build_parser() -> argparse.ArgumentParser:
     benchmark_manifest.add_argument("--output-dir", type=Path)
     benchmark_manifest.add_argument("--base-dir", type=Path, default=Path.cwd())
 
+    benchmark = subparsers.add_parser("benchmark", help="Benchmark harness commands")
+    benchmark_sub = benchmark.add_subparsers(dest="benchmark_command", required=True)
+    benchmark_run = benchmark_sub.add_parser("run", help="Run a configured benchmark")
+    benchmark_run.add_argument("config", type=Path)
+    benchmark_run.add_argument("--output-dir", type=Path)
+    benchmark_run.add_argument("--base-dir", type=Path, default=Path.cwd())
+    benchmark_run.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail instead of writing a skipped manifest when optional model dependencies are unavailable",
+    )
+    benchmark_manifest_nested = benchmark_sub.add_parser("manifest", help="Validate a config and write manifest artifacts")
+    benchmark_manifest_nested.add_argument("config", type=Path)
+    benchmark_manifest_nested.add_argument("--output-dir", type=Path)
+    benchmark_manifest_nested.add_argument("--base-dir", type=Path, default=Path.cwd())
+
     sparql = subparsers.add_parser("sparql", help="SPARQL helpers")
     sparql_sub = sparql.add_subparsers(dest="sparql_command", required=True)
     sparql_sub.add_parser("prefixes", help="Print default prefixes")
@@ -135,27 +151,36 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
+    if args.command == "benchmark":
+        if args.benchmark_command == "run":
+            from seqtrainer.benchmarks import run_benchmark
+
+            result = run_benchmark(
+                args.config,
+                base_dir=args.base_dir,
+                output_dir=args.output_dir,
+                allow_skip=not args.strict,
+            )
+            print(f"status={result.status}")
+            print(f"output_dir={result.output_dir}")
+            if result.metrics:
+                for split, metrics in result.metrics.items():
+                    print(
+                        f"{split}: "
+                        f"accuracy={metrics['accuracy']:.3f} "
+                        f"balanced_accuracy={metrics['balanced_accuracy']:.3f} "
+                        f"mcc={metrics['mcc']:.3f}"
+                    )
+            else:
+                reason = result.manifest.get("extra", {}).get("skip_reason", "not run")
+                print(f"skip_reason={reason}")
+            return 0
+
+        if args.benchmark_command == "manifest":
+            return _write_benchmark_manifest(args.config, args.output_dir, args.base_dir)
+
     if args.command == "benchmark-manifest":
-        from seqtrainer.benchmarks import (
-            build_run_manifest,
-            load_benchmark_config,
-            load_predefined_split_frames,
-            summarize_split_frames,
-            write_benchmark_outputs,
-        )
-
-        benchmark = load_benchmark_config(args.config)
-        frames = load_predefined_split_frames(benchmark, base_dir=args.base_dir)
-        split_summary = summarize_split_frames(benchmark, frames)
-        manifest = build_run_manifest(benchmark, split_summary=split_summary)
-        output_dir = args.output_dir or Path(benchmark.outputs.output_dir)
-        written = write_benchmark_outputs(output_dir, manifest=manifest, config=benchmark)
-
-        print(f"output_dir={output_dir}")
-        print(f"manifest={written['manifest']}")
-        for split, summary in split_summary.items():
-            print(f"{split}: rows={summary['rows']} class_counts={summary['class_counts']}")
-        return 0
+        return _write_benchmark_manifest(args.config, args.output_dir, args.base_dir)
 
     if args.command == "sparql" and args.sparql_command == "prefixes":
         print(format_prefixes())
@@ -163,6 +188,29 @@ def main(argv: list[str] | None = None) -> int:
 
     parser.error("Unhandled command")
     return 2
+
+
+def _write_benchmark_manifest(config_path: Path, output_dir_arg: Path | None, base_dir: Path) -> int:
+    from seqtrainer.benchmarks import (
+        build_run_manifest,
+        load_benchmark_config,
+        load_predefined_split_frames,
+        summarize_split_frames,
+        write_benchmark_outputs,
+    )
+
+    benchmark = load_benchmark_config(config_path)
+    frames = load_predefined_split_frames(benchmark, base_dir=base_dir)
+    split_summary = summarize_split_frames(benchmark, frames)
+    manifest = build_run_manifest(benchmark, split_summary=split_summary)
+    output_dir = output_dir_arg or Path(benchmark.outputs.output_dir)
+    written = write_benchmark_outputs(output_dir, manifest=manifest, config=benchmark)
+
+    print(f"output_dir={output_dir}")
+    print(f"manifest={written['manifest']}")
+    for split, summary in split_summary.items():
+        print(f"{split}: rows={summary['rows']} class_counts={summary['class_counts']}")
+    return 0
 
 
 if __name__ == "__main__":

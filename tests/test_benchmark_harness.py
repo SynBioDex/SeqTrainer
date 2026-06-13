@@ -8,6 +8,7 @@ from seqtrainer.benchmarks import (
     decide_imbalance_policy,
     load_benchmark_config,
     load_predefined_split_frames,
+    run_benchmark,
     summarize_split_frames,
     threshold_metric_from_strategy,
     write_benchmark_outputs,
@@ -177,6 +178,126 @@ def test_benchmark_manifest_cli_writes_shared_manifest(tmp_path, capsys):
     assert (output_dir / "config.json").exists()
 
 
+def test_benchmark_run_cli_runs_cnn_and_writes_common_outputs(tmp_path, capsys):
+    split_dir = tmp_path / "data" / "promoter_classification"
+    split_dir.mkdir(parents=True)
+    sequences = ["ACGTACGT", "TGCATGCA", "AAAACCCC", "GGGGTTTT"]
+    for split, filename in {
+        "train": "train.csv",
+        "validation": "validation.csv",
+        "test": "test.csv",
+    }.items():
+        pd.DataFrame({"sequence": sequences, "label": [0, 1, 0, 1]}).to_csv(
+            split_dir / filename,
+            index=False,
+        )
+
+    config_path = tmp_path / "cnn_smoke.toml"
+    config_path.write_text(
+        """
+[experiment]
+name = "cnn_smoke"
+task = "bacterial_promoter_prediction"
+seed = 42
+
+[dataset]
+name = "synthetic"
+format = "csv"
+sequence_field = "sequence"
+label_field = "label"
+
+[dataset.split_files]
+train = "data/promoter_classification/train.csv"
+validation = "data/promoter_classification/validation.csv"
+test = "data/promoter_classification/test.csv"
+
+[label]
+source = "provided_binary"
+
+[split]
+strategy = "predefined"
+seed = 42
+
+[preprocessing]
+encoding = "one_hot"
+sequence_length = 32
+
+[model]
+family = "cnn"
+name = "tiny_dna_cnn"
+
+[model.params]
+variant = "tiny"
+
+[training]
+seed = 42
+batch_size = 2
+max_epochs = 1
+learning_rate = 0.001
+
+[training.params]
+optimizer = "adamw"
+scheduler = "one_cycle"
+select_best_by_mcc = true
+
+[evaluation]
+primary_metric = "mcc"
+threshold_strategy = "validation_mcc"
+metrics = [
+  "accuracy",
+  "balanced_accuracy",
+  "auroc",
+  "auprc",
+  "f1",
+  "mcc",
+  "precision",
+  "sensitivity",
+  "specificity",
+  "confusion_matrix",
+]
+
+[outputs]
+output_dir = "outputs/ignored"
+""",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "benchmark_run"
+    exit_code = main(["benchmark", "run", str(config_path), "--base-dir", str(tmp_path), "--output-dir", str(output_dir)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "status=completed" in captured.out
+    assert (output_dir / "metrics.csv").exists()
+    assert (output_dir / "metrics.json").exists()
+    assert (output_dir / "predictions.csv").exists()
+    assert (output_dir / "manifest.json").exists()
+    assert (output_dir / "checkpoints" / "best_model.pt").exists()
+
+
+def test_dnabert2_benchmark_gracefully_skips_without_local_model_files(tmp_path):
+    config = load_benchmark_config(CONFIG_DIR / "dnabert2.toml")
+    _write_configured_split_files(config, tmp_path)
+
+    result = run_benchmark(config, base_dir=tmp_path, output_dir=tmp_path / "dnabert2")
+
+    assert result.status in {"skipped", "completed"}
+    assert (tmp_path / "dnabert2" / "manifest.json").exists()
+    if result.status == "skipped":
+        assert result.manifest["extra"]["status"] == "skipped"
+
+
+def test_ipromp_benchmark_writes_fastas_and_skipped_manifest(tmp_path):
+    config = load_benchmark_config(CONFIG_DIR / "ipromp.toml")
+    _write_configured_split_files(config, tmp_path)
+
+    result = run_benchmark(config, base_dir=tmp_path, output_dir=tmp_path / "ipromp")
+
+    assert result.status == "skipped"
+    assert (tmp_path / "ipromp" / "manifest.json").exists()
+    assert (tmp_path / "ipromp" / "ipromp_fasta" / "train.fasta").exists()
+    assert "FASTA inputs were written" in result.manifest["extra"]["skip_reason"]
+
+
 def test_imbalance_policy_uses_training_split_only():
     split_summary = {
         "train": {"class_counts": {"0": 10, "1": 20}},
@@ -207,4 +328,17 @@ def test_threshold_metric_from_strategy_maps_validation_strategies():
     assert threshold_metric_from_strategy("validation_f1") == "f1"
     assert threshold_metric_from_strategy("validation_balanced_accuracy") == "balanced_accuracy"
     assert threshold_metric_from_strategy("fixed_0_5") is None
+
+
+def _write_configured_split_files(config, base_dir):
+    for split, relative_path in config.dataset.split_files.items():
+        path = base_dir / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(
+            {
+                config.dataset.sequence_field: ["ACGTACGT", "TGCATGCA", "AAAACCCC", "GGGGTTTT"],
+                config.dataset.label_field: [0, 1, 0, 1],
+                "split": split,
+            }
+        ).to_csv(path, index=False)
 

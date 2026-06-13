@@ -199,9 +199,11 @@ def run_cnn_baseline(config: CnnBaselineConfig | None = None) -> CnnBaselineResu
         metrics[split] = split_metrics
         prediction_frames.append(_prediction_frame(split, data["frame"], data["indices"][split], pred))
 
-    manifest = _manifest(cfg, data, metrics)
     output_dir = Path(cfg.output_dir)
-    _write_outputs(output_dir, cfg, metrics, manifest, history, prediction_frames)
+    checkpoint_path = output_dir / "checkpoints" / "final_model.pt"
+    manifest = _manifest(cfg, data, metrics)
+    manifest["checkpoint"] = {"path": str(checkpoint_path), "selection": "final_cycle"}
+    _write_outputs(output_dir, cfg, metrics, manifest, history, prediction_frames, model.state_dict())
     return CnnBaselineResult(output_dir=output_dir, metrics=metrics, manifest=manifest, history=history)
 
 
@@ -290,9 +292,14 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
         metrics[split] = split_metrics
         prediction_frames.append(_csv_prediction_frame(split, frames[split], config, pred, threshold))
 
-    manifest = _csv_manifest(config, frames, metrics, threshold, validation_mcc)
     output_dir = Path(config.output_dir)
-    _write_outputs(output_dir, config, metrics, manifest, history, prediction_frames)
+    checkpoint_path = output_dir / "checkpoints" / "best_model.pt"
+    manifest = _csv_manifest(config, frames, metrics, threshold, validation_mcc)
+    manifest["checkpoint"] = {
+        "path": str(checkpoint_path),
+        "selection": "best_validation_mcc" if config.select_best_by_mcc else "final_cycle",
+    }
+    _write_outputs(output_dir, config, metrics, manifest, history, prediction_frames, model.state_dict())
     return CnnBaselineResult(output_dir=output_dir, metrics=metrics, manifest=manifest, history=history)
 
 
@@ -696,6 +703,7 @@ def _write_outputs(
     manifest: dict[str, Any],
     history: list[dict[str, float]],
     prediction_frames: list[pd.DataFrame],
+    checkpoint_state: dict[str, Any] | None = None,
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "config.json").write_text(json.dumps(_json_ready(asdict(cfg)), indent=2), encoding="utf-8")
@@ -704,6 +712,11 @@ def _write_outputs(
     pd.DataFrame(history).to_csv(output_dir / "history.csv", index=False)
     pd.DataFrame(_flatten_metrics(metrics)).to_csv(output_dir / "metrics.csv", index=False)
     pd.concat(prediction_frames, ignore_index=True).to_csv(output_dir / "predictions.csv", index=False)
+    if checkpoint_state is not None:
+        checkpoint_name = "best_model.pt" if isinstance(cfg, CnnCsvSplitConfig) else "final_model.pt"
+        checkpoint_path = output_dir / "checkpoints" / checkpoint_name
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(checkpoint_state, checkpoint_path)
 
 
 def _flatten_metrics(metrics: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:

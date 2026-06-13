@@ -2,6 +2,9 @@ from pathlib import Path
 
 import pytest
 
+# The torch extra is optional for SeqTrainer, so this module intentionally
+# skips before importing torch-dependent benchmark objects.
+# ruff: noqa: E402
 torch = pytest.importorskip("torch")
 
 import pandas as pd
@@ -142,6 +145,7 @@ def test_cnn_csv_split_smoke_run_writes_artifacts(tmp_path):
 
     assert (tmp_path / "outputs" / "metrics.json").exists()
     assert (tmp_path / "outputs" / "predictions.csv").exists()
+    assert (tmp_path / "outputs" / "checkpoints" / "best_model.pt").exists()
     assert result.manifest["dataset"]["splits"]["train"]["rows"] == 4
     assert result.manifest["model"]["variant"] == "enhanced"
     assert result.manifest["threshold_selection"]["strategy"] == "validation_mcc"

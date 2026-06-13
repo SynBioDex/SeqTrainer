@@ -9,10 +9,13 @@ from .config import (
 )
 from .manifest import build_run_manifest, git_metadata, runtime_metadata
 from .policy import ImbalancePolicy, decide_imbalance_policy, threshold_metric_from_strategy
+from .runner import BenchmarkRunResult, BenchmarkSkipped, run_benchmark
 from .splits import load_predefined_split_frames, resolve_split_paths, summarize_split_frames
 
 __all__ = [
     "BenchmarkConfig",
+    "BenchmarkRunResult",
+    "BenchmarkSkipped",
     "ConfigValidationError",
     "REQUIRED_CLASSIFICATION_METRICS",
     "build_run_manifest",
@@ -23,6 +26,7 @@ __all__ = [
     "load_predefined_split_frames",
     "resolve_split_paths",
     "runtime_metadata",
+    "run_benchmark",
     "summarize_split_frames",
     "threshold_metric_from_strategy",
     "write_benchmark_outputs",

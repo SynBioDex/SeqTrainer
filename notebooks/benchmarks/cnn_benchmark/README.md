@@ -154,16 +154,14 @@ Run the notebook from the repository root so relative paths resolve correctly.
 The shared CSV benchmark can also be run without opening the notebooks:
 
 ```bash
-seqtrainer run-cnn-benchmark \
-  --config config-examples/benchmarks/cnn.toml
+seqtrainer benchmark run config-examples/benchmarks/cnn.toml
+seqtrainer benchmark run config-examples/benchmarks/cnn_v2.toml
 ```
 
 For a quick smoke test:
 
 ```bash
-seqtrainer run-cnn-benchmark \
-  --config config-examples/benchmarks/cnn.toml \
-  --cycles 1 \
+seqtrainer benchmark run config-examples/benchmarks/cnn.toml \
   --output-dir outputs/cnn_csv_smoke
 ```
 
@@ -173,6 +171,15 @@ The older SBOL tutorial reproduction runner is still available for package smoke
 seqtrainer reproduce-cnn-baseline \
   --data-dir data/sbol_data \
   --output-dir outputs/cnn_baseline_reference
+```
+
+The older direct CNN command is still available for manual overrides:
+
+```bash
+seqtrainer run-cnn-benchmark \
+  --config config-examples/benchmarks/cnn.toml \
+  --cycles 1 \
+  --output-dir outputs/cnn_csv_smoke
 ```
 
 ## Metrics
@@ -223,6 +230,7 @@ Important files:
 - `history.csv`
 - `manifest.json`
 - `predictions.csv`
+- `checkpoints/best_model.pt` for package CNN CSV benchmark runs
 - `summary_metrics.csv` for the CNN-v2 notebook
 - `issue3_cnn_decision.json` for the CNN-v2 notebook
 

@@ -1,0 +1,296 @@
+"""Dependency-gated DNABERT2 benchmark runner."""
+
+from __future__ import annotations
+
+import random
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+
+from seqtrainer.benchmarks.artifacts import write_benchmark_outputs
+from seqtrainer.benchmarks.config import BenchmarkConfig
+from seqtrainer.benchmarks.manifest import build_run_manifest
+from seqtrainer.benchmarks.runner import BenchmarkRunResult, BenchmarkSkipped
+from seqtrainer.benchmarks.splits import load_predefined_split_frames, summarize_split_frames
+from seqtrainer.metrics import best_threshold_by_metric, binary_classification_metrics
+
+
+@dataclass(frozen=True)
+class _EncodedSplit:
+    input_ids: Any
+    attention_mask: Any
+    labels: Any
+
+
+def run_dnabert2_csv_splits(
+    config: BenchmarkConfig,
+    *,
+    base_dir: str | Path | None = None,
+    output_dir: str | Path | None = None,
+) -> BenchmarkRunResult:
+    """Run DNABERT2 frozen/fine-tuned benchmark on predefined CSV splits."""
+    try:
+        import torch
+        from torch import nn
+        from torch.utils.data import DataLoader, TensorDataset
+        from transformers import AutoModel, AutoTokenizer, get_linear_schedule_with_warmup
+    except ModuleNotFoundError as exc:  # pragma: no cover - depends on optional extras
+        raise BenchmarkSkipped(
+            "DNABERT2 benchmark requires optional torch/transformers dependencies."
+        ) from exc
+
+    _seed_everything(config.training.seed)
+    frames = load_predefined_split_frames(config, base_dir=base_dir)
+    params = dict(config.model.params)
+    train_params = dict(config.training.params)
+    allow_download = bool(params.get("allow_download", False))
+    local_files_only = not allow_download
+    trust_remote_code = bool(params.get("trust_remote_code", True))
+
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(
+            config.model.name,
+            trust_remote_code=trust_remote_code,
+            local_files_only=local_files_only,
+        )
+        encoder = AutoModel.from_pretrained(
+            config.model.name,
+            trust_remote_code=trust_remote_code,
+            local_files_only=local_files_only,
+        )
+    except OSError as exc:
+        raise BenchmarkSkipped(
+            "DNABERT2 model/tokenizer files are not available locally. "
+            "Set model.params.allow_download=true only when the environment may download them."
+        ) from exc
+
+    device = _resolve_device(config.environment.device, torch)
+    freeze_encoder = str(params.get("mode", "frozen_embedding_classifier")) != "full_finetune"
+    if freeze_encoder:
+        for parameter in encoder.parameters():
+            parameter.requires_grad = False
+
+    hidden_size = int(getattr(encoder.config, "hidden_size", 768))
+    model = _DnaBert2Classifier(
+        encoder=encoder,
+        hidden_size=hidden_size,
+        pooling=str(params.get("pooling", "mean")),
+        dropout=float(params.get("classifier_dropout", 0.1)),
+    ).to(device)
+
+    encoded = {
+        split: _encode_split(config, frame, tokenizer, torch)
+        for split, frame in frames.items()
+    }
+    loaders = {
+        split: DataLoader(
+            TensorDataset(value.input_ids, value.attention_mask, value.labels),
+            batch_size=config.training.batch_size or 16,
+            shuffle=(split == "train"),
+        )
+        for split, value in encoded.items()
+    }
+
+    pos = int(frames["train"][config.dataset.label_field].astype(int).sum())
+    neg = int(len(frames["train"]) - pos)
+    pos_weight = torch.tensor([neg / max(pos, 1)], dtype=torch.float32, device=device)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    optimizer = torch.optim.AdamW(
+        (p for p in model.parameters() if p.requires_grad),
+        lr=config.training.learning_rate or 1e-4,
+        weight_decay=float(train_params.get("weight_decay", 0.01)),
+    )
+    max_epochs = config.training.max_epochs or 3
+    total_steps = max(1, max_epochs * len(loaders["train"]))
+    warmup_steps = int(total_steps * float(train_params.get("warmup_ratio", 0.0)))
+    scheduler = get_linear_schedule_with_warmup(optimizer, warmup_steps, total_steps)
+
+    history: list[dict[str, float]] = []
+    best_state = {key: value.detach().cpu().clone() for key, value in model.state_dict().items()}
+    best_mcc = float("-inf")
+    best_threshold = 0.5
+    patience = int(train_params.get("early_stopping_patience", 3))
+    bad_epochs = 0
+
+    for epoch in range(1, max_epochs + 1):
+        train_loss = _run_epoch(model, loaders["train"], criterion, optimizer, scheduler, device, torch)
+        validation = _predict(model, loaders["validation"], criterion, device, torch)
+        threshold, validation_mcc = best_threshold_by_metric(
+            validation["label"],
+            validation["probability"],
+            metric="mcc",
+        )
+        history.append(
+            {
+                "epoch": float(epoch),
+                "train_loss": float(train_loss),
+                "validation_mcc": float(validation_mcc),
+                "validation_threshold": float(threshold),
+            }
+        )
+        if validation_mcc > best_mcc:
+            best_mcc = float(validation_mcc)
+            best_threshold = float(threshold)
+            best_state = {key: value.detach().cpu().clone() for key, value in model.state_dict().items()}
+            bad_epochs = 0
+        else:
+            bad_epochs += 1
+            if bad_epochs >= patience:
+                history[-1]["stopped_early"] = 1.0
+                break
+
+    model.load_state_dict(best_state)
+    predictions = {split: _predict(model, loader, criterion, device, torch) for split, loader in loaders.items()}
+    metrics: dict[str, dict[str, Any]] = {}
+    prediction_frames = []
+    for split, pred in predictions.items():
+        split_metrics = binary_classification_metrics(pred["label"], pred["probability"], best_threshold)
+        split_metrics["loss"] = pred["loss"]
+        metrics[split] = split_metrics
+        frame = frames[split].reset_index(drop=True)
+        prediction_frames.append(
+            pd.DataFrame(
+                {
+                    "split": split,
+                    "idx": np.arange(len(frame)),
+                    "sequence": frame[config.dataset.sequence_field].astype(str),
+                    "label": frame[config.dataset.label_field].astype(int),
+                    "probability": pred["probability"],
+                    "threshold": best_threshold,
+                    "prediction": (pred["probability"] >= best_threshold).astype(int),
+                }
+            )
+        )
+
+    out_dir = Path(output_dir or config.outputs.output_dir)
+    checkpoint_path = out_dir / "checkpoints" / "best_model.pt"
+    manifest = build_run_manifest(
+        config,
+        split_summary=summarize_split_frames(config, frames),
+        threshold=best_threshold,
+        model_metadata={
+            "mode": params.get("mode", "frozen_embedding_classifier"),
+            "pooling": params.get("pooling", "mean"),
+            "freeze_encoder": freeze_encoder,
+            "checkpoint": str(checkpoint_path),
+        },
+        extra={"status": "completed"},
+    )
+    write_benchmark_outputs(
+        out_dir,
+        manifest=manifest,
+        metrics=metrics,
+        predictions=pd.concat(prediction_frames, ignore_index=True),
+        history=pd.DataFrame(history),
+        config=config,
+    )
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(best_state, checkpoint_path)
+    return BenchmarkRunResult(output_dir=out_dir, status="completed", metrics=metrics, manifest=manifest)
+
+
+class _DnaBert2Classifier:
+    def __init__(self, encoder: Any, hidden_size: int, pooling: str, dropout: float) -> None:
+        from torch import nn
+
+        class _Model(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.encoder = encoder
+                self.pooling = pooling
+                self.dropout = nn.Dropout(dropout)
+                self.head = nn.Linear(hidden_size, 1)
+
+            def forward(self, input_ids: Any, attention_mask: Any) -> Any:
+                outputs = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
+                hidden = outputs.last_hidden_state
+                if self.pooling == "cls":
+                    pooled = hidden[:, 0, :]
+                else:
+                    mask = attention_mask.unsqueeze(-1).to(hidden.dtype)
+                    pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1.0)
+                return self.head(self.dropout(pooled)).squeeze(-1)
+
+        self._model = _Model()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._model, name)
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self._model(*args, **kwargs)
+
+
+def _encode_split(config: BenchmarkConfig, frame: pd.DataFrame, tokenizer: Any, torch: Any) -> _EncodedSplit:
+    preprocessing = dict(config.preprocessing.params)
+    encoded = tokenizer(
+        frame[config.dataset.sequence_field].astype(str).tolist(),
+        padding=str(preprocessing.get("padding", "longest")),
+        truncation=True,
+        max_length=int(preprocessing.get("model_max_length", config.preprocessing.sequence_length or 512)),
+        return_tensors="pt",
+    )
+    labels = torch.tensor(frame[config.dataset.label_field].astype(int).to_numpy(), dtype=torch.float32)
+    return _EncodedSplit(encoded["input_ids"], encoded["attention_mask"], labels)
+
+
+def _run_epoch(model: Any, loader: Any, criterion: Any, optimizer: Any, scheduler: Any, device: Any, torch: Any) -> float:
+    model.train()
+    total_loss, total = 0.0, 0
+    for input_ids, attention_mask, labels in loader:
+        optimizer.zero_grad(set_to_none=True)
+        input_ids = input_ids.to(device)
+        attention_mask = attention_mask.to(device)
+        labels = labels.to(device)
+        logits = model(input_ids, attention_mask)
+        loss = criterion(logits, labels)
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+        total_loss += float(loss.item()) * labels.shape[0]
+        total += int(labels.shape[0])
+    return total_loss / max(total, 1)
+
+
+def _predict(model: Any, loader: Any, criterion: Any, device: Any, torch: Any) -> dict[str, Any]:
+    model.eval()
+    labels_out, probs_out = [], []
+    total_loss, total = 0.0, 0
+    with torch.no_grad():
+        for input_ids, attention_mask, labels in loader:
+            input_ids = input_ids.to(device)
+            attention_mask = attention_mask.to(device)
+            labels = labels.to(device)
+            logits = model(input_ids, attention_mask)
+            loss = criterion(logits, labels)
+            probs = torch.sigmoid(logits)
+            labels_out.extend(labels.detach().cpu().numpy())
+            probs_out.extend(probs.detach().cpu().numpy())
+            total_loss += float(loss.item()) * labels.shape[0]
+            total += int(labels.shape[0])
+    return {
+        "label": np.asarray(labels_out, dtype=int),
+        "probability": np.asarray(probs_out, dtype=float),
+        "loss": total_loss / max(total, 1),
+    }
+
+
+def _seed_everything(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+    except ModuleNotFoundError:
+        pass
+
+
+def _resolve_device(device: str, torch: Any) -> Any:
+    if device == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return torch.device(device)
