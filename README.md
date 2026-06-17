@@ -49,6 +49,7 @@ seqtrainer inspect-sbol data/sbol_data/sample_design_0.xml
 seqtrainer build-dataset data/sbol_data/sample_design_0.xml
 seqtrainer benchmark run config-examples/benchmarks/cnn.toml
 seqtrainer benchmark run config-examples/benchmarks/cnn_v2.toml
+seqtrainer benchmark prepare-dnabert2 config-examples/benchmarks/dnabert2_smoke.toml
 seqtrainer benchmark run config-examples/benchmarks/dnabert2_frozen.toml
 seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml
 seqtrainer benchmark compare outputs/benchmarks/* --output-dir outputs/benchmarks/comparison

@@ -1,7 +1,7 @@
 [experiment]
-name = "dnabert2_finetune_ep_genomic_order"
+name = "dnabert2_smoke_tokenization_ep_genomic_order"
 task = "bacterial_promoter_prediction"
-description = "Optional full DNABERT2 fine-tuning benchmark on the shared E. coli promoter classification split."
+description = "Tiny DNABERT2 tokenization smoke check on the shared E. coli promoter classification split."
 seed = 42
 
 [dataset]
@@ -37,32 +37,28 @@ pad_or_trim = false
 model_max_length = 100
 padding = "longest"
 pad_to_multiple_of = 8
+max_rows_per_split = 8
 
 [model]
 family = "dnabert2"
 name = "zhihan1996/DNABERT-2-117M"
-version = "pin_model_revision_before_final_report"
+version = "tokenizer_smoke_check"
 
 [model.params]
-mode = "full_finetune"
+mode = "tokenization_only"
 pooling = "mean"
 trust_remote_code = true
 allow_download = false
 require_model_files = true
-classifier_dropout = 0.1
 
 [training]
 seed = 42
 batch_size = 8
-max_epochs = 5
-learning_rate = 0.00002
+max_epochs = 0
+learning_rate = 0.0
 
 [training.params]
-optimizer = "adamw"
-loss = "bce_with_logits"
-warmup_ratio = 0.1
-weight_decay = 0.01
-early_stopping_patience = 2
+mode = "tokenization_smoke"
 
 [evaluation]
 primary_metric = "mcc"
@@ -81,11 +77,11 @@ metrics = [
 ]
 
 [outputs]
-output_dir = "outputs/benchmarks/dnabert2_finetune_ep_genomic_order"
+output_dir = "outputs/benchmarks/dnabert2_smoke_tokenization_ep_genomic_order"
 save_json = true
 save_csv = true
 save_predictions = true
 
 [environment]
 device = "auto"
-precision = "bf16"
+precision = "float32"

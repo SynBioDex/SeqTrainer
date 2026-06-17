@@ -11,6 +11,7 @@ from .config import (
 from .manifest import build_run_manifest, git_metadata, runtime_metadata
 from .policy import ImbalancePolicy, decide_imbalance_policy, threshold_metric_from_strategy
 from .runner import BenchmarkRunResult, BenchmarkSkipped, run_benchmark
+from .dnabert2 import DnaBert2TokenizationResult, prepare_dnabert2_tokenized_splits
 from .splits import load_predefined_split_frames, resolve_split_paths, summarize_split_frames
 
 __all__ = [
@@ -21,11 +22,13 @@ __all__ = [
     "REQUIRED_CLASSIFICATION_METRICS",
     "build_run_manifest",
     "compare_benchmark_outputs",
+    "DnaBert2TokenizationResult",
     "decide_imbalance_policy",
     "git_metadata",
     "ImbalancePolicy",
     "load_benchmark_config",
     "load_predefined_split_frames",
+    "prepare_dnabert2_tokenized_splits",
     "resolve_split_paths",
     "runtime_metadata",
     "run_benchmark",

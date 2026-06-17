@@ -10,6 +10,7 @@ from seqtrainer.benchmarks import (
     decide_imbalance_policy,
     load_benchmark_config,
     load_predefined_split_frames,
+    prepare_dnabert2_tokenized_splits,
     run_benchmark,
     summarize_split_frames,
     threshold_metric_from_strategy,
@@ -288,6 +289,26 @@ def test_dnabert2_benchmark_gracefully_skips_without_local_model_files(tmp_path)
         assert result.manifest["extra"]["status"] == "skipped"
 
 
+def test_dnabert2_tokenization_pipeline_uses_shared_splits_and_metadata(tmp_path):
+    config = load_benchmark_config(CONFIG_DIR / "dnabert2_smoke.toml")
+    _write_configured_split_files(config, tmp_path)
+
+    result = prepare_dnabert2_tokenized_splits(
+        config,
+        base_dir=tmp_path,
+        output_dir=tmp_path / "dnabert2_tokens",
+        tokenizer=_StubTokenizer(),
+    )
+
+    assert result.metadata_path.exists()
+    assert result.metadata["model_name"] == "zhihan1996/DNABERT-2-117M"
+    assert result.metadata["max_length"] == 100
+    assert set(result.tokenized_paths) == {"train", "validation", "test"}
+    tokenized = pd.read_csv(result.tokenized_paths["train"])
+    assert {"input_ids", "attention_mask", "token_count", "label"}.issubset(tokenized.columns)
+    assert len(tokenized) == 4
+
+
 def test_ipromp_benchmark_writes_fastas_and_skipped_manifest(tmp_path):
     config = load_benchmark_config(CONFIG_DIR / "ipromp_external.toml")
     _write_configured_split_files(config, tmp_path)
@@ -414,4 +435,32 @@ def _write_configured_split_files(config, base_dir):
                 "split": split,
             }
         ).to_csv(path, index=False)
+
+
+class _StubTokenizer:
+    def __call__(
+        self,
+        sequences,
+        *,
+        padding,
+        truncation,
+        max_length,
+        pad_to_multiple_of=None,
+    ):
+        tokenized = []
+        masks = []
+        for sequence in sequences:
+            ids = [ord(base) % 7 + 1 for base in str(sequence)[:max_length]]
+            if pad_to_multiple_of:
+                target_length = ((len(ids) + pad_to_multiple_of - 1) // pad_to_multiple_of) * pad_to_multiple_of
+            else:
+                target_length = len(ids)
+            mask = [1] * len(ids) + [0] * (target_length - len(ids))
+            ids = ids + [0] * (target_length - len(ids))
+            tokenized.append(ids)
+            masks.append(mask)
+        return {"input_ids": tokenized, "attention_mask": masks}
+
+    def __len__(self):
+        return 7
 

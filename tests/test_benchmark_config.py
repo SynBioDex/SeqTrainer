@@ -18,6 +18,7 @@ def test_example_benchmark_configs_load():
         "cnn.toml",
         "cnn_v2.toml",
         "dnabert2.toml",
+        "dnabert2_smoke.toml",
         "dnabert2_frozen.toml",
         "dnabert2_finetune.toml",
         "ipromp.toml",

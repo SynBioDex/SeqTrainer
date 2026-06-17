@@ -15,6 +15,7 @@ The package benchmark harness uses one command shape for all model families:
 ```bash
 seqtrainer benchmark run config-examples/benchmarks/cnn.toml
 seqtrainer benchmark run config-examples/benchmarks/cnn_v2.toml
+seqtrainer benchmark prepare-dnabert2 config-examples/benchmarks/dnabert2_smoke.toml
 seqtrainer benchmark run config-examples/benchmarks/dnabert2_frozen.toml
 seqtrainer benchmark run config-examples/benchmarks/dnabert2_finetune.toml
 seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml

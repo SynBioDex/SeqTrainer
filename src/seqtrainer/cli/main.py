@@ -70,6 +70,13 @@ def _build_parser() -> argparse.ArgumentParser:
     benchmark_compare = benchmark_sub.add_parser("compare", help="Compare completed benchmark artifact folders")
     benchmark_compare.add_argument("artifact_dirs", nargs="+", type=Path)
     benchmark_compare.add_argument("--output-dir", type=Path, required=True)
+    benchmark_prepare_dnabert2 = benchmark_sub.add_parser(
+        "prepare-dnabert2",
+        help="Tokenize configured split CSVs for DNABERT2 smoke checks",
+    )
+    benchmark_prepare_dnabert2.add_argument("config", type=Path)
+    benchmark_prepare_dnabert2.add_argument("--output-dir", type=Path)
+    benchmark_prepare_dnabert2.add_argument("--base-dir", type=Path, default=Path.cwd())
 
     sparql = subparsers.add_parser("sparql", help="SPARQL helpers")
     sparql_sub = sparql.add_subparsers(dest="sparql_command", required=True)
@@ -188,6 +195,20 @@ def main(argv: list[str] | None = None) -> int:
             written = compare_benchmark_outputs(args.artifact_dirs, output_dir=args.output_dir)
             print(f"comparison_metrics={written['comparison_metrics']}")
             print(f"comparison_summary={written['comparison_summary']}")
+            return 0
+
+        if args.benchmark_command == "prepare-dnabert2":
+            from seqtrainer.benchmarks import prepare_dnabert2_tokenized_splits
+
+            result = prepare_dnabert2_tokenized_splits(
+                args.config,
+                base_dir=args.base_dir,
+                output_dir=args.output_dir,
+            )
+            print(f"output_dir={result.output_dir}")
+            print(f"metadata={result.metadata_path}")
+            for split, path in result.tokenized_paths.items():
+                print(f"{split}={path}")
             return 0
 
     if args.command == "benchmark-manifest":

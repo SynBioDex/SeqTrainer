@@ -72,6 +72,16 @@ best-checkpoint selection.
 
 ## Run DNABERT2
 
+Run a tokenization smoke check before training:
+
+```bash
+seqtrainer benchmark prepare-dnabert2 config-examples/benchmarks/dnabert2_smoke.toml
+```
+
+This writes `dnabert2_tokenized/train.csv`, `validation.csv`, `test.csv`, and
+`dnabert2_tokenization_metadata.json`. It verifies that DNABERT2 is reading the
+same split rows as CNN and records tokenizer/model settings.
+
 Frozen encoder first:
 
 ```bash
@@ -86,8 +96,10 @@ seqtrainer benchmark run config-examples/benchmarks/dnabert2_finetune.toml
 
 DNABERT2 is dependency-gated. If `transformers`, `torch`, model files, tokenizer
 files, or compute resources are unavailable, the runner writes a skipped
-`manifest.json` instead of pretending metrics exist. To allow model download in
-Colab, set `model.params.allow_download = true` in the config for that run.
+`manifest.json` instead of pretending metrics exist. To allow model/tokenizer
+download in Colab, set `model.params.allow_download = true` in the config for
+that run. Keep the downloaded model revision recorded in the run artifacts before
+using the results in a report.
 
 ## Prepare And Evaluate iPro-MP/iPromoter
 

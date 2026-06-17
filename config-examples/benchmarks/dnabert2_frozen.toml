@@ -48,6 +48,7 @@ mode = "frozen_embedding_classifier"
 pooling = "mean"
 trust_remote_code = true
 allow_download = false
+require_model_files = true
 classifier_dropout = 0.1
 
 [training]
