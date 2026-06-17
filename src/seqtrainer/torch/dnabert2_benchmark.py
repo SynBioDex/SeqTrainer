@@ -30,16 +30,17 @@ def run_dnabert2_csv_splits(
     *,
     base_dir: str | Path | None = None,
     output_dir: str | Path | None = None,
+    tokenizer: Any | None = None,
+    encoder: Any | None = None,
 ) -> BenchmarkRunResult:
     """Run DNABERT2 frozen/fine-tuned benchmark on predefined CSV splits."""
     try:
         import torch
         from torch import nn
         from torch.utils.data import DataLoader, TensorDataset
-        from transformers import AutoModel, AutoTokenizer, get_linear_schedule_with_warmup
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on optional extras
         raise BenchmarkSkipped(
-            "DNABERT2 benchmark requires optional torch/transformers dependencies."
+            "DNABERT2 benchmark requires optional torch dependencies."
         ) from exc
 
     _seed_everything(config.training.seed)
@@ -50,22 +51,12 @@ def run_dnabert2_csv_splits(
     local_files_only = not allow_download
     trust_remote_code = bool(params.get("trust_remote_code", True))
 
-    try:
-        tokenizer = AutoTokenizer.from_pretrained(
+    if tokenizer is None or encoder is None:
+        tokenizer, encoder = _load_huggingface_dnabert2(
             config.model.name,
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
         )
-        encoder = AutoModel.from_pretrained(
-            config.model.name,
-            trust_remote_code=trust_remote_code,
-            local_files_only=local_files_only,
-        )
-    except OSError as exc:
-        raise BenchmarkSkipped(
-            "DNABERT2 model/tokenizer files are not available locally. "
-            "Set model.params.allow_download=true only when the environment may download them."
-        ) from exc
 
     device = _resolve_device(config.environment.device, torch)
     freeze_encoder = str(params.get("mode", "frozen_embedding_classifier")) != "full_finetune"
@@ -98,6 +89,19 @@ def run_dnabert2_csv_splits(
     neg = int(len(frames["train"]) - pos)
     pos_weight = torch.tensor([neg / max(pos, 1)], dtype=torch.float32, device=device)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    if freeze_encoder:
+        return _run_frozen_embedding_classifier(
+            config,
+            frames=frames,
+            encoded=encoded,
+            encoder=encoder,
+            criterion=criterion,
+            device=device,
+            torch=torch,
+            nn=nn,
+            output_dir=output_dir,
+        )
+
     optimizer = torch.optim.AdamW(
         (p for p in model.parameters() if p.requires_grad),
         lr=config.training.learning_rate or 1e-4,
@@ -106,7 +110,7 @@ def run_dnabert2_csv_splits(
     max_epochs = config.training.max_epochs or 3
     total_steps = max(1, max_epochs * len(loaders["train"]))
     warmup_steps = int(total_steps * float(train_params.get("warmup_ratio", 0.0)))
-    scheduler = get_linear_schedule_with_warmup(optimizer, warmup_steps, total_steps)
+    scheduler = _linear_warmup_scheduler(optimizer, warmup_steps, total_steps)
 
     history: list[dict[str, float]] = []
     best_state = {key: value.detach().cpu().clone() for key, value in model.state_dict().items()}
@@ -192,6 +196,153 @@ def run_dnabert2_csv_splits(
     return BenchmarkRunResult(output_dir=out_dir, status="completed", metrics=metrics, manifest=manifest)
 
 
+def _run_frozen_embedding_classifier(
+    config: BenchmarkConfig,
+    *,
+    frames: dict[str, pd.DataFrame],
+    encoded: dict[str, _EncodedSplit],
+    encoder: Any,
+    criterion: Any,
+    device: Any,
+    torch: Any,
+    nn: Any,
+    output_dir: str | Path | None,
+) -> BenchmarkRunResult:
+    params = dict(config.model.params)
+    train_params = dict(config.training.params)
+    pooling = str(params.get("pooling", "mean"))
+    out_dir = Path(output_dir or config.outputs.output_dir)
+    embedding_dir = out_dir / "embeddings"
+    embedding_dir.mkdir(parents=True, exist_ok=True)
+
+    encoder.to(device)
+    encoder.eval()
+    embeddings: dict[str, Any] = {}
+    labels: dict[str, Any] = {}
+    for split, value in encoded.items():
+        emb = _extract_embeddings(encoder, value, pooling=pooling, device=device, torch=torch)
+        embeddings[split] = emb
+        labels[split] = value.labels
+        torch.save(
+            {
+                "embeddings": emb.detach().cpu(),
+                "labels": value.labels.detach().cpu(),
+                "model_name": config.model.name,
+                "pooling": pooling,
+                "split": split,
+            },
+            embedding_dir / f"{split}_embeddings.pt",
+        )
+
+    hidden_size = int(embeddings["train"].shape[1])
+    classifier = nn.Sequential(
+        nn.Dropout(float(params.get("classifier_dropout", 0.1))),
+        nn.Linear(hidden_size, 1),
+    ).to(device)
+    optimizer = torch.optim.AdamW(
+        classifier.parameters(),
+        lr=config.training.learning_rate or 1e-3,
+        weight_decay=float(train_params.get("weight_decay", 0.01)),
+    )
+    max_epochs = config.training.max_epochs or 20
+    total_steps = max(1, max_epochs)
+    warmup_steps = int(total_steps * float(train_params.get("warmup_ratio", 0.0)))
+    scheduler = _linear_warmup_scheduler(optimizer, warmup_steps, total_steps)
+    patience = int(train_params.get("early_stopping_patience", 4))
+    best_state = {key: value.detach().cpu().clone() for key, value in classifier.state_dict().items()}
+    best_mcc = float("-inf")
+    best_threshold = 0.5
+    bad_epochs = 0
+    history: list[dict[str, float]] = []
+
+    for epoch in range(1, max_epochs + 1):
+        classifier.train()
+        optimizer.zero_grad(set_to_none=True)
+        train_logits = classifier(embeddings["train"].to(device)).squeeze(-1)
+        train_labels = labels["train"].to(device)
+        train_loss = criterion(train_logits, train_labels)
+        train_loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        validation = _predict_from_embeddings(classifier, embeddings["validation"], labels["validation"], criterion, device, torch)
+        threshold, validation_mcc = best_threshold_by_metric(
+            validation["label"],
+            validation["probability"],
+            metric="mcc",
+        )
+        history.append(
+            {
+                "epoch": float(epoch),
+                "train_loss": float(train_loss.item()),
+                "validation_mcc": float(validation_mcc),
+                "validation_threshold": float(threshold),
+            }
+        )
+        if validation_mcc > best_mcc:
+            best_mcc = float(validation_mcc)
+            best_threshold = float(threshold)
+            best_state = {key: value.detach().cpu().clone() for key, value in classifier.state_dict().items()}
+            bad_epochs = 0
+        else:
+            bad_epochs += 1
+            if bad_epochs >= patience:
+                history[-1]["stopped_early"] = 1.0
+                break
+
+    classifier.load_state_dict(best_state)
+    predictions = {
+        split: _predict_from_embeddings(classifier, embeddings[split], labels[split], criterion, device, torch)
+        for split in ("train", "validation", "test")
+    }
+    metrics: dict[str, dict[str, Any]] = {}
+    prediction_frames = []
+    for split, pred in predictions.items():
+        split_metrics = binary_classification_metrics(pred["label"], pred["probability"], best_threshold)
+        split_metrics["loss"] = pred["loss"]
+        metrics[split] = split_metrics
+        frame = frames[split].reset_index(drop=True)
+        prediction_frames.append(
+            pd.DataFrame(
+                {
+                    "split": split,
+                    "idx": np.arange(len(frame)),
+                    "sequence": frame[config.dataset.sequence_field].astype(str),
+                    "label": frame[config.dataset.label_field].astype(int),
+                    "probability": pred["probability"],
+                    "threshold": best_threshold,
+                    "prediction": (pred["probability"] >= best_threshold).astype(int),
+                }
+            )
+        )
+
+    checkpoint_path = out_dir / "checkpoints" / "best_model.pt"
+    manifest = build_run_manifest(
+        config,
+        split_summary=summarize_split_frames(config, frames),
+        threshold=best_threshold,
+        model_metadata={
+            "mode": "frozen_embedding_classifier",
+            "pooling": pooling,
+            "freeze_encoder": True,
+            "embedding_cache_dir": str(embedding_dir),
+            "checkpoint": str(checkpoint_path),
+        },
+        extra={"status": "completed"},
+    )
+    write_benchmark_outputs(
+        out_dir,
+        manifest=manifest,
+        metrics=metrics,
+        predictions=pd.concat(prediction_frames, ignore_index=True),
+        history=pd.DataFrame(history),
+        config=config,
+    )
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(best_state, checkpoint_path)
+    return BenchmarkRunResult(output_dir=out_dir, status="completed", metrics=metrics, manifest=manifest)
+
+
 class _DnaBert2Classifier:
     def __init__(self, encoder: Any, hidden_size: int, pooling: str, dropout: float) -> None:
         from torch import nn
@@ -207,11 +358,7 @@ class _DnaBert2Classifier:
             def forward(self, input_ids: Any, attention_mask: Any) -> Any:
                 outputs = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
                 hidden = outputs.last_hidden_state
-                if self.pooling == "cls":
-                    pooled = hidden[:, 0, :]
-                else:
-                    mask = attention_mask.unsqueeze(-1).to(hidden.dtype)
-                    pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1.0)
+                pooled = _pool_hidden_states(hidden, attention_mask, self.pooling)
                 return self.head(self.dropout(pooled)).squeeze(-1)
 
         self._model = _Model()
@@ -236,6 +383,75 @@ def _encode_split(config: BenchmarkConfig, frame: pd.DataFrame, tokenizer: Any, 
     )
     labels = torch.tensor(frame[config.dataset.label_field].astype(int).to_numpy(), dtype=torch.float32)
     return _EncodedSplit(encoded["input_ids"], encoded["attention_mask"], labels)
+
+
+def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, local_files_only: bool) -> tuple[Any, Any]:
+    try:
+        from transformers import AutoModel, AutoTokenizer
+    except ModuleNotFoundError as exc:  # pragma: no cover - depends on optional extras
+        raise BenchmarkSkipped(
+            "DNABERT2 benchmark requires transformers. Install with `python -m pip install -e \".[torch]\"`."
+        ) from exc
+
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_name,
+            trust_remote_code=trust_remote_code,
+            local_files_only=local_files_only,
+        )
+        encoder = AutoModel.from_pretrained(
+            model_name,
+            trust_remote_code=trust_remote_code,
+            local_files_only=local_files_only,
+        )
+    except OSError as exc:
+        raise BenchmarkSkipped(
+            "DNABERT2 model/tokenizer files are not available locally. "
+            "Set model.params.allow_download=true only when the environment may download them."
+        ) from exc
+    return tokenizer, encoder
+
+
+def _extract_embeddings(encoder: Any, encoded: _EncodedSplit, *, pooling: str, device: Any, torch: Any) -> Any:
+    with torch.no_grad():
+        input_ids = encoded.input_ids.to(device)
+        attention_mask = encoded.attention_mask.to(device)
+        outputs = encoder(input_ids=input_ids, attention_mask=attention_mask)
+        return _pool_hidden_states(outputs.last_hidden_state, attention_mask, pooling).detach().cpu()
+
+
+def _pool_hidden_states(hidden: Any, attention_mask: Any, pooling: str) -> Any:
+    if pooling == "cls":
+        return hidden[:, 0, :]
+    mask = attention_mask.unsqueeze(-1).to(hidden.dtype)
+    return (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1.0)
+
+
+def _predict_from_embeddings(classifier: Any, embeddings: Any, labels: Any, criterion: Any, device: Any, torch: Any) -> dict[str, Any]:
+    classifier.eval()
+    with torch.no_grad():
+        logits = classifier(embeddings.to(device)).squeeze(-1)
+        target = labels.to(device)
+        loss = criterion(logits, target)
+        probs = torch.sigmoid(logits)
+    return {
+        "label": labels.detach().cpu().numpy().astype(int),
+        "probability": probs.detach().cpu().numpy().astype(float),
+        "loss": float(loss.item()),
+    }
+
+
+def _linear_warmup_scheduler(optimizer: Any, warmup_steps: int, total_steps: int) -> Any:
+    import torch
+
+    def lr_lambda(step: int) -> float:
+        if warmup_steps > 0 and step < warmup_steps:
+            return float(step + 1) / float(max(1, warmup_steps))
+        remaining = max(0, total_steps - step)
+        decay_steps = max(1, total_steps - warmup_steps)
+        return float(remaining) / float(decay_steps)
+
+    return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
 
 def _run_epoch(model: Any, loader: Any, criterion: Any, optimizer: Any, scheduler: Any, device: Any, torch: Any) -> float:

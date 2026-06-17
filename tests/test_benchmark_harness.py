@@ -1,5 +1,6 @@
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -309,6 +310,33 @@ def test_dnabert2_tokenization_pipeline_uses_shared_splits_and_metadata(tmp_path
     assert len(tokenized) == 4
 
 
+def test_dnabert2_frozen_embedding_baseline_uses_encoder_and_caches_embeddings(tmp_path):
+    torch = pytest.importorskip("torch")
+    from seqtrainer.torch.dnabert2_benchmark import run_dnabert2_csv_splits
+
+    config = load_benchmark_config(CONFIG_DIR / "dnabert2_frozen.toml")
+    _write_configured_split_files(config, tmp_path)
+    config = replace(
+        config,
+        training=replace(config.training, max_epochs=2, batch_size=2, learning_rate=0.01),
+        model=replace(config.model, params={**dict(config.model.params), "classifier_dropout": 0.0}),
+    )
+
+    result = run_dnabert2_csv_splits(
+        config,
+        base_dir=tmp_path,
+        output_dir=tmp_path / "dnabert2_frozen",
+        tokenizer=_TorchStubTokenizer(torch),
+        encoder=_TinyEncoder(torch),
+    )
+
+    assert result.status == "completed"
+    assert (tmp_path / "dnabert2_frozen" / "embeddings" / "train_embeddings.pt").exists()
+    assert (tmp_path / "dnabert2_frozen" / "checkpoints" / "best_model.pt").exists()
+    assert (tmp_path / "dnabert2_frozen" / "history.csv").exists()
+    assert result.manifest["model"]["metadata"]["embedding_cache_dir"]
+
+
 def test_ipromp_benchmark_writes_fastas_and_skipped_manifest(tmp_path):
     config = load_benchmark_config(CONFIG_DIR / "ipromp_external.toml")
     _write_configured_split_files(config, tmp_path)
@@ -463,4 +491,45 @@ class _StubTokenizer:
 
     def __len__(self):
         return 7
+
+
+class _TorchStubTokenizer:
+    def __init__(self, torch):
+        self.torch = torch
+
+    def __call__(self, sequences, **kwargs):
+        max_length = int(kwargs.get("max_length", 8))
+        ids, masks = [], []
+        for sequence in sequences:
+            row = [ord(base) % 7 + 1 for base in str(sequence)[:max_length]]
+            mask = [1] * len(row)
+            if kwargs.get("padding") in {"longest", "max_length"}:
+                target = max_length if kwargs.get("padding") == "max_length" else max(len(row), 1)
+                row = row + [0] * (target - len(row))
+                mask = mask + [0] * (target - len(mask))
+            ids.append(row)
+            masks.append(mask)
+        return {
+            "input_ids": self.torch.tensor(ids, dtype=self.torch.long),
+            "attention_mask": self.torch.tensor(masks, dtype=self.torch.long),
+        }
+
+
+class _TinyEncoder:
+    def __init__(self, torch):
+        self.torch = torch
+        self.config = SimpleNamespace(hidden_size=4)
+
+    def parameters(self):
+        return []
+
+    def to(self, device):
+        return self
+
+    def eval(self):
+        return self
+
+    def __call__(self, *, input_ids, attention_mask):
+        hidden = input_ids.float().unsqueeze(-1).repeat(1, 1, 4) / 10.0
+        return SimpleNamespace(last_hidden_state=hidden)
 

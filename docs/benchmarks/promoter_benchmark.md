@@ -88,6 +88,12 @@ Frozen encoder first:
 seqtrainer benchmark run config-examples/benchmarks/dnabert2_frozen.toml
 ```
 
+The frozen run loads `AutoTokenizer` and `AutoModel`, freezes DNABERT2, extracts
+train/validation/test embeddings, caches them under the run's `embeddings/`
+folder, and trains only a small classifier head. This is the first DNABERT2
+baseline to compare against CNN-v2 because it keeps transfer learning useful
+without immediately paying the full fine-tuning cost.
+
 Optional full fine-tuning:
 
 ```bash

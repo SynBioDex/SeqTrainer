@@ -1,7 +1,7 @@
 [experiment]
 name = "dnabert2_frozen_ep_genomic_order"
 task = "bacterial_promoter_prediction"
-description = "Frozen DNABERT2 encoder benchmark on the shared E. coli promoter classification split."
+description = "Frozen DNABERT2 encoder benchmark with cached pretrained embeddings on the shared E. coli promoter classification split."
 seed = 42
 
 [dataset]
@@ -50,6 +50,7 @@ trust_remote_code = true
 allow_download = false
 require_model_files = true
 classifier_dropout = 0.1
+cache_embeddings = true
 
 [training]
 seed = 42
