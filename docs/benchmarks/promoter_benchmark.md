@@ -1,0 +1,156 @@
+# Promoter Benchmark Workflow
+
+This benchmark compares promoter-sequence classifiers on the same bacterial
+promoter prediction split. The current model families are:
+
+- CNN reference baseline
+- CNN-v2 regularized candidate
+- DNABERT2 frozen encoder and optional fine-tuning
+- iPro-MP/iPromoter external prediction evaluation
+
+The expected research trajectory is CNN baseline < CNN-v2 < DNABERT2 <
+iPro-MP/iPromoter, but the actual ranking must come from the shared benchmark
+artifacts. Do not fabricate metrics or tune on the test set.
+
+## Why The Rules Matter
+
+All models must use the same train/validation/test CSV split because otherwise
+model differences can be caused by different data, not better learning.
+
+Thresholds are selected on the validation split only, usually by MCC. This
+prevents test leakage. The test split is held back for final reporting after the
+model and threshold have already been chosen.
+
+MCC and AUPRC are primary metrics because promoter datasets can become
+imbalanced. Accuracy is still reported, but it can look good even when a model
+misses many positives. MCC summarizes all four confusion-matrix cells, and AUPRC
+focuses on positive-class ranking quality.
+
+## Input CSV Format
+
+Each split CSV must contain at least:
+
+```text
+sequence,label
+ACGT...,1
+TGCA...,0
+```
+
+The benchmark configs currently point to:
+
+- `data/promoter_classification/train_EP_DNA_BERT2_genomic_order.csv`
+- `data/promoter_classification/eval_EP_DNA_BERT2_genomic_order.csv`
+- `data/promoter_classification/test_EP_DNA_BERT2_genomic_order.csv`
+
+These files are the shared split for CNN, DNABERT2, and iPro-MP/iPromoter.
+
+## Colab Setup
+
+```bash
+git clone https://github.com/simplyshree/SeqTrainer.git
+cd SeqTrainer
+git checkout issue-4-benchmark-harness-foundation
+python -m pip install --upgrade pip
+python -m pip install -e ".[torch]"
+```
+
+If using Google Drive data, mount Drive in a notebook and copy the three CSVs to
+`data/promoter_classification/`. If using the bundled archive, extract
+`data/data_DNABERT/promoter_classification_DNABERT.zip` so the same three CSV
+paths exist.
+
+## Run CNN Benchmarks
+
+```bash
+seqtrainer benchmark run config-examples/benchmarks/cnn.toml
+seqtrainer benchmark run config-examples/benchmarks/cnn_v2.toml
+```
+
+`cnn.toml` is the reproducible reference baseline. `cnn_v2.toml` uses AdamW,
+OneCycleLR, dropout, early stopping, validation-MCC threshold selection, and
+best-checkpoint selection.
+
+## Run DNABERT2
+
+Frozen encoder first:
+
+```bash
+seqtrainer benchmark run config-examples/benchmarks/dnabert2_frozen.toml
+```
+
+Optional full fine-tuning:
+
+```bash
+seqtrainer benchmark run config-examples/benchmarks/dnabert2_finetune.toml
+```
+
+DNABERT2 is dependency-gated. If `transformers`, `torch`, model files, tokenizer
+files, or compute resources are unavailable, the runner writes a skipped
+`manifest.json` instead of pretending metrics exist. To allow model download in
+Colab, set `model.params.allow_download = true` in the config for that run.
+
+## Prepare And Evaluate iPro-MP/iPromoter
+
+First generate FASTA files for external iPro-MP inference:
+
+```bash
+seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml
+```
+
+When no external prediction CSV is configured, this writes:
+
+```text
+outputs/benchmarks/ipromp_external_ep_genomic_order/ipromp_fasta/train.fasta
+outputs/benchmarks/ipromp_external_ep_genomic_order/ipromp_fasta/validation.fasta
+outputs/benchmarks/ipromp_external_ep_genomic_order/ipromp_fasta/test.fasta
+```
+
+After running iPro-MP externally, provide a prediction CSV with:
+
+```text
+split,label,probability
+validation,1,0.83
+test,0,0.12
+```
+
+The runner also accepts `score`, `positive_score`, or `promoter_score` instead
+of `probability`. Scores must be comparable across splits. Without probabilities
+or scores, AUROC, AUPRC, calibration, and validation-threshold selection cannot
+be computed.
+
+Set `model.params.predictions_csv` in `ipromp_external.toml`, then rerun:
+
+```bash
+seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml
+```
+
+## Compare Completed Runs
+
+After model runs finish:
+
+```bash
+seqtrainer benchmark compare outputs/benchmarks/* --output-dir outputs/benchmarks/comparison
+```
+
+This creates:
+
+- `comparison_metrics.csv`
+- `comparison_summary.md`
+
+The summary ranks models by held-out test MCC first and test AUPRC second. This
+ranking is only valid if every model used the same split files and selected its
+threshold on validation data.
+
+## Output Artifacts
+
+Each completed run should contain:
+
+- `metrics.csv`: flat split-wise metrics for quick reading
+- `metrics.json`: complete split-wise metrics
+- `predictions.csv`: row-level probabilities, selected threshold, and predicted labels
+- `manifest.json`: dataset, split, seed, model, threshold, runtime, and git metadata
+- `history.csv`: training history when training happens
+- `checkpoints/`: saved model state when training happens
+
+Skipped dependency-gated runs still write `manifest.json` and `config.json` so
+the missing dependency or model-file reason is reproducible.

@@ -15,8 +15,10 @@ The package benchmark harness uses one command shape for all model families:
 ```bash
 seqtrainer benchmark run config-examples/benchmarks/cnn.toml
 seqtrainer benchmark run config-examples/benchmarks/cnn_v2.toml
-seqtrainer benchmark run config-examples/benchmarks/dnabert2.toml
-seqtrainer benchmark run config-examples/benchmarks/ipromp.toml
+seqtrainer benchmark run config-examples/benchmarks/dnabert2_frozen.toml
+seqtrainer benchmark run config-examples/benchmarks/dnabert2_finetune.toml
+seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml
+seqtrainer benchmark compare outputs/benchmarks/* --output-dir outputs/benchmarks/comparison
 ```
 
 Use `--base-dir` when running from outside the repository root, and
@@ -63,8 +65,12 @@ the missing dependency or model-file reason is recorded.
 | --- | --- | ---: | ---: | ---: | --- |
 | CNN reference | `cnn.toml` | validation MCC |  |  | exact CNN baseline |
 | CNN-v2 | `cnn_v2.toml` | validation MCC |  |  | regularized CNN candidate |
-| DNABERT2 frozen | `dnabert2.toml` | validation MCC |  |  | dependency-gated until model files are available |
-| iPro-MP external | `ipromp.toml` | validation MCC |  |  | FASTA adapter / external prediction path |
+| DNABERT2 frozen | `dnabert2_frozen.toml` | validation MCC |  |  | dependency-gated until model files are available |
+| DNABERT2 fine-tune | `dnabert2_finetune.toml` | validation MCC |  |  | optional compute-heavy run |
+| iPro-MP external | `ipromp_external.toml` | validation MCC |  |  | FASTA adapter / external prediction path |
+
+The full Colab-ready runbook lives at
+[`docs/benchmarks/promoter_benchmark.md`](../../docs/benchmarks/promoter_benchmark.md).
 
 ## Reproducibility Rule
 

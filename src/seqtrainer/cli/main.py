@@ -67,6 +67,9 @@ def _build_parser() -> argparse.ArgumentParser:
     benchmark_manifest_nested.add_argument("config", type=Path)
     benchmark_manifest_nested.add_argument("--output-dir", type=Path)
     benchmark_manifest_nested.add_argument("--base-dir", type=Path, default=Path.cwd())
+    benchmark_compare = benchmark_sub.add_parser("compare", help="Compare completed benchmark artifact folders")
+    benchmark_compare.add_argument("artifact_dirs", nargs="+", type=Path)
+    benchmark_compare.add_argument("--output-dir", type=Path, required=True)
 
     sparql = subparsers.add_parser("sparql", help="SPARQL helpers")
     sparql_sub = sparql.add_subparsers(dest="sparql_command", required=True)
@@ -178,6 +181,14 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.benchmark_command == "manifest":
             return _write_benchmark_manifest(args.config, args.output_dir, args.base_dir)
+
+        if args.benchmark_command == "compare":
+            from seqtrainer.benchmarks import compare_benchmark_outputs
+
+            written = compare_benchmark_outputs(args.artifact_dirs, output_dir=args.output_dir)
+            print(f"comparison_metrics={written['comparison_metrics']}")
+            print(f"comparison_summary={written['comparison_summary']}")
+            return 0
 
     if args.command == "benchmark-manifest":
         return _write_benchmark_manifest(args.config, args.output_dir, args.base_dir)

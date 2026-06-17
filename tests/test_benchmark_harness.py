@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
@@ -5,6 +6,7 @@ import pytest
 
 from seqtrainer.benchmarks import (
     build_run_manifest,
+    compare_benchmark_outputs,
     decide_imbalance_policy,
     load_benchmark_config,
     load_predefined_split_frames,
@@ -275,7 +277,7 @@ output_dir = "outputs/ignored"
 
 
 def test_dnabert2_benchmark_gracefully_skips_without_local_model_files(tmp_path):
-    config = load_benchmark_config(CONFIG_DIR / "dnabert2.toml")
+    config = load_benchmark_config(CONFIG_DIR / "dnabert2_frozen.toml")
     _write_configured_split_files(config, tmp_path)
 
     result = run_benchmark(config, base_dir=tmp_path, output_dir=tmp_path / "dnabert2")
@@ -287,7 +289,7 @@ def test_dnabert2_benchmark_gracefully_skips_without_local_model_files(tmp_path)
 
 
 def test_ipromp_benchmark_writes_fastas_and_skipped_manifest(tmp_path):
-    config = load_benchmark_config(CONFIG_DIR / "ipromp.toml")
+    config = load_benchmark_config(CONFIG_DIR / "ipromp_external.toml")
     _write_configured_split_files(config, tmp_path)
 
     result = run_benchmark(config, base_dir=tmp_path, output_dir=tmp_path / "ipromp")
@@ -296,6 +298,77 @@ def test_ipromp_benchmark_writes_fastas_and_skipped_manifest(tmp_path):
     assert (tmp_path / "ipromp" / "manifest.json").exists()
     assert (tmp_path / "ipromp" / "ipromp_fasta" / "train.fasta").exists()
     assert "FASTA inputs were written" in result.manifest["extra"]["skip_reason"]
+
+
+def test_ipromp_external_predictions_are_evaluated_with_validation_threshold(tmp_path):
+    config = load_benchmark_config(CONFIG_DIR / "ipromp_external.toml")
+    _write_configured_split_files(config, tmp_path)
+    predictions_path = tmp_path / "ipromp_predictions.csv"
+    rows = []
+    for split in ("train", "validation", "test"):
+        rows.extend(
+            [
+                {"split": split, "label": 0, "score": 0.10},
+                {"split": split, "label": 1, "score": 0.80},
+                {"split": split, "label": 0, "score": 0.30},
+                {"split": split, "label": 1, "score": 0.70},
+            ]
+        )
+    pd.DataFrame(rows).to_csv(predictions_path, index=False)
+    config_with_predictions = replace(
+        config,
+        model=replace(
+            config.model,
+            params={**dict(config.model.params), "predictions_csv": str(predictions_path)},
+        ),
+    )
+
+    result = run_benchmark(config_with_predictions, base_dir=tmp_path, output_dir=tmp_path / "ipromp_eval")
+
+    assert result.status == "completed"
+    assert result.metrics["test"]["mcc"] == 1.0
+    predictions = pd.read_csv(tmp_path / "ipromp_eval" / "predictions.csv")
+    assert "probability" in predictions.columns
+
+
+def test_benchmark_compare_cli_and_helper_rank_test_metrics(tmp_path, capsys):
+    config = load_benchmark_config(CONFIG_DIR / "cnn.toml")
+    first = tmp_path / "model_a"
+    second = tmp_path / "model_b"
+    for out_dir, mcc, auprc in ((first, 0.2, 0.6), (second, 0.8, 0.9)):
+        manifest = build_run_manifest(
+            config,
+            split_summary={"test": {"rows": 2, "class_counts": {"0": 1, "1": 1}}},
+            threshold=0.5,
+        )
+        metrics = {
+            "test": {
+                "threshold": 0.5,
+                "accuracy": 0.75,
+                "balanced_accuracy": 0.75,
+                "precision": 0.75,
+                "recall": 0.75,
+                "f1": 0.75,
+                "mcc": mcc,
+                "sensitivity": 0.75,
+                "specificity": 0.75,
+                "auroc": 0.8,
+                "auprc": auprc,
+                "confusion_matrix": {"tn": 1, "fp": 0, "fn": 1, "tp": 2},
+            }
+        }
+        write_benchmark_outputs(out_dir, manifest=manifest, metrics=metrics, config=config)
+
+    helper_written = compare_benchmark_outputs([first, second], output_dir=tmp_path / "comparison_helper")
+    assert helper_written["comparison_metrics"].exists()
+    helper_frame = pd.read_csv(helper_written["comparison_metrics"])
+    assert helper_frame.iloc[0]["mcc"] == 0.8
+
+    exit_code = main(["benchmark", "compare", str(first), str(second), "--output-dir", str(tmp_path / "comparison_cli")])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "comparison_summary" in captured.out
+    assert (tmp_path / "comparison_cli" / "comparison_summary.md").exists()
 
 
 def test_imbalance_policy_uses_training_split_only():

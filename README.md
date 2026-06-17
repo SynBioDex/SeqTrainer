@@ -49,6 +49,9 @@ seqtrainer inspect-sbol data/sbol_data/sample_design_0.xml
 seqtrainer build-dataset data/sbol_data/sample_design_0.xml
 seqtrainer benchmark run config-examples/benchmarks/cnn.toml
 seqtrainer benchmark run config-examples/benchmarks/cnn_v2.toml
+seqtrainer benchmark run config-examples/benchmarks/dnabert2_frozen.toml
+seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml
+seqtrainer benchmark compare outputs/benchmarks/* --output-dir outputs/benchmarks/comparison
 ```
 
 Benchmark configs for CNN, CNN-v2, DNABERT2, and iPro-MP live in
@@ -57,6 +60,8 @@ as `metrics.csv`, `metrics.json`, `predictions.csv`, `manifest.json`, and model
 checkpoints when a model is trained. DNABERT2 and iPro-MP runs are
 dependency-gated so missing external model files are recorded as skipped
 manifests rather than silent failures.
+See `docs/benchmarks/promoter_benchmark.md` for the Colab-ready workflow and
+model comparison rules.
 
 ## Status
 

@@ -225,11 +225,13 @@ class _DnaBert2Classifier:
 
 def _encode_split(config: BenchmarkConfig, frame: pd.DataFrame, tokenizer: Any, torch: Any) -> _EncodedSplit:
     preprocessing = dict(config.preprocessing.params)
+    pad_to_multiple_of = preprocessing.get("pad_to_multiple_of")
     encoded = tokenizer(
         frame[config.dataset.sequence_field].astype(str).tolist(),
         padding=str(preprocessing.get("padding", "longest")),
         truncation=True,
         max_length=int(preprocessing.get("model_max_length", config.preprocessing.sequence_length or 512)),
+        pad_to_multiple_of=int(pad_to_multiple_of) if pad_to_multiple_of is not None else None,
         return_tensors="pt",
     )
     labels = torch.tensor(frame[config.dataset.label_field].astype(int).to_numpy(), dtype=torch.float32)

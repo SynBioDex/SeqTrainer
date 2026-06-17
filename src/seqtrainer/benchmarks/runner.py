@@ -120,6 +120,11 @@ def _run_dnabert2(
         if not allow_skip:
             raise
         return _write_skipped_result(config, base_dir=base_dir, output_dir=output_dir, reason=str(exc))
+    except RuntimeError as exc:
+        if not allow_skip or not _looks_like_resource_error(exc):
+            raise
+        reason = f"DNABERT2 benchmark could not run with the available compute resources: {exc}"
+        return _write_skipped_result(config, base_dir=base_dir, output_dir=output_dir, reason=reason)
 
 
 def _run_ipromp(
@@ -179,10 +184,15 @@ def _evaluate_external_predictions(
     frames = load_predefined_split_frames(config, base_dir=base_dir)
     split_summary = summarize_split_frames(config, frames)
     predictions = pd.read_csv(pred_path)
-    required = {"split", "label", "probability"}
+    required = {"split", "label"}
     missing = required.difference(predictions.columns)
     if missing:
         raise ValueError(f"External predictions are missing required columns: {sorted(missing)}")
+    score_column = _prediction_score_column(predictions)
+    if score_column is None:
+        raise ValueError("External predictions require a probability or score column for AUROC/AUPRC and thresholding")
+    if score_column != "probability":
+        predictions = predictions.rename(columns={score_column: "probability"})
 
     threshold = _select_threshold(config, predictions)
     predictions = predictions.copy()
@@ -209,6 +219,13 @@ def _evaluate_external_predictions(
     )
     write_benchmark_outputs(output_dir, manifest=manifest, metrics=metrics, predictions=predictions, config=config)
     return BenchmarkRunResult(output_dir=output_dir, status="completed", metrics=metrics, manifest=manifest)
+
+
+def _prediction_score_column(predictions: pd.DataFrame) -> str | None:
+    for column in ("probability", "score", "positive_score", "promoter_score"):
+        if column in predictions.columns:
+            return column
+    return None
 
 
 def _write_skipped_result(
@@ -271,6 +288,11 @@ def _resolve_device(device: str) -> str:
         return "cuda" if torch.cuda.is_available() else "cpu"
     except ModuleNotFoundError:
         return "cpu"
+
+
+def _looks_like_resource_error(exc: RuntimeError) -> bool:
+    message = str(exc).lower()
+    return any(fragment in message for fragment in ("out of memory", "cuda", "cudnn", "mps"))
 
 
 def _optional_int(value: Any) -> int | None:

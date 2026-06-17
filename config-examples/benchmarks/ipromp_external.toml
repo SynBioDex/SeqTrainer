@@ -1,0 +1,82 @@
+[experiment]
+name = "ipromp_external_ep_genomic_order"
+task = "bacterial_promoter_prediction"
+description = "iPro-MP/iPromoter external prediction benchmark on the shared E. coli promoter classification split."
+seed = 42
+
+[dataset]
+name = "ep_dnabert2_genomic_order"
+format = "csv"
+source_accession = "GSE144621"
+source_url = "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE144621"
+version = "EP_DNA_BERT2_genomic_order"
+sequence_field = "sequence"
+label_field = "label"
+
+[dataset.split_files]
+train = "data/promoter_classification/train_EP_DNA_BERT2_genomic_order.csv"
+validation = "data/promoter_classification/eval_EP_DNA_BERT2_genomic_order.csv"
+test = "data/promoter_classification/test_EP_DNA_BERT2_genomic_order.csv"
+
+[label]
+source = "provided_binary"
+positive_label = 1
+negative_label = 0
+
+[split]
+strategy = "predefined"
+seed = 42
+validation_name = "eval"
+
+[preprocessing]
+encoding = "fasta_adapter"
+sequence_length = 300
+pad_or_trim = false
+
+[model]
+family = "ipromp"
+name = "ipromp_ecoli_pretrained"
+version = "pin_external_model_files_before_final_report"
+
+[model.params]
+adapter_mode = "external_fasta_prediction"
+dependency = "dnabert6"
+pretrained_files = "document_download_before_run"
+# After external iPro-MP prediction, set this to a CSV with columns:
+# split,label,probability. The runner also accepts score, positive_score, or promoter_score.
+# predictions_csv = "outputs/benchmarks/ipromp_external_predictions.csv"
+
+[training]
+seed = 42
+batch_size = 1
+max_epochs = 0
+learning_rate = 0.0
+
+[training.params]
+mode = "external_inference_only"
+
+[evaluation]
+primary_metric = "mcc"
+threshold_strategy = "validation_mcc"
+metrics = [
+  "accuracy",
+  "balanced_accuracy",
+  "auroc",
+  "auprc",
+  "f1",
+  "mcc",
+  "precision",
+  "sensitivity",
+  "specificity",
+  "confusion_matrix",
+]
+
+[outputs]
+output_dir = "outputs/benchmarks/ipromp_external_ep_genomic_order"
+save_json = true
+save_csv = true
+save_predictions = true
+
+[environment]
+device = "auto"
+precision = "float32"

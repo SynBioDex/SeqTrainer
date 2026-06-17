@@ -1,6 +1,7 @@
 """Benchmark configuration, split, manifest, and artifact helpers."""
 
 from .artifacts import write_benchmark_outputs, write_json, write_metrics_csv, write_table_csv
+from .compare import compare_benchmark_outputs
 from .config import (
     BenchmarkConfig,
     ConfigValidationError,
@@ -19,6 +20,7 @@ __all__ = [
     "ConfigValidationError",
     "REQUIRED_CLASSIFICATION_METRICS",
     "build_run_manifest",
+    "compare_benchmark_outputs",
     "decide_imbalance_policy",
     "git_metadata",
     "ImbalancePolicy",
