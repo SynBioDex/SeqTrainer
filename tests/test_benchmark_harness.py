@@ -334,6 +334,8 @@ def test_dnabert2_frozen_embedding_baseline_uses_encoder_and_caches_embeddings(t
     assert (tmp_path / "dnabert2_frozen" / "embeddings" / "train_embeddings.pt").exists()
     assert (tmp_path / "dnabert2_frozen" / "checkpoints" / "best_model.pt").exists()
     assert (tmp_path / "dnabert2_frozen" / "history.csv").exists()
+    history = pd.read_csv(tmp_path / "dnabert2_frozen" / "history.csv")
+    assert {"train_loss", "validation_loss", "validation_mcc", "learning_rate"}.issubset(history.columns)
     assert result.manifest["model"]["metadata"]["embedding_cache_dir"]
 
 

@@ -50,6 +50,7 @@ trust_remote_code = true
 allow_download = false
 require_model_files = true
 classifier_dropout = 0.1
+fine_tuning_scope = "all_encoder_layers"
 
 [training]
 seed = 42
@@ -63,6 +64,8 @@ loss = "bce_with_logits"
 warmup_ratio = 0.1
 weight_decay = 0.01
 early_stopping_patience = 2
+early_stopping_metric = "validation_mcc"
+diagnostics = ["train_loss", "validation_loss", "validation_mcc", "learning_rate"]
 
 [evaluation]
 primary_metric = "mcc"

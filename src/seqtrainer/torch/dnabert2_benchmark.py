@@ -131,8 +131,10 @@ def run_dnabert2_csv_splits(
             {
                 "epoch": float(epoch),
                 "train_loss": float(train_loss),
+                "validation_loss": float(validation["loss"]),
                 "validation_mcc": float(validation_mcc),
                 "validation_threshold": float(threshold),
+                "learning_rate": float(optimizer.param_groups[0]["lr"]),
             }
         )
         if validation_mcc > best_mcc:
@@ -180,6 +182,10 @@ def run_dnabert2_csv_splits(
             "pooling": params.get("pooling", "mean"),
             "freeze_encoder": freeze_encoder,
             "checkpoint": str(checkpoint_path),
+            "pos_weight": float(pos_weight.item()),
+            "optimizer": "adamw",
+            "warmup_ratio": float(train_params.get("warmup_ratio", 0.0)),
+            "early_stopping_metric": "validation_mcc",
         },
         extra={"status": "completed"},
     )
@@ -275,8 +281,10 @@ def _run_frozen_embedding_classifier(
             {
                 "epoch": float(epoch),
                 "train_loss": float(train_loss.item()),
+                "validation_loss": float(validation["loss"]),
                 "validation_mcc": float(validation_mcc),
                 "validation_threshold": float(threshold),
+                "learning_rate": float(optimizer.param_groups[0]["lr"]),
             }
         )
         if validation_mcc > best_mcc:
@@ -327,6 +335,10 @@ def _run_frozen_embedding_classifier(
             "freeze_encoder": True,
             "embedding_cache_dir": str(embedding_dir),
             "checkpoint": str(checkpoint_path),
+            "pos_weight": float(criterion.pos_weight.item()) if getattr(criterion, "pos_weight", None) is not None else None,
+            "optimizer": "adamw",
+            "warmup_ratio": float(train_params.get("warmup_ratio", 0.0)),
+            "early_stopping_metric": "validation_mcc",
         },
         extra={"status": "completed"},
     )

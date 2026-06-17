@@ -100,6 +100,11 @@ Optional full fine-tuning:
 seqtrainer benchmark run config-examples/benchmarks/dnabert2_finetune.toml
 ```
 
+The fine-tuning config is compute-heavy and GPU-gated. It uses a lower learning
+rate, AdamW, warmup, early stopping by validation MCC, and best-checkpoint
+selection. Inspect `history.csv` for train loss, validation loss, validation MCC,
+selected threshold, and learning rate to decide whether the model is overfitting.
+
 DNABERT2 is dependency-gated. If `transformers`, `torch`, model files, tokenizer
 files, or compute resources are unavailable, the runner writes a skipped
 `manifest.json` instead of pretending metrics exist. To allow model/tokenizer
