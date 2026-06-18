@@ -87,6 +87,15 @@ Open:
 
 - [DNABERT2 shared split benchmark in Colab](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/dnabert_benchmark/dnabert2_shared_split_benchmark_colab.ipynb)
 
+If Colab shows a fetch error for the direct link, use either fallback:
+
+- Open the notebook on GitHub first, then choose **Open in Colab**:
+  [GitHub notebook view](https://github.com/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/dnabert_benchmark/dnabert2_shared_split_benchmark_colab.ipynb)
+- In Colab, choose **File > Open notebook > GitHub**, paste
+  `simplyshree/SeqTrainer`, select branch `issue-3-cnn-baseline-reproduction`,
+  and open
+  `notebooks/benchmarks/dnabert_benchmark/dnabert2_shared_split_benchmark_colab.ipynb`.
+
 Use a GPU runtime:
 
 ```text

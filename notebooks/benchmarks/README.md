@@ -51,7 +51,7 @@ metric policy before considering any fine-tuning work.
 
 - [CNN reference benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/cnn_benchmark/cnn_reference_benchmark_colab.ipynb)
 - [CNN-v2 final benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/cnn_benchmark/cnn_v2_final_benchmark_colab.ipynb)
-- [DNABERT2 shared split benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/model-dnabert2-benchmark-notebooks/notebooks/benchmarks/dnabert_benchmark/dnabert2_shared_split_benchmark_colab.ipynb)
+- [DNABERT2 shared split benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/dnabert_benchmark/dnabert2_shared_split_benchmark_colab.ipynb)
 
 After the notebook branches merge, replace the branch names in those URLs with
 `dev`.
