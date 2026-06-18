@@ -419,9 +419,8 @@ def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, loca
         )
         _ensure_pad_token_id(config, tokenizer)
         if "dnabert-2" in model_name.lower():
-            encoder = _load_dnabert2_encoder_from_sequence_classifier(
+            encoder = _load_dnabert2_official_encoder(
                 model_name,
-                config=config,
                 trust_remote_code=trust_remote_code,
                 local_files_only=local_files_only,
             )
@@ -495,6 +494,30 @@ def _load_dnabert2_from_state_dict(
         state_dict = state_dict["state_dict"]
     encoder.load_state_dict(state_dict, strict=False)
     return encoder
+
+
+def _load_dnabert2_official_encoder(
+    model_name: str,
+    *,
+    trust_remote_code: bool,
+    local_files_only: bool,
+) -> Any:
+    """Load DNABERT2 with the simple path documented on its model card."""
+    from transformers import AutoModel
+
+    try:
+        return AutoModel.from_pretrained(
+            model_name,
+            trust_remote_code=trust_remote_code,
+            local_files_only=local_files_only,
+            dtype="auto",
+        )
+    except TypeError:
+        return AutoModel.from_pretrained(
+            model_name,
+            trust_remote_code=trust_remote_code,
+            local_files_only=local_files_only,
+        )
 
 
 def _load_dnabert2_encoder_from_sequence_classifier(
