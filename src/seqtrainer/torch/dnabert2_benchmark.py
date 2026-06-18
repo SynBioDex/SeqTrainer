@@ -419,7 +419,7 @@ def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, loca
         )
         _ensure_pad_token_id(config, tokenizer)
         if "dnabert-2" in model_name.lower():
-            encoder = _load_dnabert2_from_state_dict(
+            encoder = _load_dnabert2_encoder_from_sequence_classifier(
                 model_name,
                 config=config,
                 trust_remote_code=trust_remote_code,
@@ -495,6 +495,32 @@ def _load_dnabert2_from_state_dict(
         state_dict = state_dict["state_dict"]
     encoder.load_state_dict(state_dict, strict=False)
     return encoder
+
+
+def _load_dnabert2_encoder_from_sequence_classifier(
+    model_name: str,
+    *,
+    config: Any,
+    trust_remote_code: bool,
+    local_files_only: bool,
+) -> Any:
+    """Load DNABERT2 through the sequence-classification path used upstream."""
+    from transformers import AutoModelForSequenceClassification
+
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_name,
+        trust_remote_code=trust_remote_code,
+        local_files_only=local_files_only,
+        config=config,
+        num_labels=2,
+        low_cpu_mem_usage=False,
+        device_map=None,
+    )
+    for attr in ("bert", "base_model", "encoder"):
+        encoder = getattr(model, attr, None)
+        if encoder is not None:
+            return encoder
+    raise RuntimeError("Could not locate the DNABERT2 encoder inside the sequence-classification model.")
 
 
 def _extract_embeddings(encoder: Any, encoded: _EncodedSplit, *, pooling: str, device: Any, torch: Any) -> Any:
