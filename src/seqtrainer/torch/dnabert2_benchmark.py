@@ -416,8 +416,7 @@ def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, loca
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
         )
-        if not hasattr(config, "pad_token_id") or config.pad_token_id is None:
-            config.pad_token_id = tokenizer.pad_token_id
+        config.pad_token_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
         encoder = AutoModel.from_pretrained(
             model_name,
             trust_remote_code=trust_remote_code,
