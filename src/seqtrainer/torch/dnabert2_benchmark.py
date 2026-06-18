@@ -51,14 +51,15 @@ def run_dnabert2_csv_splits(
     local_files_only = not allow_download
     trust_remote_code = bool(params.get("trust_remote_code", True))
 
+    device = _resolve_device(config.environment.device, torch)
+
     if tokenizer is None or encoder is None:
         tokenizer, encoder = _load_huggingface_dnabert2(
             config.model.name,
+            device=device,
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
         )
-
-    device = _resolve_device(config.environment.device, torch)
     freeze_encoder = str(params.get("mode", "frozen_embedding_classifier")) != "full_finetune"
     if freeze_encoder:
         for parameter in encoder.parameters():
@@ -397,9 +398,15 @@ def _encode_split(config: BenchmarkConfig, frame: pd.DataFrame, tokenizer: Any, 
     return _EncodedSplit(encoded["input_ids"], encoded["attention_mask"], labels)
 
 
-def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, local_files_only: bool) -> tuple[Any, Any]:
+def _load_huggingface_dnabert2(
+    model_name: str,
+    *,
+    device: Any,
+    trust_remote_code: bool,
+    local_files_only: bool,
+) -> tuple[Any, Any]:
     try:
-        from transformers import AutoConfig, AutoModel, AutoTokenizer
+        from transformers import AutoModel, AutoTokenizer
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on optional extras
         raise BenchmarkSkipped(
             "DNABERT2 benchmark requires transformers. Install with `python -m pip install -e \".[torch]\"`."
@@ -411,35 +418,29 @@ def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, loca
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
         )
-        _patch_bert_config_pad_token_id(tokenizer.pad_token_id)
-        config = AutoConfig.from_pretrained(
+        model = AutoModel.from_pretrained(
             model_name,
             trust_remote_code=trust_remote_code,
+            low_cpu_mem_usage=False,
+            device_map=None,
             local_files_only=local_files_only,
         )
-        _ensure_pad_token_id(config, tokenizer)
-        if "dnabert-2" in model_name.lower():
-            encoder = _load_dnabert2_official_encoder(
-                model_name,
-                trust_remote_code=trust_remote_code,
-                local_files_only=local_files_only,
+        meta_params = [name for name, parameter in model.named_parameters() if parameter.is_meta]
+        if meta_params:
+            raise RuntimeError(
+                "DNABERT2 loaded with parameters on the meta device. "
+                "Reload with low_cpu_mem_usage=False and device_map=None. "
+                f"Example meta params: {meta_params[:5]}"
             )
-        else:
-            encoder = AutoModel.from_pretrained(
-                model_name,
-                trust_remote_code=trust_remote_code,
-                local_files_only=local_files_only,
-                config=config,
-                low_cpu_mem_usage=False,
-                device_map=None,
-            )
-        _ensure_pad_token_id(encoder.config, tokenizer)
+        _ensure_pad_token_id(model.config, tokenizer)
+        model.to(device)
+        model.eval()
     except OSError as exc:
         raise BenchmarkSkipped(
             "DNABERT2 model/tokenizer files are not available locally. "
             "Set model.params.allow_download=true only when the environment may download them."
         ) from exc
-    return tokenizer, encoder
+    return tokenizer, model
 
 
 def _ensure_pad_token_id(config: Any, tokenizer: Any) -> None:
@@ -548,10 +549,12 @@ def _load_dnabert2_encoder_from_sequence_classifier(
 
 def _extract_embeddings(encoder: Any, encoded: _EncodedSplit, *, pooling: str, device: Any, torch: Any) -> Any:
     with torch.no_grad():
-        input_ids = encoded.input_ids.to(device)
-        attention_mask = encoded.attention_mask.to(device)
-        outputs = encoder(input_ids=input_ids, attention_mask=attention_mask)
-        return _pool_hidden_states(outputs.last_hidden_state, attention_mask, pooling).detach().cpu()
+        batch = {
+            "input_ids": encoded.input_ids.to(device),
+            "attention_mask": encoded.attention_mask.to(device),
+        }
+        outputs = encoder(**batch)
+        return _pool_hidden_states(outputs.last_hidden_state, batch["attention_mask"], pooling).detach().cpu()
 
 
 def _pool_hidden_states(hidden: Any, attention_mask: Any, pooling: str) -> Any:
