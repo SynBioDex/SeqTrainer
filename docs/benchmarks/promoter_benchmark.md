@@ -55,9 +55,19 @@ python -m pip install -e ".[torch]"
 ```
 
 If using Google Drive data, mount Drive in a notebook and copy the three CSVs to
-`data/promoter_classification/`. If using the bundled archive, extract
-`data/data_DNABERT/promoter_classification_DNABERT.zip` so the same three CSV
-paths exist.
+`data/promoter_classification/`. The shared Drive folder used for the CNN and
+DNABERT2 runs is:
+
+```text
+/content/drive/MyDrive/AIxBio/Promoter Classification/Data
+```
+
+Drive folder link:
+`https://drive.google.com/drive/folders/1rH47oJEjQjkJvHXKX_rwDjDb--dGPGx2`
+
+It should contain the same three split files listed above. If using the bundled
+archive, extract `data/data_DNABERT/promoter_classification_DNABERT.zip` so the
+same three CSV paths exist.
 
 ## Run CNN Benchmarks
 
@@ -111,6 +121,12 @@ files, or compute resources are unavailable, the runner writes a skipped
 download in Colab, set `model.params.allow_download = true` in the config for
 that run. Keep the downloaded model revision recorded in the run artifacts before
 using the results in a report.
+
+The runner first tries explicit `AutoTokenizer` + `AutoConfig` + `AutoModel`
+loading with `pad_token_id` patched from the tokenizer. If the model still loads
+with meta-device parameters in Colab, it automatically falls back to the CPU
+state-dict loader before skipping. This keeps the fix in the package runner
+rather than in notebook-only retry code.
 
 ## Prepare And Evaluate iPro-MP/iPromoter
 

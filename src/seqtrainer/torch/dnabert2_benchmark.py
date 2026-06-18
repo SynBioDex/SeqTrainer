@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -55,6 +56,8 @@ def run_dnabert2_csv_splits(
     trust_remote_code = bool(params.get("trust_remote_code", True))
 
     device = _resolve_device(config.environment.device, torch)
+    run_started = time.perf_counter()
+    _reset_peak_memory(torch, device)
 
     if tokenizer is None or encoder is None:
         tokenizer, encoder = _load_huggingface_dnabert2(
@@ -103,6 +106,7 @@ def run_dnabert2_csv_splits(
             device=device,
             torch=torch,
             nn=nn,
+            run_started=run_started,
             output_dir=output_dir,
         )
 
@@ -190,6 +194,9 @@ def run_dnabert2_csv_splits(
             "optimizer": "adamw",
             "warmup_ratio": float(train_params.get("warmup_ratio", 0.0)),
             "early_stopping_metric": "validation_mcc",
+            "resolved_device": str(device),
+            "runtime_seconds": float(time.perf_counter() - run_started),
+            "peak_memory_mb": _peak_memory_mb(torch, device),
         },
         extra={
             "status": "completed",
@@ -225,6 +232,7 @@ def _run_frozen_embedding_classifier(
     device: Any,
     torch: Any,
     nn: Any,
+    run_started: float,
     output_dir: str | Path | None,
 ) -> BenchmarkRunResult:
     params = dict(config.model.params)
@@ -354,6 +362,9 @@ def _run_frozen_embedding_classifier(
             "optimizer": "adamw",
             "warmup_ratio": float(train_params.get("warmup_ratio", 0.0)),
             "early_stopping_metric": "validation_mcc",
+            "resolved_device": str(device),
+            "runtime_seconds": float(time.perf_counter() - run_started),
+            "peak_memory_mb": _peak_memory_mb(torch, device),
         },
         extra={
             "status": "completed",
@@ -417,8 +428,11 @@ def _encode_split(config: BenchmarkConfig, frame: pd.DataFrame, tokenizer: Any, 
         pad_to_multiple_of=int(pad_to_multiple_of) if pad_to_multiple_of is not None else None,
         return_tensors="pt",
     )
+    attention_mask = encoded.get("attention_mask")
+    if attention_mask is None:
+        attention_mask = torch.ones_like(encoded["input_ids"])
     labels = torch.tensor(frame[config.dataset.label_field].astype(int).to_numpy(), dtype=torch.float32)
-    return _EncodedSplit(encoded["input_ids"], encoded["attention_mask"], labels)
+    return _EncodedSplit(encoded["input_ids"], attention_mask, labels)
 
 
 def _load_huggingface_dnabert2(
@@ -441,13 +455,14 @@ def _load_huggingface_dnabert2(
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
         )
-        _patch_bert_config_pad_token_id(tokenizer.pad_token_id)
+        pad_token_id = _safe_pad_token_id(tokenizer)
+        _patch_bert_config_pad_token_id(pad_token_id)
         config = AutoConfig.from_pretrained(
             model_name,
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
         )
-        _ensure_pad_token_id(config, tokenizer)
+        _set_pad_token_id(config, pad_token_id)
         model = AutoModel.from_pretrained(
             model_name,
             trust_remote_code=trust_remote_code,
@@ -456,15 +471,38 @@ def _load_huggingface_dnabert2(
             local_files_only=local_files_only,
             config=config,
         )
-        meta_params = [name for name, parameter in model.named_parameters() if parameter.is_meta]
+        meta_params = _meta_parameter_names(model)
+        if meta_params:
+            try:
+                model = _load_dnabert2_from_state_dict(
+                    model_name,
+                    config=config,
+                    trust_remote_code=trust_remote_code,
+                    local_files_only=local_files_only,
+                )
+            except Exception as fallback_exc:
+                raise BenchmarkSkipped(
+                    "DNABERT2 loaded with parameters on the meta device and the CPU state-dict "
+                    "fallback also failed. "
+                    f"Example meta params: {meta_params[:5]}. Fallback error: {fallback_exc}"
+                ) from fallback_exc
+            meta_params = _meta_parameter_names(model)
+            if meta_params:
+                raise BenchmarkSkipped(
+                    "DNABERT2 still has parameters on the meta device after state-dict fallback. "
+                    f"Example meta params: {meta_params[:5]}"
+                )
+        _set_pad_token_id(getattr(model, "config", None), pad_token_id)
+        generation_config = getattr(model, "generation_config", None)
+        if generation_config is not None:
+            _set_pad_token_id(generation_config, pad_token_id)
+        model.to(device)
+        meta_params = _meta_parameter_names(model)
         if meta_params:
             raise BenchmarkSkipped(
-                "DNABERT2 loaded with parameters on the meta device. "
-                "Reload with low_cpu_mem_usage=False and device_map=None. "
+                "DNABERT2 parameters remained on the meta device after moving to the target device. "
                 f"Example meta params: {meta_params[:5]}"
             )
-        _ensure_pad_token_id(model.config, tokenizer)
-        model.to(device)
         model.eval()
     except AttributeError as exc:
         if "pad_token_id" not in str(exc):
@@ -482,17 +520,28 @@ def _load_huggingface_dnabert2(
 
 
 def _ensure_pad_token_id(config: Any, tokenizer: Any) -> None:
-    pad_token_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
-    config.pad_token_id = pad_token_id
-    setattr(config, "pad_token_id", pad_token_id)
+    _set_pad_token_id(config, _safe_pad_token_id(tokenizer))
+
+
+def _safe_pad_token_id(tokenizer: Any) -> int:
+    return int(tokenizer.pad_token_id) if getattr(tokenizer, "pad_token_id", None) is not None else 0
+
+
+def _set_pad_token_id(target: Any, pad_token_id: int) -> None:
+    if target is None:
+        return
     try:
-        setattr(config.__class__, "pad_token_id", pad_token_id)
+        setattr(target, "pad_token_id", pad_token_id)
     except (AttributeError, TypeError):
         pass
-    if hasattr(config, "__dict__"):
-        config.__dict__["pad_token_id"] = pad_token_id
-    if hasattr(config, "update"):
-        config.update({"pad_token_id": pad_token_id})
+    try:
+        setattr(target.__class__, "pad_token_id", pad_token_id)
+    except (AttributeError, TypeError):
+        pass
+    if hasattr(target, "__dict__"):
+        target.__dict__["pad_token_id"] = pad_token_id
+    if hasattr(target, "update"):
+        target.update({"pad_token_id": pad_token_id})
 
 
 def _patch_bert_config_pad_token_id(pad_token_id: int | None) -> None:
@@ -505,6 +554,14 @@ def _patch_bert_config_pad_token_id(pad_token_id: int | None) -> None:
         setattr(BertConfig, "pad_token_id", pad_token_id)
     except Exception:
         return
+
+
+def _meta_parameter_names(model: Any) -> list[str]:
+    return [
+        name
+        for name, parameter in model.named_parameters()
+        if getattr(parameter, "is_meta", False)
+    ]
 
 
 def _load_dnabert2_from_state_dict(
@@ -593,8 +650,8 @@ def _load_dnabert2_encoder_from_sequence_classifier(
 def _extract_embeddings(encoder: Any, encoded: _EncodedSplit, *, pooling: str, device: Any, torch: Any) -> Any:
     with torch.no_grad():
         batch = {
-            "input_ids": encoded.input_ids.to(device),
-            "attention_mask": encoded.attention_mask.to(device),
+            "input_ids": _tensor_to_device(encoded.input_ids, device),
+            "attention_mask": _tensor_to_device(encoded.attention_mask, device),
         }
         outputs = encoder(**batch)
         return _pool_hidden_states(outputs.last_hidden_state, batch["attention_mask"], pooling).detach().cpu()
@@ -611,7 +668,7 @@ def _predict_from_embeddings(classifier: Any, embeddings: Any, labels: Any, crit
     classifier.eval()
     with torch.no_grad():
         logits = classifier(embeddings.to(device)).squeeze(-1)
-        target = labels.to(device)
+        target = _tensor_to_device(labels, device)
         loss = criterion(logits, target)
         probs = torch.sigmoid(logits)
     return {
@@ -639,9 +696,9 @@ def _run_epoch(model: Any, loader: Any, criterion: Any, optimizer: Any, schedule
     total_loss, total = 0.0, 0
     for input_ids, attention_mask, labels in loader:
         optimizer.zero_grad(set_to_none=True)
-        input_ids = input_ids.to(device)
-        attention_mask = attention_mask.to(device)
-        labels = labels.to(device)
+        input_ids = _tensor_to_device(input_ids, device)
+        attention_mask = _tensor_to_device(attention_mask, device)
+        labels = _tensor_to_device(labels, device)
         logits = model(input_ids, attention_mask)
         loss = criterion(logits, labels)
         loss.backward()
@@ -658,9 +715,9 @@ def _predict(model: Any, loader: Any, criterion: Any, device: Any, torch: Any) -
     total_loss, total = 0.0, 0
     with torch.no_grad():
         for input_ids, attention_mask, labels in loader:
-            input_ids = input_ids.to(device)
-            attention_mask = attention_mask.to(device)
-            labels = labels.to(device)
+            input_ids = _tensor_to_device(input_ids, device)
+            attention_mask = _tensor_to_device(attention_mask, device)
+            labels = _tensor_to_device(labels, device)
             logits = model(input_ids, attention_mask)
             loss = criterion(logits, labels)
             probs = torch.sigmoid(logits)
@@ -692,3 +749,25 @@ def _resolve_device(device: str, torch: Any) -> Any:
     if device == "auto":
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
     return torch.device(device)
+
+
+def _tensor_to_device(tensor: Any, device: Any) -> Any:
+    return tensor.to(device, non_blocking=getattr(device, "type", None) == "cuda")
+
+
+def _reset_peak_memory(torch: Any, device: Any) -> None:
+    if getattr(device, "type", None) != "cuda":
+        return
+    try:
+        torch.cuda.reset_peak_memory_stats(device)
+    except Exception:
+        pass
+
+
+def _peak_memory_mb(torch: Any, device: Any) -> float | None:
+    if getattr(device, "type", None) != "cuda":
+        return None
+    try:
+        return float(torch.cuda.max_memory_allocated(device) / (1024 * 1024))
+    except Exception:
+        return None

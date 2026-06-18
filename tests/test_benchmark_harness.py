@@ -305,8 +305,8 @@ def test_dnabert2_pad_token_patch_defaults_to_tokenizer_or_zero():
     assert config.pad_token_id == 7
 
 
-def test_dnabert2_loader_skips_meta_device_model(monkeypatch):
-    from seqtrainer.benchmarks.runner import BenchmarkSkipped
+def test_dnabert2_loader_uses_state_dict_fallback_for_meta_device_model(monkeypatch):
+    import seqtrainer.torch.dnabert2_benchmark as dnabert2_benchmark
     from seqtrainer.torch.dnabert2_benchmark import _load_huggingface_dnabert2
 
     class _FakeAutoTokenizer:
@@ -328,11 +328,83 @@ def test_dnabert2_loader_skips_meta_device_model(monkeypatch):
             return _FakeConfig()
 
     class _FakeParameter:
-        is_meta = True
+        def __init__(self, is_meta):
+            self.is_meta = is_meta
 
     class _FakeModel:
-        def __init__(self, config):
+        def __init__(self, config, *, is_meta):
             self.config = config
+            self.is_meta = is_meta
+
+        def named_parameters(self):
+            return [("encoder.weight", _FakeParameter(self.is_meta))]
+
+        def to(self, device):
+            self.device = device
+            return self
+
+        def eval(self):
+            self.eval_called = True
+            return self
+
+    class _FakeAutoModel:
+        @staticmethod
+        def from_pretrained(*args, **kwargs):
+            return _FakeModel(kwargs["config"], is_meta=True)
+
+    fake_transformers = types.ModuleType("transformers")
+    fake_transformers.AutoTokenizer = _FakeAutoTokenizer
+    fake_transformers.AutoConfig = _FakeAutoConfig
+    fake_transformers.AutoModel = _FakeAutoModel
+    monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
+    fallback_calls = []
+
+    def _fake_state_dict_loader(*args, **kwargs):
+        fallback_calls.append((args, kwargs))
+        return _FakeModel(kwargs["config"], is_meta=False)
+
+    monkeypatch.setattr(dnabert2_benchmark, "_load_dnabert2_from_state_dict", _fake_state_dict_loader)
+
+    tokenizer, encoder = _load_huggingface_dnabert2(
+        "fake/dnabert2",
+        device="cpu",
+        trust_remote_code=True,
+        local_files_only=True,
+    )
+
+    assert tokenizer.pad_token_id == 5
+    assert encoder.is_meta is False
+    assert encoder.config.pad_token_id == 5
+    assert fallback_calls
+
+
+def test_dnabert2_loader_skips_when_state_dict_fallback_still_has_meta_params(monkeypatch):
+    import seqtrainer.torch.dnabert2_benchmark as dnabert2_benchmark
+    from seqtrainer.benchmarks.runner import BenchmarkSkipped
+    from seqtrainer.torch.dnabert2_benchmark import _load_huggingface_dnabert2
+
+    class _FakeAutoTokenizer:
+        @staticmethod
+        def from_pretrained(*args, **kwargs):
+            return SimpleNamespace(pad_token_id=0)
+
+    class _FakeConfig:
+        hidden_size = 4
+
+        def update(self, payload):
+            for key, value in payload.items():
+                setattr(self, key, value)
+
+    class _FakeAutoConfig:
+        @staticmethod
+        def from_pretrained(*args, **kwargs):
+            return _FakeConfig()
+
+    class _FakeParameter:
+        is_meta = True
+
+    class _MetaModel:
+        config = _FakeConfig()
 
         def named_parameters(self):
             return [("encoder.weight", _FakeParameter())]
@@ -346,15 +418,16 @@ def test_dnabert2_loader_skips_meta_device_model(monkeypatch):
     class _FakeAutoModel:
         @staticmethod
         def from_pretrained(*args, **kwargs):
-            return _FakeModel(kwargs["config"])
+            return _MetaModel()
 
     fake_transformers = types.ModuleType("transformers")
     fake_transformers.AutoTokenizer = _FakeAutoTokenizer
     fake_transformers.AutoConfig = _FakeAutoConfig
     fake_transformers.AutoModel = _FakeAutoModel
     monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
+    monkeypatch.setattr(dnabert2_benchmark, "_load_dnabert2_from_state_dict", lambda *args, **kwargs: _MetaModel())
 
-    with pytest.raises(BenchmarkSkipped, match="meta device"):
+    with pytest.raises(BenchmarkSkipped, match="state-dict fallback"):
         _load_huggingface_dnabert2(
             "fake/dnabert2",
             device="cpu",
