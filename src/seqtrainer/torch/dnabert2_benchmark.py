@@ -399,7 +399,7 @@ def _encode_split(config: BenchmarkConfig, frame: pd.DataFrame, tokenizer: Any, 
 
 def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, local_files_only: bool) -> tuple[Any, Any]:
     try:
-        from transformers import AutoModel, AutoTokenizer
+        from transformers import AutoConfig, AutoModel, AutoTokenizer
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on optional extras
         raise BenchmarkSkipped(
             "DNABERT2 benchmark requires transformers. Install with `python -m pip install -e \".[torch]\"`."
@@ -411,10 +411,18 @@ def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, loca
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
         )
+        config = AutoConfig.from_pretrained(
+            model_name,
+            trust_remote_code=trust_remote_code,
+            local_files_only=local_files_only,
+        )
+        if not hasattr(config, "pad_token_id") or config.pad_token_id is None:
+            config.pad_token_id = tokenizer.pad_token_id
         encoder = AutoModel.from_pretrained(
             model_name,
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
+            config=config,
         )
     except OSError as exc:
         raise BenchmarkSkipped(
