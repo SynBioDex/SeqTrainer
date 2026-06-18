@@ -87,6 +87,50 @@ def binary_classification_metrics(
     return metrics
 
 
+def binary_classification_metrics_from_predictions(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    *,
+    threshold: float | None = None,
+    warning: str | None = None,
+) -> dict[str, Any]:
+    """Compute the shared metric suite when only hard predictions are available."""
+    labels = np.asarray(y_true, dtype=int)
+    predictions = np.asarray(y_pred, dtype=int)
+    if labels.shape[0] == 0:
+        raise ValueError("Cannot compute metrics for an empty label array")
+    if labels.shape[0] != predictions.shape[0]:
+        raise ValueError("y_true and y_pred must have the same length")
+
+    tn, fp, fn, tp = confusion_matrix(labels, predictions, labels=[0, 1]).ravel()
+    positives = tp + fn
+    negatives = tn + fp
+    sensitivity = float(tp / positives) if positives else None
+    specificity = float(tn / negatives) if negatives else None
+    metrics: dict[str, Any] = {
+        "threshold": float(threshold) if threshold is not None else None,
+        "accuracy": float(accuracy_score(labels, predictions)),
+        "balanced_accuracy": _balanced_accuracy(sensitivity, specificity),
+        "precision": float(precision_score(labels, predictions, zero_division=0)),
+        "recall": float(recall_score(labels, predictions, zero_division=0)),
+        "f1": float(f1_score(labels, predictions, zero_division=0)),
+        "mcc": _mcc_from_counts(tn, fp, fn, tp),
+        "sensitivity": sensitivity,
+        "specificity": specificity,
+        "confusion_matrix": {
+            "tn": int(tn),
+            "fp": int(fp),
+            "fn": int(fn),
+            "tp": int(tp),
+        },
+        "auroc": None,
+        "auprc": None,
+    }
+    if warning:
+        metrics["warning"] = warning
+    return metrics
+
+
 def best_threshold_by_metric(
     y_true: np.ndarray,
     y_score: np.ndarray,

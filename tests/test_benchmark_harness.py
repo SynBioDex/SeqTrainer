@@ -453,6 +453,42 @@ def test_ipromp_external_predictions_are_evaluated_with_validation_threshold(tmp
     assert result.metrics["test"]["mcc"] == 1.0
     predictions = pd.read_csv(tmp_path / "ipromp_eval" / "predictions.csv")
     assert "probability" in predictions.columns
+    assert "imbalance_policy" in result.manifest["extra"]
+
+
+def test_ipromp_external_hard_labels_are_evaluated_without_faking_rank_metrics(tmp_path):
+    config = load_benchmark_config(CONFIG_DIR / "ipromp_external.toml")
+    _write_configured_split_files(config, tmp_path)
+    predictions_path = tmp_path / "ipromp_predictions.tsv"
+    rows = []
+    for split in ("train", "validation", "test"):
+        rows.extend(
+            [
+                {"split": split, "label": 0, "prediction": 0},
+                {"split": split, "label": 1, "prediction": 1},
+                {"split": split, "label": 0, "prediction": 0},
+                {"split": split, "label": 1, "prediction": 1},
+            ]
+        )
+    pd.DataFrame(rows).to_csv(predictions_path, index=False, sep="\t")
+    config_with_predictions = replace(
+        config,
+        model=replace(
+            config.model,
+            params={**dict(config.model.params), "predictions_csv": str(predictions_path)},
+        ),
+    )
+
+    result = run_benchmark(config_with_predictions, base_dir=tmp_path, output_dir=tmp_path / "ipromp_hard_labels")
+
+    assert result.status == "completed"
+    assert result.metrics["test"]["mcc"] == 1.0
+    assert result.metrics["test"]["auroc"] is None
+    assert result.metrics["test"]["auprc"] is None
+    assert "hard labels" in result.metrics["test"]["warning"].lower()
+    predictions = pd.read_csv(tmp_path / "ipromp_hard_labels" / "predictions.csv")
+    assert "prediction" in predictions.columns
+    assert predictions["threshold"].isna().all()
 
 
 def test_benchmark_compare_cli_and_helper_rank_test_metrics(tmp_path, capsys):

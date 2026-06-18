@@ -63,3 +63,6 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["seqtrainer*"]
+
+[tool.pytest.ini_options]
+addopts = "--basetemp=.pytest_tmp"

@@ -24,6 +24,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - depends on optional ext
 
 from seqtrainer.data.materialized import MaterializedDataset
 from seqtrainer.data.sbol import build_dataset_from_files
+from seqtrainer.benchmarks.policy import decide_imbalance_policy
 from seqtrainer.metrics import best_threshold_by_mcc, binary_classification_metrics
 from seqtrainer.transforms.dna import one_hot_encode, pad_or_trim
 
@@ -664,6 +665,7 @@ def _csv_manifest(
             "rows": int(len(frame)),
             "class_counts": {str(key): int(value) for key, value in counts.items()},
         }
+    imbalance_policy = decide_imbalance_policy(split_summary)
 
     return {
         "task": "csv_split_cnn_baseline",
@@ -691,6 +693,13 @@ def _csv_manifest(
             "strategy": "validation_mcc",
             "threshold": float(threshold),
             "validation_mcc": float(validation_mcc),
+        },
+        "imbalance_policy": {
+            "apply_to_training": imbalance_policy.apply_to_training,
+            "strategy": imbalance_policy.strategy,
+            "class_counts": imbalance_policy.class_counts,
+            "imbalance_ratio": imbalance_policy.imbalance_ratio,
+            "reason": imbalance_policy.reason,
         },
         "metrics": metrics,
     }

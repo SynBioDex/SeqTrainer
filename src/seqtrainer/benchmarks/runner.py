@@ -13,12 +13,16 @@ from typing import Any
 
 import pandas as pd
 
-from seqtrainer.metrics import best_threshold_by_metric, binary_classification_metrics
+from seqtrainer.metrics import (
+    best_threshold_by_metric,
+    binary_classification_metrics,
+    binary_classification_metrics_from_predictions,
+)
 
 from .artifacts import write_benchmark_outputs
 from .config import BenchmarkConfig, load_benchmark_config
 from .manifest import build_run_manifest
-from .policy import threshold_metric_from_strategy
+from .policy import decide_imbalance_policy, threshold_metric_from_strategy
 from .splits import load_predefined_split_frames, summarize_split_frames
 
 
@@ -150,12 +154,25 @@ def _run_ipromp(
         from seqtrainer.adapters.ipromp import write_ipromp_fastas
 
         frames = load_predefined_split_frames(config, base_dir=base_dir)
+        split_summary = summarize_split_frames(config, frames)
+        imbalance_policy = decide_imbalance_policy(split_summary)
         fasta_paths = write_ipromp_fastas(config, frames, out_dir / "ipromp_fasta")
         reason = (
             "iPro-MP external predictions are not configured. FASTA inputs were written; "
             "run iPro-MP externally and set model.params.predictions_csv to evaluate outputs."
         )
-        manifest_extra = {"status": "skipped", "skip_reason": reason, "fasta_paths": fasta_paths}
+        manifest_extra = {
+            "status": "skipped",
+            "skip_reason": reason,
+            "fasta_paths": fasta_paths,
+            "imbalance_policy": {
+                "apply_to_training": imbalance_policy.apply_to_training,
+                "strategy": imbalance_policy.strategy,
+                "class_counts": imbalance_policy.class_counts,
+                "imbalance_ratio": imbalance_policy.imbalance_ratio,
+                "reason": imbalance_policy.reason,
+            },
+        }
         return _write_skipped_result(
             config,
             base_dir=base_dir,
@@ -183,39 +200,74 @@ def _evaluate_external_predictions(
 
     frames = load_predefined_split_frames(config, base_dir=base_dir)
     split_summary = summarize_split_frames(config, frames)
-    predictions = pd.read_csv(pred_path)
+    imbalance_policy = decide_imbalance_policy(split_summary)
+    predictions = pd.read_csv(pred_path, sep=None, engine="python")
     required = {"split", "label"}
     missing = required.difference(predictions.columns)
     if missing:
         raise ValueError(f"External predictions are missing required columns: {sorted(missing)}")
-    score_column = _prediction_score_column(predictions)
-    if score_column is None:
-        raise ValueError("External predictions require a probability or score column for AUROC/AUPRC and thresholding")
-    if score_column != "probability":
-        predictions = predictions.rename(columns={score_column: "probability"})
-
-    threshold = _select_threshold(config, predictions)
     predictions = predictions.copy()
-    predictions["threshold"] = float(threshold)
-    predictions["prediction"] = (predictions["probability"].astype(float) >= threshold).astype(int)
-
     metrics: dict[str, dict[str, Any]] = {}
-    for split in ("train", "validation", "test"):
-        split_predictions = predictions[predictions["split"] == split]
-        if split_predictions.empty:
-            continue
-        metrics[split] = binary_classification_metrics(
-            split_predictions["label"].to_numpy(),
-            split_predictions["probability"].to_numpy(),
-            threshold=threshold,
+    score_column = _prediction_score_column(predictions)
+    threshold: float | None
+    if score_column is not None:
+        if score_column != "probability":
+            predictions = predictions.rename(columns={score_column: "probability"})
+
+        threshold = _select_threshold(config, predictions)
+        predictions["threshold"] = float(threshold)
+        predictions["prediction"] = (predictions["probability"].astype(float) >= threshold).astype(int)
+
+        for split in ("train", "validation", "test"):
+            split_predictions = predictions[predictions["split"] == split]
+            if split_predictions.empty:
+                continue
+            metrics[split] = binary_classification_metrics(
+                split_predictions["label"].to_numpy(),
+                split_predictions["probability"].to_numpy(),
+                threshold=threshold,
+            )
+    else:
+        prediction_column = _prediction_label_column(predictions)
+        if prediction_column is None:
+            raise ValueError(
+                "External predictions require either a probability/score column or a hard-label column such as "
+                "`prediction`, `predicted_label`, `pred`, or `label_pred`."
+            )
+        threshold = None
+        predictions["prediction"] = predictions[prediction_column].astype(int)
+        predictions["threshold"] = pd.Series([None] * len(predictions), dtype="object")
+        warning = (
+            "Only hard labels were provided by the external model, so AUROC/AUPRC and validation threshold "
+            "selection could not be computed."
         )
+        for split in ("train", "validation", "test"):
+            split_predictions = predictions[predictions["split"] == split]
+            if split_predictions.empty:
+                continue
+            metrics[split] = binary_classification_metrics_from_predictions(
+                split_predictions["label"].to_numpy(),
+                split_predictions["prediction"].to_numpy(),
+                threshold=None,
+                warning=warning,
+            )
 
     manifest = build_run_manifest(
         config,
         split_summary=split_summary,
         threshold=threshold,
         model_metadata=model_metadata or {},
-        extra={"status": "completed", "external_predictions_csv": str(pred_path)},
+        extra={
+            "status": "completed",
+            "external_predictions_csv": str(pred_path),
+            "imbalance_policy": {
+                "apply_to_training": imbalance_policy.apply_to_training,
+                "strategy": imbalance_policy.strategy,
+                "class_counts": imbalance_policy.class_counts,
+                "imbalance_ratio": imbalance_policy.imbalance_ratio,
+                "reason": imbalance_policy.reason,
+            },
+        },
     )
     write_benchmark_outputs(output_dir, manifest=manifest, metrics=metrics, predictions=predictions, config=config)
     return BenchmarkRunResult(output_dir=output_dir, status="completed", metrics=metrics, manifest=manifest)
@@ -223,6 +275,13 @@ def _evaluate_external_predictions(
 
 def _prediction_score_column(predictions: pd.DataFrame) -> str | None:
     for column in ("probability", "score", "positive_score", "promoter_score"):
+        if column in predictions.columns:
+            return column
+    return None
+
+
+def _prediction_label_column(predictions: pd.DataFrame) -> str | None:
+    for column in ("prediction", "predicted_label", "pred", "label_pred"):
         if column in predictions.columns:
             return column
     return None
@@ -249,7 +308,12 @@ def _write_skipped_result(
         split_summary=split_summary,
         threshold=None,
         model_metadata={"status": "skipped"},
-        extra=extra or {"status": "skipped", "skip_reason": reason},
+        extra=extra
+        or {
+            "status": "skipped",
+            "skip_reason": reason,
+            "imbalance_policy": _imbalance_policy_payload(split_summary),
+        },
     )
     write_benchmark_outputs(out_dir, manifest=manifest, config=config)
     return BenchmarkRunResult(output_dir=out_dir, status="skipped", metrics={}, manifest=manifest)
@@ -299,3 +363,14 @@ def _optional_int(value: Any) -> int | None:
     if value is None:
         return None
     return int(value)
+
+
+def _imbalance_policy_payload(split_summary: dict[str, Any]) -> dict[str, Any]:
+    policy = decide_imbalance_policy(split_summary)
+    return {
+        "apply_to_training": policy.apply_to_training,
+        "strategy": policy.strategy,
+        "class_counts": policy.class_counts,
+        "imbalance_ratio": policy.imbalance_ratio,
+        "reason": policy.reason,
+    }

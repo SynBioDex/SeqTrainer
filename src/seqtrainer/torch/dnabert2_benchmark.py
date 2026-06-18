@@ -13,6 +13,7 @@ import pandas as pd
 from seqtrainer.benchmarks.artifacts import write_benchmark_outputs
 from seqtrainer.benchmarks.config import BenchmarkConfig
 from seqtrainer.benchmarks.manifest import build_run_manifest
+from seqtrainer.benchmarks.policy import decide_imbalance_policy
 from seqtrainer.benchmarks.runner import BenchmarkRunResult, BenchmarkSkipped
 from seqtrainer.benchmarks.splits import load_predefined_split_frames, summarize_split_frames
 from seqtrainer.metrics import best_threshold_by_metric, binary_classification_metrics
@@ -45,6 +46,8 @@ def run_dnabert2_csv_splits(
 
     _seed_everything(config.training.seed)
     frames = load_predefined_split_frames(config, base_dir=base_dir)
+    split_summary = summarize_split_frames(config, frames)
+    imbalance_policy = decide_imbalance_policy(split_summary)
     params = dict(config.model.params)
     train_params = dict(config.training.params)
     allow_download = bool(params.get("allow_download", False))
@@ -176,7 +179,7 @@ def run_dnabert2_csv_splits(
     checkpoint_path = out_dir / "checkpoints" / "best_model.pt"
     manifest = build_run_manifest(
         config,
-        split_summary=summarize_split_frames(config, frames),
+        split_summary=split_summary,
         threshold=best_threshold,
         model_metadata={
             "mode": params.get("mode", "frozen_embedding_classifier"),
@@ -188,7 +191,16 @@ def run_dnabert2_csv_splits(
             "warmup_ratio": float(train_params.get("warmup_ratio", 0.0)),
             "early_stopping_metric": "validation_mcc",
         },
-        extra={"status": "completed"},
+        extra={
+            "status": "completed",
+            "imbalance_policy": {
+                "apply_to_training": imbalance_policy.apply_to_training,
+                "strategy": imbalance_policy.strategy,
+                "class_counts": imbalance_policy.class_counts,
+                "imbalance_ratio": imbalance_policy.imbalance_ratio,
+                "reason": imbalance_policy.reason,
+            },
+        },
     )
     write_benchmark_outputs(
         out_dir,
@@ -221,6 +233,8 @@ def _run_frozen_embedding_classifier(
     out_dir = Path(output_dir or config.outputs.output_dir)
     embedding_dir = out_dir / "embeddings"
     embedding_dir.mkdir(parents=True, exist_ok=True)
+    split_summary = summarize_split_frames(config, frames)
+    imbalance_policy = decide_imbalance_policy(split_summary)
 
     encoder.to(device)
     encoder.eval()
@@ -328,7 +342,7 @@ def _run_frozen_embedding_classifier(
     checkpoint_path = out_dir / "checkpoints" / "best_model.pt"
     manifest = build_run_manifest(
         config,
-        split_summary=summarize_split_frames(config, frames),
+        split_summary=split_summary,
         threshold=best_threshold,
         model_metadata={
             "mode": "frozen_embedding_classifier",
@@ -341,7 +355,16 @@ def _run_frozen_embedding_classifier(
             "warmup_ratio": float(train_params.get("warmup_ratio", 0.0)),
             "early_stopping_metric": "validation_mcc",
         },
-        extra={"status": "completed"},
+        extra={
+            "status": "completed",
+            "imbalance_policy": {
+                "apply_to_training": imbalance_policy.apply_to_training,
+                "strategy": imbalance_policy.strategy,
+                "class_counts": imbalance_policy.class_counts,
+                "imbalance_ratio": imbalance_policy.imbalance_ratio,
+                "reason": imbalance_policy.reason,
+            },
+        },
     )
     write_benchmark_outputs(
         out_dir,

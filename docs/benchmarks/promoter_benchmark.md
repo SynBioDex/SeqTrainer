@@ -49,7 +49,7 @@ These files are the shared split for CNN, DNABERT2, and iPro-MP/iPromoter.
 ```bash
 git clone https://github.com/simplyshree/SeqTrainer.git
 cd SeqTrainer
-git checkout issue-4-benchmark-harness-foundation
+git checkout issue-3-all-model-baselines
 python -m pip install --upgrade pip
 python -m pip install -e ".[torch]"
 ```
@@ -139,7 +139,19 @@ test,0,0.12
 The runner also accepts `score`, `positive_score`, or `promoter_score` instead
 of `probability`. Scores must be comparable across splits. Without probabilities
 or scores, AUROC, AUPRC, calibration, and validation-threshold selection cannot
-be computed.
+be computed. If your external model only returns hard labels, provide a column
+such as `prediction`, `predicted_label`, `pred`, or `label_pred`; SeqTrainer
+will still compute accuracy, balanced accuracy, precision, recall/sensitivity,
+specificity, F1, MCC, and the confusion matrix, while recording that AUROC,
+AUPRC, and validation-threshold selection were unavailable.
+
+For iPro-MP itself, keep the external dependency boundary explicit:
+
+- download the pretrained E. coli iPro-MP model files before final runs
+- document the exact source URL and file revision in your benchmark report
+- set up the DNABERT-6 dependency stack in the external iPro-MP environment
+- generate probabilities if possible, because they are required for MCC-based
+  validation thresholding and for AUROC/AUPRC
 
 Set `model.params.predictions_csv` in `ipromp_external.toml`, then rerun:
 
