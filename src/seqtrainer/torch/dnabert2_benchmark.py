@@ -411,6 +411,7 @@ def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, loca
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
         )
+        _patch_bert_config_pad_token_id(tokenizer.pad_token_id)
         config = AutoConfig.from_pretrained(
             model_name,
             trust_remote_code=trust_remote_code,
@@ -422,6 +423,8 @@ def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, loca
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
             config=config,
+            low_cpu_mem_usage=False,
+            device_map=None,
         )
         _ensure_pad_token_id(encoder.config, tokenizer)
     except OSError as exc:
@@ -436,8 +439,21 @@ def _ensure_pad_token_id(config: Any, tokenizer: Any) -> None:
     pad_token_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
     config.pad_token_id = pad_token_id
     setattr(config, "pad_token_id", pad_token_id)
+    setattr(config.__class__, "pad_token_id", pad_token_id)
     if hasattr(config, "__dict__"):
         config.__dict__["pad_token_id"] = pad_token_id
+    if hasattr(config, "update"):
+        config.update({"pad_token_id": pad_token_id})
+
+
+def _patch_bert_config_pad_token_id(pad_token_id: int | None) -> None:
+    pad_token_id = pad_token_id if pad_token_id is not None else 0
+    try:
+        from transformers.models.bert.configuration_bert import BertConfig
+
+        setattr(BertConfig, "pad_token_id", pad_token_id)
+    except Exception:
+        return
 
 
 def _extract_embeddings(encoder: Any, encoded: _EncodedSplit, *, pooling: str, device: Any, torch: Any) -> Any:
