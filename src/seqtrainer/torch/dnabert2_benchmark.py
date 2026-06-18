@@ -418,14 +418,24 @@ def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, loca
             local_files_only=local_files_only,
         )
         _ensure_pad_token_id(config, tokenizer)
-        encoder = AutoModel.from_pretrained(
-            model_name,
-            trust_remote_code=trust_remote_code,
-            local_files_only=local_files_only,
-            config=config,
-            low_cpu_mem_usage=False,
-            device_map=None,
-        )
+        try:
+            encoder = AutoModel.from_pretrained(
+                model_name,
+                trust_remote_code=trust_remote_code,
+                local_files_only=local_files_only,
+                config=config,
+                low_cpu_mem_usage=False,
+                device_map=None,
+            )
+        except RuntimeError as exc:
+            if "device meta" not in str(exc):
+                raise
+            encoder = _load_dnabert2_from_state_dict(
+                model_name,
+                config=config,
+                trust_remote_code=trust_remote_code,
+                local_files_only=local_files_only,
+            )
         _ensure_pad_token_id(encoder.config, tokenizer)
     except OSError as exc:
         raise BenchmarkSkipped(
@@ -454,6 +464,39 @@ def _patch_bert_config_pad_token_id(pad_token_id: int | None) -> None:
         setattr(BertConfig, "pad_token_id", pad_token_id)
     except Exception:
         return
+
+
+def _load_dnabert2_from_state_dict(
+    model_name: str,
+    *,
+    config: Any,
+    trust_remote_code: bool,
+    local_files_only: bool,
+) -> Any:
+    """Load DNABERT2 without Transformers' meta-device checkpoint path.
+
+    Newer Colab/PyTorch/Transformers combinations can route remote-code models
+    through meta tensors even when low_cpu_mem_usage is disabled. Instantiating
+    from config and loading the state dict directly keeps all weights on CPU.
+    """
+    import torch
+    from huggingface_hub import hf_hub_download
+    from transformers import AutoModel
+
+    encoder = AutoModel.from_config(config, trust_remote_code=trust_remote_code)
+    checkpoint_path = hf_hub_download(
+        repo_id=model_name,
+        filename="pytorch_model.bin",
+        local_files_only=local_files_only,
+    )
+    try:
+        state_dict = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    except TypeError:  # pragma: no cover - older torch compatibility
+        state_dict = torch.load(checkpoint_path, map_location="cpu")
+    if isinstance(state_dict, dict) and "state_dict" in state_dict:
+        state_dict = state_dict["state_dict"]
+    encoder.load_state_dict(state_dict, strict=False)
+    return encoder
 
 
 def _extract_embeddings(encoder: Any, encoded: _EncodedSplit, *, pooling: str, device: Any, torch: Any) -> Any:
