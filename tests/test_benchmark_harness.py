@@ -1,6 +1,8 @@
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+import sys
+import types
 
 import pandas as pd
 import pytest
@@ -288,6 +290,77 @@ def test_dnabert2_benchmark_gracefully_skips_without_local_model_files(tmp_path)
     assert (tmp_path / "dnabert2" / "manifest.json").exists()
     if result.status == "skipped":
         assert result.manifest["extra"]["status"] == "skipped"
+
+
+def test_dnabert2_pad_token_patch_defaults_to_tokenizer_or_zero():
+    from seqtrainer.torch.dnabert2_benchmark import _ensure_pad_token_id
+
+    config = SimpleNamespace()
+    tokenizer = SimpleNamespace(pad_token_id=None)
+    _ensure_pad_token_id(config, tokenizer)
+    assert config.pad_token_id == 0
+
+    tokenizer.pad_token_id = 7
+    _ensure_pad_token_id(config, tokenizer)
+    assert config.pad_token_id == 7
+
+
+def test_dnabert2_loader_skips_meta_device_model(monkeypatch):
+    from seqtrainer.benchmarks.runner import BenchmarkSkipped
+    from seqtrainer.torch.dnabert2_benchmark import _load_huggingface_dnabert2
+
+    class _FakeAutoTokenizer:
+        @staticmethod
+        def from_pretrained(*args, **kwargs):
+            return SimpleNamespace(pad_token_id=5)
+
+    class _FakeConfig:
+        def __init__(self):
+            self.hidden_size = 4
+
+        def update(self, payload):
+            for key, value in payload.items():
+                setattr(self, key, value)
+
+    class _FakeAutoConfig:
+        @staticmethod
+        def from_pretrained(*args, **kwargs):
+            return _FakeConfig()
+
+    class _FakeParameter:
+        is_meta = True
+
+    class _FakeModel:
+        def __init__(self, config):
+            self.config = config
+
+        def named_parameters(self):
+            return [("encoder.weight", _FakeParameter())]
+
+        def to(self, device):
+            return self
+
+        def eval(self):
+            return self
+
+    class _FakeAutoModel:
+        @staticmethod
+        def from_pretrained(*args, **kwargs):
+            return _FakeModel(kwargs["config"])
+
+    fake_transformers = types.ModuleType("transformers")
+    fake_transformers.AutoTokenizer = _FakeAutoTokenizer
+    fake_transformers.AutoConfig = _FakeAutoConfig
+    fake_transformers.AutoModel = _FakeAutoModel
+    monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
+
+    with pytest.raises(BenchmarkSkipped, match="meta device"):
+        _load_huggingface_dnabert2(
+            "fake/dnabert2",
+            device="cpu",
+            trust_remote_code=True,
+            local_files_only=True,
+        )
 
 
 def test_dnabert2_tokenization_pipeline_uses_shared_splits_and_metadata(tmp_path):

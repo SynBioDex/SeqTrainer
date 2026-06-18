@@ -406,7 +406,7 @@ def _load_huggingface_dnabert2(
     local_files_only: bool,
 ) -> tuple[Any, Any]:
     try:
-        from transformers import AutoModel, AutoTokenizer
+        from transformers import AutoConfig, AutoModel, AutoTokenizer
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on optional extras
         raise BenchmarkSkipped(
             "DNABERT2 benchmark requires transformers. Install with `python -m pip install -e \".[torch]\"`."
@@ -419,16 +419,23 @@ def _load_huggingface_dnabert2(
             local_files_only=local_files_only,
         )
         _patch_bert_config_pad_token_id(tokenizer.pad_token_id)
+        config = AutoConfig.from_pretrained(
+            model_name,
+            trust_remote_code=trust_remote_code,
+            local_files_only=local_files_only,
+        )
+        _ensure_pad_token_id(config, tokenizer)
         model = AutoModel.from_pretrained(
             model_name,
             trust_remote_code=trust_remote_code,
             low_cpu_mem_usage=False,
             device_map=None,
             local_files_only=local_files_only,
+            config=config,
         )
         meta_params = [name for name, parameter in model.named_parameters() if parameter.is_meta]
         if meta_params:
-            raise RuntimeError(
+            raise BenchmarkSkipped(
                 "DNABERT2 loaded with parameters on the meta device. "
                 "Reload with low_cpu_mem_usage=False and device_map=None. "
                 f"Example meta params: {meta_params[:5]}"
@@ -436,6 +443,13 @@ def _load_huggingface_dnabert2(
         _ensure_pad_token_id(model.config, tokenizer)
         model.to(device)
         model.eval()
+    except AttributeError as exc:
+        if "pad_token_id" not in str(exc):
+            raise
+        raise BenchmarkSkipped(
+            "DNABERT2 remote code still failed while resolving pad_token_id after config patching. "
+            "Retry with the updated branch in Colab or pin a compatible Transformers revision."
+        ) from exc
     except OSError as exc:
         raise BenchmarkSkipped(
             "DNABERT2 model/tokenizer files are not available locally. "
@@ -448,7 +462,10 @@ def _ensure_pad_token_id(config: Any, tokenizer: Any) -> None:
     pad_token_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
     config.pad_token_id = pad_token_id
     setattr(config, "pad_token_id", pad_token_id)
-    setattr(config.__class__, "pad_token_id", pad_token_id)
+    try:
+        setattr(config.__class__, "pad_token_id", pad_token_id)
+    except (AttributeError, TypeError):
+        pass
     if hasattr(config, "__dict__"):
         config.__dict__["pad_token_id"] = pad_token_id
     if hasattr(config, "update"):
@@ -458,8 +475,10 @@ def _ensure_pad_token_id(config: Any, tokenizer: Any) -> None:
 def _patch_bert_config_pad_token_id(pad_token_id: int | None) -> None:
     pad_token_id = pad_token_id if pad_token_id is not None else 0
     try:
+        from transformers.configuration_utils import PretrainedConfig
         from transformers.models.bert.configuration_bert import BertConfig
 
+        setattr(PretrainedConfig, "pad_token_id", pad_token_id)
         setattr(BertConfig, "pad_token_id", pad_token_id)
     except Exception:
         return
