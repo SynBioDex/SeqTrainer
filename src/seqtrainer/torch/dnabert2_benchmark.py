@@ -416,19 +416,28 @@ def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, loca
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
         )
-        config.pad_token_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
+        _ensure_pad_token_id(config, tokenizer)
         encoder = AutoModel.from_pretrained(
             model_name,
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
             config=config,
         )
+        _ensure_pad_token_id(encoder.config, tokenizer)
     except OSError as exc:
         raise BenchmarkSkipped(
             "DNABERT2 model/tokenizer files are not available locally. "
             "Set model.params.allow_download=true only when the environment may download them."
         ) from exc
     return tokenizer, encoder
+
+
+def _ensure_pad_token_id(config: Any, tokenizer: Any) -> None:
+    pad_token_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
+    config.pad_token_id = pad_token_id
+    setattr(config, "pad_token_id", pad_token_id)
+    if hasattr(config, "__dict__"):
+        config.__dict__["pad_token_id"] = pad_token_id
 
 
 def _extract_embeddings(encoder: Any, encoded: _EncodedSplit, *, pooling: str, device: Any, torch: Any) -> Any:
