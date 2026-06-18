@@ -72,7 +72,7 @@ is used only after the model and threshold are chosen.
 
 Open:
 
-- [DNABERT2 shared split benchmark in Colab](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/model-dnabert2-benchmark-notebooks/notebooks/benchmarks/dnabert_benchmark/dnabert2_shared_split_benchmark_colab.ipynb)
+- [DNABERT2 shared split benchmark in Colab](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/dnabert_benchmark/dnabert2_shared_split_benchmark_colab.ipynb)
 
 Use a GPU runtime:
 
@@ -80,7 +80,7 @@ Use a GPU runtime:
 Runtime > Change runtime type > GPU
 ```
 
-After the branch is merged, replace `model-dnabert2-benchmark-notebooks` in the
+After the branch is merged, replace `issue-3-cnn-baseline-reproduction` in the
 Colab URL with `dev`.
 
 ## Output Artifacts
