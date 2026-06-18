@@ -50,6 +50,19 @@ transfer-learning baseline while keeping compute lower than full fine-tuning.
 Full fine-tuning is optional and GPU-heavy. Use it only after the frozen run is
 working and the artifact outputs look correct.
 
+## Relationship To Original DNABERT Notebooks
+
+The original `dna-bert/` notebooks were reviewed before creating this benchmark
+notebook. They use `zhihan1996/DNABERT-2-117M`, token lengths around 75-100,
+full fine-tuning learning rates around `3e-5`, and Matthews correlation in the
+larger training-script path.
+
+Those notebooks do not provide a clean CNN-comparable benchmark row because some
+cells use sample data, some are regression/RMSE experiments, and some use ad hoc
+splits. This benchmark notebook keeps the relevant DNABERT2 model choices but
+uses the same GSE144621 split, seed, validation-MCC thresholding, and metrics as
+the CNN benchmark.
+
 ## Metrics
 
 Use the same benchmark metrics as CNN:

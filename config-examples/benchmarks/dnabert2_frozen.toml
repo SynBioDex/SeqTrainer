@@ -54,16 +54,16 @@ cache_embeddings = true
 
 [training]
 seed = 42
-batch_size = 32
-max_epochs = 20
-learning_rate = 0.001
+batch_size = 16
+max_epochs = 50
+learning_rate = 0.0003
 
 [training.params]
 optimizer = "adamw"
 loss = "bce_with_logits"
 warmup_ratio = 0.06
-weight_decay = 0.01
-early_stopping_patience = 4
+weight_decay = 0.0001
+early_stopping_patience = 8
 
 [evaluation]
 primary_metric = "mcc"
