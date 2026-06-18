@@ -418,7 +418,14 @@ def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, loca
             local_files_only=local_files_only,
         )
         _ensure_pad_token_id(config, tokenizer)
-        try:
+        if "dnabert-2" in model_name.lower():
+            encoder = _load_dnabert2_from_state_dict(
+                model_name,
+                config=config,
+                trust_remote_code=trust_remote_code,
+                local_files_only=local_files_only,
+            )
+        else:
             encoder = AutoModel.from_pretrained(
                 model_name,
                 trust_remote_code=trust_remote_code,
@@ -426,15 +433,6 @@ def _load_huggingface_dnabert2(model_name: str, *, trust_remote_code: bool, loca
                 config=config,
                 low_cpu_mem_usage=False,
                 device_map=None,
-            )
-        except RuntimeError as exc:
-            if "device meta" not in str(exc):
-                raise
-            encoder = _load_dnabert2_from_state_dict(
-                model_name,
-                config=config,
-                trust_remote_code=trust_remote_code,
-                local_files_only=local_files_only,
             )
         _ensure_pad_token_id(encoder.config, tokenizer)
     except OSError as exc:
