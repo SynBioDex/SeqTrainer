@@ -418,6 +418,7 @@ def _load_huggingface_dnabert2(
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
         )
+        _patch_bert_config_pad_token_id(tokenizer.pad_token_id)
         model = AutoModel.from_pretrained(
             model_name,
             trust_remote_code=trust_remote_code,
