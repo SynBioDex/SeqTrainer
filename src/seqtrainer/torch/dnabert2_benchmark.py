@@ -463,14 +463,24 @@ def _load_huggingface_dnabert2(
             local_files_only=local_files_only,
         )
         _set_pad_token_id(config, pad_token_id)
-        model = AutoModel.from_pretrained(
-            model_name,
-            trust_remote_code=trust_remote_code,
-            low_cpu_mem_usage=False,
-            device_map=None,
-            local_files_only=local_files_only,
-            config=config,
-        )
+        try:
+            model = AutoModel.from_pretrained(
+                model_name,
+                trust_remote_code=trust_remote_code,
+                low_cpu_mem_usage=False,
+                device_map=None,
+                local_files_only=local_files_only,
+                config=config,
+            )
+        except RuntimeError as exc:
+            if not _is_meta_device_error(exc):
+                raise
+            model = _load_dnabert2_from_state_dict(
+                model_name,
+                config=config,
+                trust_remote_code=trust_remote_code,
+                local_files_only=local_files_only,
+            )
         meta_params = _meta_parameter_names(model)
         if meta_params:
             try:
@@ -496,7 +506,19 @@ def _load_huggingface_dnabert2(
         generation_config = getattr(model, "generation_config", None)
         if generation_config is not None:
             _set_pad_token_id(generation_config, pad_token_id)
-        model.to(device)
+        try:
+            model.to(device)
+        except RuntimeError as exc:
+            if not _is_meta_device_error(exc):
+                raise
+            model = _load_dnabert2_from_state_dict(
+                model_name,
+                config=config,
+                trust_remote_code=trust_remote_code,
+                local_files_only=local_files_only,
+            )
+            _set_pad_token_id(getattr(model, "config", None), pad_token_id)
+            model.to(device)
         meta_params = _meta_parameter_names(model)
         if meta_params:
             raise BenchmarkSkipped(
@@ -542,6 +564,11 @@ def _set_pad_token_id(target: Any, pad_token_id: int) -> None:
         target.__dict__["pad_token_id"] = pad_token_id
     if hasattr(target, "update"):
         target.update({"pad_token_id": pad_token_id})
+
+
+def _is_meta_device_error(exc: BaseException) -> bool:
+    message = str(exc).lower()
+    return "meta" in message and "device" in message
 
 
 def _patch_bert_config_pad_token_id(pad_token_id: int | None) -> None:

@@ -305,6 +305,24 @@ def test_dnabert2_pad_token_patch_defaults_to_tokenizer_or_zero():
     assert config.pad_token_id == 7
 
 
+def test_dnabert2_setter_handles_config_without_pad_token_attribute():
+    from seqtrainer.torch.dnabert2_benchmark import _set_pad_token_id
+
+    class _StrictConfig:
+        def __getattribute__(self, name):
+            if name == "pad_token_id" and "pad_token_id" not in self.__dict__:
+                raise AttributeError(name)
+            return super().__getattribute__(name)
+
+    config = _StrictConfig()
+    with pytest.raises(AttributeError):
+        _ = config.pad_token_id
+
+    _set_pad_token_id(config, 3)
+
+    assert config.pad_token_id == 3
+
+
 def test_dnabert2_loader_uses_state_dict_fallback_for_meta_device_model(monkeypatch):
     import seqtrainer.torch.dnabert2_benchmark as dnabert2_benchmark
     from seqtrainer.torch.dnabert2_benchmark import _load_huggingface_dnabert2
@@ -634,6 +652,61 @@ def test_threshold_metric_from_strategy_maps_validation_strategies():
     assert threshold_metric_from_strategy("validation_f1") == "f1"
     assert threshold_metric_from_strategy("validation_balanced_accuracy") == "balanced_accuracy"
     assert threshold_metric_from_strategy("fixed_0_5") is None
+
+
+def test_ai_x_bio_fasta_parsing_and_source_split_preservation(tmp_path):
+    from seqtrainer.benchmarks.ai_x_bio import prepare_ai_x_bio_splits
+
+    source = tmp_path / "ai x bio.fasta"
+    source.write_text(
+        "\n".join(
+            [
+                ">seq1 label=promoter split=train",
+                "acgu",
+                ">seq2 label=negative split=train",
+                "ttxx",
+                ">seq3 label=1 split=validation",
+                "cccc",
+                ">seq4 label=0 split=validation",
+                "gggg",
+                ">seq5 label=positive split=test",
+                "aaaa",
+                ">seq6 label=non-promoter split=test",
+                "nnnn",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = prepare_ai_x_bio_splits(source_file=source, output_dir=tmp_path / "prepared")
+
+    assert result.metadata["source_format"] == "fasta"
+    assert result.metadata["split_strategy"] == "preserved_source_split"
+    train = pd.read_csv(result.split_paths["train"])
+    assert list(train.columns) == ["sequence", "label", "id"]
+    assert train.loc[0, "sequence"] == "ACGT"
+    assert train["label"].tolist() == [1, 0]
+
+
+def test_ai_x_bio_stratified_split_creation_and_schema(tmp_path):
+    from seqtrainer.benchmarks.ai_x_bio import prepare_ai_x_bio_splits
+
+    source = tmp_path / "ai x bio.csv"
+    pd.DataFrame(
+        {
+            "seq": ["ACGT", "TGCA", "AAAA", "CCCC", "GGGG", "TTTT", "ACAC", "GTGT", "CACA", "TGTG"],
+            "class": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+        }
+    ).to_csv(source, index=False)
+
+    result = prepare_ai_x_bio_splits(source_file=source, output_dir=tmp_path / "prepared", seed=42)
+
+    assert result.metadata["split_strategy"] == "seeded_stratified_70_15_15"
+    for split in ("train", "validation", "test"):
+        frame = pd.read_csv(result.split_paths[split])
+        assert list(frame.columns) == ["sequence", "label", "id"]
+        assert set(frame["label"]).issubset({0, 1})
+    assert result.metadata_path.exists()
 
 
 def _write_configured_split_files(config, base_dir):

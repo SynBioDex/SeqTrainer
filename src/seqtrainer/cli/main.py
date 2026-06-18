@@ -77,6 +77,14 @@ def _build_parser() -> argparse.ArgumentParser:
     benchmark_prepare_dnabert2.add_argument("config", type=Path)
     benchmark_prepare_dnabert2.add_argument("--output-dir", type=Path)
     benchmark_prepare_dnabert2.add_argument("--base-dir", type=Path, default=Path.cwd())
+    benchmark_prepare_ai_x_bio = benchmark_sub.add_parser(
+        "prepare-ai-x-bio",
+        help="Prepare an ai x bio Drive file as sequence,label,id train/validation/test CSVs",
+    )
+    benchmark_prepare_ai_x_bio.add_argument("--drive-root", type=Path, default=Path("/content/drive/MyDrive"))
+    benchmark_prepare_ai_x_bio.add_argument("--source-file", type=Path)
+    benchmark_prepare_ai_x_bio.add_argument("--output-dir", type=Path, default=Path("data/benchmarks/ai_x_bio"))
+    benchmark_prepare_ai_x_bio.add_argument("--seed", type=int, default=42)
 
     sparql = subparsers.add_parser("sparql", help="SPARQL helpers")
     sparql_sub = sparql.add_subparsers(dest="sparql_command", required=True)
@@ -208,6 +216,21 @@ def main(argv: list[str] | None = None) -> int:
             print(f"output_dir={result.output_dir}")
             print(f"metadata={result.metadata_path}")
             for split, path in result.tokenized_paths.items():
+                print(f"{split}={path}")
+            return 0
+
+        if args.benchmark_command == "prepare-ai-x-bio":
+            from seqtrainer.benchmarks import prepare_ai_x_bio_splits
+
+            result = prepare_ai_x_bio_splits(
+                drive_root=args.drive_root,
+                source_file=args.source_file,
+                output_dir=args.output_dir,
+                seed=args.seed,
+            )
+            print(f"output_dir={result.output_dir}")
+            print(f"metadata={result.metadata_path}")
+            for split, path in result.split_paths.items():
                 print(f"{split}={path}")
             return 0
 

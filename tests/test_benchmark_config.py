@@ -50,6 +50,28 @@ def test_model_examples_share_dataset_and_split_contract():
     assert split_strategies == {"predefined"}
 
 
+def test_ai_x_bio_model_examples_share_prepared_split_contract():
+    configs = [
+        load_benchmark_config(CONFIG_DIR / name)
+        for name in (
+            "cnn_v2_ai_x_bio.toml",
+            "dnabert2_ai_x_bio_frozen.toml",
+        )
+    ]
+    dataset_names = {config.dataset.name for config in configs}
+    split_files = {tuple(sorted(config.dataset.split_files.items())) for config in configs}
+    threshold_strategies = {config.evaluation.threshold_strategy for config in configs}
+
+    assert dataset_names == {"ai_x_bio"}
+    assert len(split_files) == 1
+    assert threshold_strategies == {"validation_mcc"}
+    for config in configs:
+        assert config.dataset.sequence_field == "sequence"
+        assert config.dataset.label_field == "label"
+        assert config.dataset.id_field == "id"
+        assert set(REQUIRED_CLASSIFICATION_METRICS).issubset(config.evaluation.metrics)
+
+
 def test_missing_required_section_fails_clearly():
     with pytest.raises(ConfigValidationError, match="missing required section"):
         parse_benchmark_config({}, source="demo.toml")
