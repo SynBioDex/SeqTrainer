@@ -5,8 +5,9 @@ Benchmark notebooks are grouped by model family so future experiments do not get
 ## Folders
 
 - [`cnn_benchmark/`](cnn_benchmark/): CNN reference and CNN-v2 promoter classification benchmarks on the shared train/eval/test split.
+- [`dnabert_benchmark/`](dnabert_benchmark/): DNABERT2 frozen embedding benchmark and optional fine-tuning notebook on the same shared split.
 
-Future model families should get their own folders, for example `dnabert2_benchmark/` or `ipromp_benchmark/`, while reusing the same dataset split and metric policy whenever possible.
+Future model families should get their own folders, for example `ipromp_benchmark/`, while reusing the same dataset split and metric policy whenever possible.
 
 ## Benchmark CLI
 
@@ -45,6 +46,15 @@ path, following the promoter-modeling motivation in the 2025 Genome Biology
 iPro-MP paper: <https://link.springer.com/article/10.1186/s13059-025-03819-9>.
 SeqTrainer should compare it with CNN and DNABERT2 using the shared split and
 metric policy before considering any fine-tuning work.
+
+## Colab Notebook Links
+
+- [CNN reference benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/cnn_benchmark/cnn_reference_benchmark_colab.ipynb)
+- [CNN-v2 final benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/cnn_benchmark/cnn_v2_final_benchmark_colab.ipynb)
+- [DNABERT2 shared split benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/model-dnabert2-benchmark-notebooks/notebooks/benchmarks/dnabert_benchmark/dnabert2_shared_split_benchmark_colab.ipynb)
+
+After the notebook branches merge, replace the branch names in those URLs with
+`dev`.
 
 ## Shared Outputs
 
