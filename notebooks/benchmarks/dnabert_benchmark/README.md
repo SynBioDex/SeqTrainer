@@ -30,8 +30,12 @@ The files are materialized to:
 data/promoter_classification/
 ```
 
-The notebook can either extract the bundled repo archive or copy the files from
-Google Drive:
+The notebook extracts the bundled repo archive by default. This avoids Colab
+Drive mount/fetch failures and is the most reproducible path for reviewers.
+
+If you specifically want to use Google Drive, set `USE_GOOGLE_DRIVE = True` in
+the data-preparation cell. The notebook can then copy the files from Drive or
+fall back to the public Drive folder:
 
 [AIxBio promoter classification data](https://drive.google.com/drive/folders/1rH47oJEjQjkJvHXKX_rwDjDb--dGPGx2)
 
