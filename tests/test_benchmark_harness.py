@@ -512,7 +512,62 @@ def test_ipromp_benchmark_writes_fastas_and_skipped_manifest(tmp_path):
     assert result.status == "skipped"
     assert (tmp_path / "ipromp" / "manifest.json").exists()
     assert (tmp_path / "ipromp" / "ipromp_fasta" / "train.fasta").exists()
-    assert "FASTA inputs were written" in result.manifest["extra"]["skip_reason"]
+    assert (tmp_path / "ipromp" / "ipromp_id_mapping.csv").exists()
+    assert (tmp_path / "ipromp" / "ipromp_run_commands.sh").exists()
+    assert (tmp_path / "ipromp" / "external_prediction_schema.md").exists()
+    assert "FASTA prepared" in result.manifest["extra"]["skip_reason"]
+    fasta_text = (tmp_path / "ipromp" / "ipromp_fasta" / "validation.fasta").read_text()
+    assert ">seqtrainer|split=validation|row_index=0|sequence_id=validation_000000|label=0" in fasta_text
+
+
+def test_prepare_ipromp_cli_writes_mapping_and_command_script(tmp_path, capsys):
+    config = load_benchmark_config(CONFIG_DIR / "ipromp_external.toml")
+    _write_configured_split_files(config, tmp_path)
+
+    code = main(
+        [
+            "benchmark",
+            "prepare-ipromp",
+            str(CONFIG_DIR / "ipromp_external.toml"),
+            "--base-dir",
+            str(tmp_path),
+            "--output-dir",
+            str(tmp_path / "prepared_ipromp"),
+        ]
+    )
+
+    assert code == 0
+    assert (tmp_path / "prepared_ipromp" / "ipromp_id_mapping.csv").exists()
+    assert (tmp_path / "prepared_ipromp" / "ipromp_fasta" / "test.fasta").exists()
+    assert "-s 10" in (tmp_path / "prepared_ipromp" / "ipromp_run_commands.sh").read_text()
+    assert "mapping_csv=" in capsys.readouterr().out
+
+
+def test_ipromp_fasta_writer_rejects_invalid_bases(tmp_path):
+    config = load_benchmark_config(CONFIG_DIR / "ipromp_external.toml")
+    for split, relative_path in config.dataset.split_files.items():
+        path = tmp_path / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        sequence = "ACGTXB" if split == "validation" else "ACGTACGT"
+        pd.DataFrame(
+            {
+                config.dataset.sequence_field: [sequence],
+                config.dataset.label_field: [1],
+            }
+        ).to_csv(path, index=False)
+
+    with pytest.raises(ValueError, match="Invalid DNA bases"):
+        main(
+            [
+                "benchmark",
+                "prepare-ipromp",
+                str(CONFIG_DIR / "ipromp_external.toml"),
+                "--base-dir",
+                str(tmp_path),
+                "--output-dir",
+                str(tmp_path / "prepared_ipromp"),
+            ]
+        )
 
 
 def test_ipromp_external_predictions_are_evaluated_with_validation_threshold(tmp_path):
@@ -545,6 +600,104 @@ def test_ipromp_external_predictions_are_evaluated_with_validation_threshold(tmp
     predictions = pd.read_csv(tmp_path / "ipromp_eval" / "predictions.csv")
     assert "probability" in predictions.columns
     assert "imbalance_policy" in result.manifest["extra"]
+
+
+def test_ipromp_official_predictions_are_normalized_with_mapping(tmp_path):
+    config = load_benchmark_config(CONFIG_DIR / "ipromp_external.toml")
+    _write_configured_split_files(config, tmp_path)
+    prep = main(
+        [
+            "benchmark",
+            "prepare-ipromp",
+            str(CONFIG_DIR / "ipromp_external.toml"),
+            "--base-dir",
+            str(tmp_path),
+            "--output-dir",
+            str(tmp_path / "ipromp"),
+        ]
+    )
+    assert prep == 0
+    mapping = pd.read_csv(tmp_path / "ipromp" / "ipromp_id_mapping.csv")
+    external_dir = tmp_path / "ipromp" / "external_predictions"
+    external_dir.mkdir(exist_ok=True)
+    for split in ("validation", "test"):
+        split_mapping = mapping[mapping["split"] == split]
+        pd.DataFrame(
+            {
+                "Sequence": split_mapping["sequence"],
+                "Prediction": [0, 1, 0, 1],
+                "Probability": [0.10, 0.80, 0.30, 0.70],
+            }
+        ).to_csv(external_dir / f"{split}_predictions.csv", index=False)
+    config_with_predictions = replace(
+        config,
+        model=replace(
+            config.model,
+            params={
+                **dict(config.model.params),
+                "mapping_csv": str(tmp_path / "ipromp" / "ipromp_id_mapping.csv"),
+                "validation_predictions_csv": str(external_dir / "validation_predictions.csv"),
+                "test_predictions_csv": str(external_dir / "test_predictions.csv"),
+            },
+        ),
+    )
+
+    result = run_benchmark(config_with_predictions, base_dir=tmp_path, output_dir=tmp_path / "ipromp")
+
+    assert result.status == "completed"
+    assert result.metrics["test"]["mcc"] == 1.0
+    predictions = pd.read_csv(tmp_path / "ipromp" / "predictions.csv")
+    assert {"sequence_id", "row_index", "source_prediction", "threshold"}.issubset(predictions.columns)
+    assert predictions[predictions["split"] == "test"]["threshold"].nunique() == 1
+
+
+def test_ipromp_official_predictions_fail_on_duplicate_sequence_ambiguity(tmp_path):
+    config = load_benchmark_config(CONFIG_DIR / "ipromp_external.toml")
+    for split, relative_path in config.dataset.split_files.items():
+        path = tmp_path / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(
+            {
+                config.dataset.sequence_field: ["ACGTACGT", "ACGTACGT", "AAAACCCC", "GGGGTTTT"],
+                config.dataset.label_field: [0, 1, 0, 1],
+            }
+        ).to_csv(path, index=False)
+    main(
+        [
+            "benchmark",
+            "prepare-ipromp",
+            str(CONFIG_DIR / "ipromp_external.toml"),
+            "--base-dir",
+            str(tmp_path),
+            "--output-dir",
+            str(tmp_path / "ipromp"),
+        ]
+    )
+    external_dir = tmp_path / "ipromp" / "external_predictions"
+    external_dir.mkdir(exist_ok=True)
+    for split in ("validation", "test"):
+        pd.DataFrame(
+            {
+                "Sequence": ["ACGTACGT", "AAAACCCC", "GGGGTTTT"],
+                "Prediction": [1, 0, 1],
+                "Probability": [0.80, 0.30, 0.70],
+            }
+        ).to_csv(external_dir / f"{split}_predictions.csv", index=False)
+    config_with_predictions = replace(
+        config,
+        model=replace(
+            config.model,
+            params={
+                **dict(config.model.params),
+                "mapping_csv": str(tmp_path / "ipromp" / "ipromp_id_mapping.csv"),
+                "validation_predictions_csv": str(external_dir / "validation_predictions.csv"),
+                "test_predictions_csv": str(external_dir / "test_predictions.csv"),
+            },
+        ),
+    )
+
+    with pytest.raises(ValueError, match="duplicate sequences"):
+        run_benchmark(config_with_predictions, base_dir=tmp_path, output_dir=tmp_path / "ipromp", allow_skip=False)
 
 
 def test_ipromp_external_hard_labels_are_evaluated_without_faking_rank_metrics(tmp_path):

@@ -128,48 +128,95 @@ with meta-device parameters in Colab, it automatically falls back to the CPU
 state-dict loader before skipping. This keeps the fix in the package runner
 rather than in notebook-only retry code.
 
-## Prepare And Evaluate iPro-MP/iPromoter
+## iPro-MP Setup And External Benchmark
 
-First generate FASTA files for external iPro-MP inference:
+iPro-MP is a DNABERT-based prokaryotic promoter model. The official paper
+evaluates it across 23 species and reports Acc, AUC, AUPRC, and MCC. SeqTrainer
+keeps iPro-MP behind an external adapter so the official code, DNABERT-6
+dependency, and pretrained weights do not get hardcoded into this package.
+
+Prepare SeqTrainer FASTA inputs:
 
 ```bash
-seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml
+git clone --branch issue-3-all-model-baselines https://github.com/simplyshree/SeqTrainer.git
+cd SeqTrainer
+python -m pip install --upgrade pip
+python -m pip install -e ".[torch]"
+seqtrainer benchmark prepare-ipromp config-examples/benchmarks/ipromp_external.toml
 ```
 
-When no external prediction CSV is configured, this writes:
+This writes:
 
 ```text
 outputs/benchmarks/ipromp_external_ep_genomic_order/ipromp_fasta/train.fasta
 outputs/benchmarks/ipromp_external_ep_genomic_order/ipromp_fasta/validation.fasta
 outputs/benchmarks/ipromp_external_ep_genomic_order/ipromp_fasta/test.fasta
+outputs/benchmarks/ipromp_external_ep_genomic_order/ipromp_id_mapping.csv
+outputs/benchmarks/ipromp_external_ep_genomic_order/ipromp_run_commands.sh
+outputs/benchmarks/ipromp_external_ep_genomic_order/external_prediction_schema.md
 ```
 
-After running iPro-MP externally, provide a prediction CSV with:
+Set up official iPro-MP separately:
+
+```bash
+mkdir -p external
+cd external
+git clone https://github.com/Jackie-Suv/iPro-MP.git
+cd iPro-MP
+
+conda create -n ipromp python=3.8 -y
+conda activate ipromp
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+Then:
+
+- download DNABERT-6 into `external/iPro-MP/DNABERT-6`
+- download pretrained iPro-MP model files from
+  `https://doi.org/10.5281/zenodo.15180138`
+- do not commit large weights
+- for `Escherichia coli str K-12 substr. MG1655`, use `species_id = 10`
+- verify the exact downloaded model filenames; they may follow a fold pattern
+  such as `10_fold_1.pth` through `10_fold_5.pth`
+
+Official prediction command shape:
+
+```bash
+python iPro-MP_predict.py -i example.fasta -s species_ID -o outputfile
+```
+
+For SeqTrainer:
+
+```bash
+python iPro-MP_predict.py \
+  -i ../../outputs/benchmarks/ipromp_external_ep_genomic_order/ipromp_fasta/validation.fasta \
+  -s 10 \
+  -o ../../outputs/benchmarks/ipromp_external_ep_genomic_order/external_predictions/validation_predictions.csv
+
+python iPro-MP_predict.py \
+  -i ../../outputs/benchmarks/ipromp_external_ep_genomic_order/ipromp_fasta/test.fasta \
+  -s 10 \
+  -o ../../outputs/benchmarks/ipromp_external_ep_genomic_order/external_predictions/test_predictions.csv
+```
+
+Official iPro-MP output is expected to include:
 
 ```text
-split,label,probability
-validation,1,0.83
-test,0,0.12
+Sequence,Prediction,Probability
 ```
 
-The runner also accepts `score`, `positive_score`, or `promoter_score` instead
-of `probability`. Scores must be comparable across splits. Without probabilities
-or scores, AUROC, AUPRC, calibration, and validation-threshold selection cannot
-be computed. If your external model only returns hard labels, provide a column
-such as `prediction`, `predicted_label`, `pred`, or `label_pred`; SeqTrainer
-will still compute accuracy, balanced accuracy, precision, recall/sensitivity,
-specificity, F1, MCC, and the confusion matrix, while recording that AUROC,
-AUPRC, and validation-threshold selection were unavailable.
+SeqTrainer also accepts normalized prediction files with:
 
-For iPro-MP itself, keep the external dependency boundary explicit:
+```text
+split,sequence_id,label,probability
+```
 
-- download the pretrained E. coli iPro-MP model files before final runs
-- document the exact source URL and file revision in your benchmark report
-- set up the DNABERT-6 dependency stack in the external iPro-MP environment
-- generate probabilities if possible, because they are required for MCC-based
-  validation thresholding and for AUROC/AUPRC
+If only hard labels are available, SeqTrainer computes hard-label metrics and
+records that AUROC/AUPRC and validation-threshold selection are unavailable.
 
-Set `model.params.predictions_csv` in `ipromp_external.toml`, then rerun:
+After prediction files exist at the paths configured in
+`config-examples/benchmarks/ipromp_external.toml`, evaluate them:
 
 ```bash
 seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml

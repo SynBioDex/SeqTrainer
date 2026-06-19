@@ -6,8 +6,9 @@ Benchmark notebooks are grouped by model family so future experiments do not get
 
 - [`cnn_benchmark/`](cnn_benchmark/): CNN reference and CNN-v2 promoter classification benchmarks on the shared train/eval/test split.
 - [`dnabert_benchmark/`](dnabert_benchmark/): DNABERT2 frozen embedding benchmark and optional fine-tuning notebook on the same shared split.
+- [`ipromp_benchmark/`](ipromp_benchmark/): iPro-MP external FASTA preparation, official prediction setup, and normalized evaluation path.
 
-Future model families should get their own folders, for example `ipromp_benchmark/`, while reusing the same dataset split and metric policy whenever possible.
+Future model families should get their own folders while reusing the same dataset split and metric policy whenever possible.
 
 ## Benchmark CLI
 
@@ -19,6 +20,7 @@ seqtrainer benchmark run config-examples/benchmarks/cnn_v2.toml
 seqtrainer benchmark prepare-dnabert2 config-examples/benchmarks/dnabert2_smoke.toml
 seqtrainer benchmark run config-examples/benchmarks/dnabert2_frozen.toml
 seqtrainer benchmark run config-examples/benchmarks/dnabert2_finetune.toml
+seqtrainer benchmark prepare-ipromp config-examples/benchmarks/ipromp_external.toml
 python notebooks/benchmarks_sg/prepare_ai_x_bio_splits.py --drive-root /content/drive/MyDrive
 seqtrainer benchmark run config-examples/benchmarks/dnabert2_ai_x_bio_frozen.toml
 seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml
@@ -55,6 +57,7 @@ metric policy before considering any fine-tuning work.
 - [CNN-v2 final benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/cnn_benchmark/cnn_v2_final_benchmark_colab.ipynb)
 - [DNABERT2 ai x bio frozen benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/dnabert_benchmark/dnabert2_ai_x_bio_frozen_colab.ipynb)
 - [DNABERT2 local/HPC benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/dnabert_benchmark/dnabert2_local_hpc_benchmark.ipynb)
+- [iPro-MP benchmark README](https://github.com/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/ipromp_benchmark/README.md)
 
 After the notebook branches merge, replace the branch names in those URLs with
 `dev`.

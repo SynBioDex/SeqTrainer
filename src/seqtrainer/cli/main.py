@@ -77,6 +77,13 @@ def _build_parser() -> argparse.ArgumentParser:
     benchmark_prepare_dnabert2.add_argument("config", type=Path)
     benchmark_prepare_dnabert2.add_argument("--output-dir", type=Path)
     benchmark_prepare_dnabert2.add_argument("--base-dir", type=Path, default=Path.cwd())
+    benchmark_prepare_ipromp = benchmark_sub.add_parser(
+        "prepare-ipromp",
+        help="Write FASTA, mapping, and command files for external iPro-MP prediction",
+    )
+    benchmark_prepare_ipromp.add_argument("config", type=Path)
+    benchmark_prepare_ipromp.add_argument("--output-dir", type=Path)
+    benchmark_prepare_ipromp.add_argument("--base-dir", type=Path, default=Path.cwd())
     benchmark_prepare_ai_x_bio = benchmark_sub.add_parser(
         "prepare-ai-x-bio",
         help="Prepare an ai x bio Drive file as sequence,label,id train/validation/test CSVs",
@@ -216,6 +223,22 @@ def main(argv: list[str] | None = None) -> int:
             print(f"output_dir={result.output_dir}")
             print(f"metadata={result.metadata_path}")
             for split, path in result.tokenized_paths.items():
+                print(f"{split}={path}")
+            return 0
+
+        if args.benchmark_command == "prepare-ipromp":
+            from seqtrainer.adapters.ipromp import prepare_ipromp_inputs
+
+            result = prepare_ipromp_inputs(
+                args.config,
+                base_dir=args.base_dir,
+                output_dir=args.output_dir,
+            )
+            print(f"output_dir={result.output_dir}")
+            print(f"mapping_csv={result.mapping_csv}")
+            print(f"command_script={result.command_script}")
+            print(f"external_prediction_schema={result.prediction_schema}")
+            for split, path in result.fasta_paths.items():
                 print(f"{split}={path}")
             return 0
 

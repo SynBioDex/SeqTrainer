@@ -1,7 +1,7 @@
 [experiment]
 name = "ipromp_external_ep_genomic_order"
 task = "bacterial_promoter_prediction"
-description = "iPro-MP/iPromoter external prediction benchmark on the shared E. coli promoter classification split."
+description = "External iPro-MP/iPromoter benchmark on the shared E. coli promoter classification split."
 seed = 42
 
 [dataset]
@@ -29,22 +29,43 @@ seed = 42
 validation_name = "eval"
 
 [preprocessing]
-encoding = "fasta_adapter"
+encoding = "ipromp_fasta_6mer_external"
 sequence_length = 300
 pad_or_trim = false
 
+[preprocessing.params]
+kmer_size = 6
+tokenization = "overlapping_6mer"
+alphabet = "ACGTN"
+
 [model]
 family = "ipromp"
-name = "ipromp_ecoli_pretrained"
+name = "ipromp_ecoli_k12_mg1655_external"
 version = "pin_external_model_files_before_final_report"
 
 [model.params]
 adapter_mode = "external_fasta_prediction"
-dependency = "dnabert6"
-pretrained_files = "document_download_before_run"
-# After external iPro-MP prediction, set this to a CSV with columns:
-# split,label,probability. The runner also accepts score, positive_score, or promoter_score.
-# predictions_csv = "outputs/benchmarks/ipromp_external_predictions.csv"
+species_id = 10
+species_name = "Escherichia coli str K-12 substr. MG1655"
+kmer_size = 6
+model_family_source = "official_ipromp"
+official_repo = "https://github.com/Jackie-Suv/iPro-MP"
+paper_url = "https://link.springer.com/article/10.1186/s13059-025-03819-9"
+pretrained_model_source = "https://doi.org/10.5281/zenodo.15180138"
+dnabert6_path = "./external/iPro-MP/DNABERT-6"
+ipromp_repo_dir = "./external/iPro-MP"
+ipromp_model_dir = "./external/iPro-MP/models"
+fasta_output_dir = "outputs/benchmarks/ipromp_external_ep_genomic_order/ipromp_fasta"
+mapping_csv = "outputs/benchmarks/ipromp_external_ep_genomic_order/ipromp_id_mapping.csv"
+validation_predictions_csv = "outputs/benchmarks/ipromp_external_ep_genomic_order/external_predictions/validation_predictions.csv"
+test_predictions_csv = "outputs/benchmarks/ipromp_external_ep_genomic_order/external_predictions/test_predictions.csv"
+# Optional when available:
+# train_predictions_csv = "outputs/benchmarks/ipromp_external_ep_genomic_order/external_predictions/train_predictions.csv"
+external_probability_column = "Probability"
+external_prediction_column = "Prediction"
+external_sequence_column = "Sequence"
+threshold_metric = "mcc"
+requires_probability_for_primary_comparison = true
 
 [training]
 seed = 42
@@ -54,6 +75,8 @@ learning_rate = 0.0
 
 [training.params]
 mode = "external_inference_only"
+optimizer = "not_applicable"
+loss = "not_applicable"
 
 [evaluation]
 primary_metric = "mcc"
@@ -78,5 +101,10 @@ save_csv = true
 save_predictions = true
 
 [environment]
-device = "auto"
-precision = "float32"
+device = "external"
+precision = "external"
+
+[environment.params]
+external_python = "3.8"
+requires_dnabert6 = true
+requires_pretrained_weights = true

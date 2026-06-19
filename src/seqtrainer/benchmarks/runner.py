@@ -139,32 +139,76 @@ def _run_ipromp(
     allow_skip: bool,
 ) -> BenchmarkRunResult:
     params = dict(config.model.params)
-    predictions_csv = params.get("predictions_csv")
     out_dir = Path(output_dir or config.outputs.output_dir)
-    if predictions_csv:
-        return _evaluate_external_predictions(
-            config,
-            predictions_csv=Path(str(predictions_csv)),
-            base_dir=base_dir,
-            output_dir=out_dir,
-            model_metadata={"external_predictions_csv": str(predictions_csv)},
-        )
+    predictions_csv = params.get("predictions_csv")
+    validation_predictions_csv = params.get("validation_predictions_csv")
+    test_predictions_csv = params.get("test_predictions_csv")
+    train_predictions_csv = params.get("train_predictions_csv")
+    mapping_csv = params.get("mapping_csv") or (out_dir / "ipromp_id_mapping.csv")
+
+    prediction_files_ready = (
+        bool(predictions_csv)
+        and _configured_path_exists(predictions_csv, base_dir)
+    ) or (
+        bool(validation_predictions_csv)
+        and bool(test_predictions_csv)
+        and _configured_path_exists(validation_predictions_csv, base_dir)
+        and _configured_path_exists(test_predictions_csv, base_dir)
+    )
+    if prediction_files_ready:
+        try:
+            from seqtrainer.adapters.ipromp import normalize_ipromp_predictions, prepare_ipromp_inputs
+
+            if not Path(str(mapping_csv)).exists():
+                prepared = prepare_ipromp_inputs(config, base_dir=base_dir, output_dir=out_dir)
+                mapping_csv = prepared.mapping_csv
+            predictions = normalize_ipromp_predictions(
+                config,
+                mapping_csv=mapping_csv,
+                validation_predictions_csv=validation_predictions_csv,
+                test_predictions_csv=test_predictions_csv,
+                train_predictions_csv=train_predictions_csv,
+                predictions_csv=predictions_csv,
+                base_dir=base_dir,
+            )
+            return _evaluate_external_prediction_frame(
+                config,
+                predictions=predictions,
+                base_dir=base_dir,
+                output_dir=out_dir,
+                model_metadata={
+                    "adapter_mode": params.get("adapter_mode", "external_fasta_prediction"),
+                    "species_id": params.get("species_id"),
+                    "species_name": params.get("species_name"),
+                    "mapping_csv": str(mapping_csv),
+                    "validation_predictions_csv": str(validation_predictions_csv) if validation_predictions_csv else None,
+                    "test_predictions_csv": str(test_predictions_csv) if test_predictions_csv else None,
+                    "train_predictions_csv": str(train_predictions_csv) if train_predictions_csv else None,
+                    "predictions_csv": str(predictions_csv) if predictions_csv else None,
+                },
+            )
+        except Exception:
+            if not allow_skip:
+                raise
+            raise
 
     try:
-        from seqtrainer.adapters.ipromp import write_ipromp_fastas
+        from seqtrainer.adapters.ipromp import prepare_ipromp_inputs
 
         frames = load_predefined_split_frames(config, base_dir=base_dir)
         split_summary = summarize_split_frames(config, frames)
         imbalance_policy = decide_imbalance_policy(split_summary)
-        fasta_paths = write_ipromp_fastas(config, frames, out_dir / "ipromp_fasta")
+        prepared = prepare_ipromp_inputs(config, base_dir=base_dir, output_dir=out_dir)
         reason = (
-            "iPro-MP external predictions are not configured. FASTA inputs were written; "
-            "run iPro-MP externally and set model.params.predictions_csv to evaluate outputs."
+            "FASTA prepared; run official iPro-MP externally and provide validation/test prediction CSVs."
         )
         manifest_extra = {
             "status": "skipped",
             "skip_reason": reason,
-            "fasta_paths": fasta_paths,
+            "fasta_paths": {split: str(path) for split, path in prepared.fasta_paths.items()},
+            "mapping_csv": str(prepared.mapping_csv),
+            "command_script": str(prepared.command_script),
+            "external_prediction_schema": str(prepared.prediction_schema),
             "imbalance_policy": {
                 "apply_to_training": imbalance_policy.apply_to_training,
                 "strategy": imbalance_policy.strategy,
@@ -273,6 +317,75 @@ def _evaluate_external_predictions(
     return BenchmarkRunResult(output_dir=output_dir, status="completed", metrics=metrics, manifest=manifest)
 
 
+def _evaluate_external_prediction_frame(
+    config: BenchmarkConfig,
+    *,
+    predictions: pd.DataFrame,
+    base_dir: str | Path | None,
+    output_dir: Path,
+    model_metadata: dict[str, Any] | None = None,
+) -> BenchmarkRunResult:
+    frames = load_predefined_split_frames(config, base_dir=base_dir)
+    split_summary = summarize_split_frames(config, frames)
+    imbalance_policy = decide_imbalance_policy(split_summary)
+    predictions = predictions.copy()
+    metrics: dict[str, dict[str, Any]] = {}
+    if "probability" in predictions.columns:
+        threshold = _select_threshold(config, predictions)
+        predictions["threshold"] = float(threshold)
+        predictions["prediction"] = (predictions["probability"].astype(float) >= threshold).astype(int)
+        for split in ("train", "validation", "test"):
+            split_predictions = predictions[predictions["split"] == split]
+            if split_predictions.empty:
+                continue
+            metrics[split] = binary_classification_metrics(
+                split_predictions["label"].to_numpy(),
+                split_predictions["probability"].to_numpy(),
+                threshold=threshold,
+            )
+    else:
+        prediction_column = _prediction_label_column(predictions)
+        if prediction_column is None:
+            raise ValueError("iPro-MP predictions require either probability or hard-label prediction columns.")
+        threshold = None
+        predictions["prediction"] = predictions[prediction_column].astype(int)
+        predictions["threshold"] = pd.Series([None] * len(predictions), dtype="object")
+        warning = (
+            "Only hard labels were provided by the external iPro-MP model, so AUROC/AUPRC and validation "
+            "threshold selection could not be computed."
+        )
+        for split in ("train", "validation", "test"):
+            split_predictions = predictions[predictions["split"] == split]
+            if split_predictions.empty:
+                continue
+            metrics[split] = binary_classification_metrics_from_predictions(
+                split_predictions["label"].to_numpy(),
+                split_predictions["prediction"].to_numpy(),
+                threshold=None,
+                warning=warning,
+            )
+
+    manifest = build_run_manifest(
+        config,
+        split_summary=split_summary,
+        threshold=threshold,
+        model_metadata=model_metadata or {},
+        extra={
+            "status": "completed",
+            "external_prediction_mode": "official_ipromp_or_seqtrainer_normalized",
+            "imbalance_policy": {
+                "apply_to_training": imbalance_policy.apply_to_training,
+                "strategy": imbalance_policy.strategy,
+                "class_counts": imbalance_policy.class_counts,
+                "imbalance_ratio": imbalance_policy.imbalance_ratio,
+                "reason": imbalance_policy.reason,
+            },
+        },
+    )
+    write_benchmark_outputs(output_dir, manifest=manifest, metrics=metrics, predictions=predictions, config=config)
+    return BenchmarkRunResult(output_dir=output_dir, status="completed", metrics=metrics, manifest=manifest)
+
+
 def _prediction_score_column(predictions: pd.DataFrame) -> str | None:
     for column in ("probability", "score", "positive_score", "promoter_score"):
         if column in predictions.columns:
@@ -363,6 +476,13 @@ def _optional_int(value: Any) -> int | None:
     if value is None:
         return None
     return int(value)
+
+
+def _configured_path_exists(path: Any, base_dir: str | Path | None) -> bool:
+    resolved = Path(str(path))
+    if not resolved.is_absolute():
+        resolved = Path(base_dir or Path.cwd()) / resolved
+    return resolved.exists()
 
 
 def _imbalance_policy_payload(split_summary: dict[str, Any]) -> dict[str, Any]:
