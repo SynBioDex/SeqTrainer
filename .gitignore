@@ -8,5 +8,7 @@ testvenv/
 seqtrainer-data
 dnabert-out
 dnabertvenv
+outputs/
 __pycache__/
 *.py[cod]
+.pytest_tmp/

@@ -19,6 +19,8 @@ seqtrainer benchmark run config-examples/benchmarks/cnn_v2.toml
 seqtrainer benchmark prepare-dnabert2 config-examples/benchmarks/dnabert2_smoke.toml
 seqtrainer benchmark run config-examples/benchmarks/dnabert2_frozen.toml
 seqtrainer benchmark run config-examples/benchmarks/dnabert2_finetune.toml
+python notebooks/benchmarks_sg/prepare_ai_x_bio_splits.py --drive-root /content/drive/MyDrive
+seqtrainer benchmark run config-examples/benchmarks/dnabert2_ai_x_bio_frozen.toml
 seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml
 seqtrainer benchmark compare outputs/benchmarks/* --output-dir outputs/benchmarks/comparison
 ```
@@ -49,9 +51,10 @@ metric policy before considering any fine-tuning work.
 
 ## Colab Notebook Links
 
-- [CNN reference benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/cnn_benchmark/cnn_reference_benchmark_colab.ipynb)
-- [CNN-v2 final benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/cnn_benchmark/cnn_v2_final_benchmark_colab.ipynb)
-- [DNABERT2 shared split benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/dnabert_benchmark/dnabert2_shared_split_benchmark_colab.ipynb)
+- [CNN reference benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/cnn_benchmark/cnn_reference_benchmark_colab.ipynb)
+- [CNN-v2 final benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/cnn_benchmark/cnn_v2_final_benchmark_colab.ipynb)
+- [DNABERT2 ai x bio frozen benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/dnabert_benchmark/dnabert2_ai_x_bio_frozen_colab.ipynb)
+- [DNABERT2 local/HPC benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/dnabert_benchmark/dnabert2_local_hpc_benchmark.ipynb)
 
 After the notebook branches merge, replace the branch names in those URLs with
 `dev`.
@@ -93,4 +96,8 @@ Benchmark notebooks should record:
 - selected validation threshold
 - validation metrics used for model choice
 - held-out test metrics used for final reporting
+
+Local CPU smoke runs are allowed for checking imports, data loading, artifact
+writing, and metric formatting. They must be labelled as smoke runs and should
+not be compared against full-split CNN-v2 metrics.
 

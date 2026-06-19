@@ -65,6 +65,7 @@ def run_dnabert2_csv_splits(
             device=device,
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
+            disable_flash_attention=bool(params.get("disable_flash_attention", False)),
         )
     freeze_encoder = str(params.get("mode", "frozen_embedding_classifier")) != "full_finetune"
     if freeze_encoder:
@@ -249,7 +250,14 @@ def _run_frozen_embedding_classifier(
     embeddings: dict[str, Any] = {}
     labels: dict[str, Any] = {}
     for split, value in encoded.items():
-        emb = _extract_embeddings(encoder, value, pooling=pooling, device=device, torch=torch)
+        emb = _extract_embeddings(
+            encoder,
+            value,
+            pooling=pooling,
+            device=device,
+            torch=torch,
+            batch_size=config.training.batch_size or 16,
+        )
         embeddings[split] = emb
         labels[split] = value.labels
         torch.save(
@@ -404,7 +412,7 @@ class _DnaBert2Classifier:
 
             def forward(self, input_ids: Any, attention_mask: Any) -> Any:
                 outputs = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
-                hidden = outputs.last_hidden_state
+                hidden = _last_hidden_state(outputs)
                 pooled = _pool_hidden_states(hidden, attention_mask, self.pooling)
                 return self.head(self.dropout(pooled)).squeeze(-1)
 
@@ -441,6 +449,7 @@ def _load_huggingface_dnabert2(
     device: Any,
     trust_remote_code: bool,
     local_files_only: bool,
+    disable_flash_attention: bool = False,
 ) -> tuple[Any, Any]:
     try:
         from transformers import AutoConfig, AutoModel, AutoTokenizer
@@ -525,6 +534,8 @@ def _load_huggingface_dnabert2(
                 "DNABERT2 parameters remained on the meta device after moving to the target device. "
                 f"Example meta params: {meta_params[:5]}"
             )
+        if disable_flash_attention or getattr(device, "type", None) == "cpu":
+            _disable_dnabert2_flash_attention(model)
         model.eval()
     except AttributeError as exc:
         if "pad_token_id" not in str(exc):
@@ -539,6 +550,27 @@ def _load_huggingface_dnabert2(
             "Set model.params.allow_download=true only when the environment may download them."
         ) from exc
     return tokenizer, model
+
+
+def _disable_dnabert2_flash_attention(model: Any) -> None:
+    """Route DNABERT2 remote code through its standard PyTorch attention path.
+
+    The official DNABERT2 remote module prefers a Triton FlashAttention kernel
+    when available. That path is CUDA-only and can also fail on incompatible
+    Triton/PyTorch combinations. The remote code already contains a plain
+    PyTorch fallback, selected when its module-level flash function is None.
+    """
+    import importlib
+
+    module_name = getattr(model.__class__, "__module__", "")
+    if not module_name:
+        return
+    try:
+        module = importlib.import_module(module_name)
+    except Exception:
+        return
+    if hasattr(module, "flash_attn_qkvpacked_func"):
+        setattr(module, "flash_attn_qkvpacked_func", None)
 
 
 def _ensure_pad_token_id(config: Any, tokenizer: Any) -> None:
@@ -674,14 +706,37 @@ def _load_dnabert2_encoder_from_sequence_classifier(
     raise RuntimeError("Could not locate the DNABERT2 encoder inside the sequence-classification model.")
 
 
-def _extract_embeddings(encoder: Any, encoded: _EncodedSplit, *, pooling: str, device: Any, torch: Any) -> Any:
+def _extract_embeddings(
+    encoder: Any,
+    encoded: _EncodedSplit,
+    *,
+    pooling: str,
+    device: Any,
+    torch: Any,
+    batch_size: int,
+) -> Any:
+    pooled_batches = []
+    total = int(encoded.input_ids.shape[0])
+    step = max(1, int(batch_size))
     with torch.no_grad():
-        batch = {
-            "input_ids": _tensor_to_device(encoded.input_ids, device),
-            "attention_mask": _tensor_to_device(encoded.attention_mask, device),
-        }
-        outputs = encoder(**batch)
-        return _pool_hidden_states(outputs.last_hidden_state, batch["attention_mask"], pooling).detach().cpu()
+        for start in range(0, total, step):
+            stop = min(start + step, total)
+            batch = {
+                "input_ids": _tensor_to_device(encoded.input_ids[start:stop], device),
+                "attention_mask": _tensor_to_device(encoded.attention_mask[start:stop], device),
+            }
+            outputs = encoder(**batch)
+            pooled = _pool_hidden_states(_last_hidden_state(outputs), batch["attention_mask"], pooling)
+            pooled_batches.append(pooled.detach().cpu())
+    return torch.cat(pooled_batches, dim=0)
+
+
+def _last_hidden_state(outputs: Any) -> Any:
+    if hasattr(outputs, "last_hidden_state"):
+        return outputs.last_hidden_state
+    if isinstance(outputs, (tuple, list)) and outputs:
+        return outputs[0]
+    raise AttributeError("DNABERT2 output did not contain last_hidden_state.")
 
 
 def _pool_hidden_states(hidden: Any, attention_mask: Any, pooling: str) -> Any:

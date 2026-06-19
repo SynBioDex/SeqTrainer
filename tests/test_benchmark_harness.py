@@ -467,7 +467,7 @@ def test_dnabert2_tokenization_pipeline_uses_shared_splits_and_metadata(tmp_path
 
     assert result.metadata_path.exists()
     assert result.metadata["model_name"] == "zhihan1996/DNABERT-2-117M"
-    assert result.metadata["max_length"] == 100
+    assert result.metadata["max_length"] == 104
     assert set(result.tokenized_paths) == {"train", "validation", "test"}
     tokenized = pd.read_csv(result.tokenized_paths["train"])
     assert {"input_ids", "attention_mask", "token_count", "label"}.issubset(tokenized.columns)

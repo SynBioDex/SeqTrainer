@@ -34,7 +34,7 @@ sequence_length = 300
 pad_or_trim = false
 
 [preprocessing.params]
-model_max_length = 100
+model_max_length = 104
 padding = "longest"
 pad_to_multiple_of = 8
 
@@ -51,6 +51,8 @@ allow_download = false
 require_model_files = true
 classifier_dropout = 0.1
 fine_tuning_scope = "all_encoder_layers"
+
+disable_flash_attention = true
 
 [training]
 seed = 42

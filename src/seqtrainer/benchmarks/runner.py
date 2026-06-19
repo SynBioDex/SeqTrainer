@@ -120,7 +120,7 @@ def _run_dnabert2(
             base_dir=base_dir,
             output_dir=Path(output_dir or config.outputs.output_dir),
         )
-    except (BenchmarkSkipped, ModuleNotFoundError, OSError) as exc:
+    except (BenchmarkSkipped, ModuleNotFoundError, ImportError, OSError) as exc:
         if not allow_skip:
             raise
         return _write_skipped_result(config, base_dir=base_dir, output_dir=output_dir, reason=str(exc))

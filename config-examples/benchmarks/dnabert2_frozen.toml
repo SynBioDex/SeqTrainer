@@ -34,7 +34,7 @@ sequence_length = 300
 pad_or_trim = false
 
 [preprocessing.params]
-model_max_length = 100
+model_max_length = 104
 padding = "longest"
 pad_to_multiple_of = 8
 
@@ -47,10 +47,11 @@ version = "pin_model_revision_before_final_report"
 mode = "frozen_embedding_classifier"
 pooling = "mean"
 trust_remote_code = true
-allow_download = false
+allow_download = true
 require_model_files = true
 classifier_dropout = 0.1
 cache_embeddings = true
+disable_flash_attention = true
 
 [training]
 seed = 42

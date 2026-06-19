@@ -17,7 +17,6 @@ def test_example_benchmark_configs_load():
     for name in (
         "cnn.toml",
         "cnn_v2.toml",
-        "dnabert2.toml",
         "dnabert2_smoke.toml",
         "dnabert2_frozen.toml",
         "dnabert2_finetune.toml",
