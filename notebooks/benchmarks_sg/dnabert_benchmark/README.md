@@ -77,6 +77,11 @@ outputs/benchmarks/dnabert2_cpu_smoke_ep_genomic_order/
 
 Metrics from the CPU smoke run:
 
+Committed asset files:
+
+- [`assets/dnabert2_cpu_smoke_metrics.csv`](assets/dnabert2_cpu_smoke_metrics.csv)
+- [`assets/dnabert2_cpu_smoke_result.md`](assets/dnabert2_cpu_smoke_result.md)
+
 | Split | Threshold | Accuracy | Balanced Accuracy | Precision | Recall/Sensitivity | F1 | MCC | Specificity | AUROC | AUPRC | Loss |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | train | 0.505 | 0.750 | 0.750 | 0.833 | 0.625 | 0.714 | 0.516 | 0.875 | 0.781 | 0.715 | 0.690 |
