@@ -21,6 +21,7 @@ The goal is to keep DNABERT2 directly comparable with CNN-v2:
 - `alpine_dnabert2_smoke.sbatch`: short Alpine tokenization/download smoke job.
 - `alpine_dnabert2_frozen.sbatch`: full Alpine frozen DNABERT2 benchmark job.
 - `dnabert2_ai_x_bio_frozen_colab.ipynb`: Colab-oriented DNABERT2 frozen benchmark notebook for the `ai x bio`/Drive preparation path.
+- `dnabert2_benchmark_workflow.md`: updated DNABERT2 workflow explaining local smoke testing, Alpine execution, full frozen benchmarking, and comparison with CNN-v2.
 
 ## Dataset
 
