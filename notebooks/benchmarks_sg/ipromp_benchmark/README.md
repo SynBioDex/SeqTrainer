@@ -27,6 +27,8 @@ Sources:
 ## Notebook
 
 - `ipromp_external_benchmark_colab.ipynb`: Colab/local notebook that prepares FASTA inputs, mapping CSV, official iPro-MP command scripts, and evaluates prediction files if they exist.
+- `ipromp_external_benchmark_executed.ipynb`: executed reference copy showing the input-preparation and skipped-manifest path when official model predictions are not present.
+- `ipromp_external_workflow.md`: step-by-step external workflow for preparing FASTA inputs, running official iPro-MP, evaluating predictions, and comparing against CNN-v2/DNABERT2.
 
 The notebook is safe to run without iPro-MP installed. In that case it prepares
 all external-input files and writes a skipped manifest instead of fake metrics.
