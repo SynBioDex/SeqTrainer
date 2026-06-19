@@ -57,6 +57,7 @@ metric policy before considering any fine-tuning work.
 - [CNN-v2 final benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/cnn_benchmark/cnn_v2_final_benchmark_colab.ipynb)
 - [DNABERT2 ai x bio frozen benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/dnabert_benchmark/dnabert2_ai_x_bio_frozen_colab.ipynb)
 - [DNABERT2 local/HPC benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/dnabert_benchmark/dnabert2_local_hpc_benchmark.ipynb)
+- [DNABERT2 Alpine HPC benchmark](https://github.com/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/dnabert_benchmark/dnabert2_alpine_hpc_benchmark.ipynb)
 - [iPro-MP external benchmark](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/ipromp_benchmark/ipromp_external_benchmark_colab.ipynb)
 - [iPro-MP benchmark README](https://github.com/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/ipromp_benchmark/README.md)
 

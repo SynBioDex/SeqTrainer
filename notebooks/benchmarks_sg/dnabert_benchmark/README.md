@@ -16,6 +16,10 @@ The goal is to keep DNABERT2 directly comparable with CNN-v2:
 
 - `dnabert2_local_hpc_benchmark.ipynb`: local/HPC notebook for the shared split. It runs a tiny CPU smoke benchmark when CUDA is unavailable and the full DNABERT2 benchmark when a CUDA GPU is visible.
 - `dnabert2_local_hpc_benchmark_executed.ipynb`: executed reference copy showing the CPU-smoke path on a no-CUDA machine.
+- `dnabert2_alpine_hpc_benchmark.ipynb`: fresh CURC Alpine runbook that writes SLURM scripts for an A100/L40 GPU smoke job and the full frozen DNABERT2 benchmark.
+- `dnabert2_alpine_hpc_benchmark_executed.ipynb`: executed script-generation copy. It does not contain full model metrics because those must be produced on Alpine.
+- `alpine_dnabert2_smoke.sbatch`: short Alpine tokenization/download smoke job.
+- `alpine_dnabert2_frozen.sbatch`: full Alpine frozen DNABERT2 benchmark job.
 - `dnabert2_ai_x_bio_frozen_colab.ipynb`: Colab-oriented DNABERT2 frozen benchmark notebook for the `ai x bio`/Drive preparation path.
 
 ## Dataset
@@ -92,11 +96,24 @@ These are real metrics, but they are only a smoke-test result. They should not b
 
 ## Final DNABERT2 Run
 
-For final model comparison, run the same notebook or CLI on a CUDA GPU/HPC node:
+For final model comparison, run the same config on a CUDA GPU/HPC node:
 
 ```bash
 seqtrainer benchmark run config-examples/benchmarks/dnabert2_frozen.toml
 ```
+
+On CURC Alpine, use the fresh Alpine notebook to write job scripts, then edit
+`#SBATCH --account=<YOUR_ACCOUNT>` in both `.sbatch` files before submitting:
+
+```bash
+sbatch notebooks/benchmarks_sg/dnabert_benchmark/alpine_dnabert2_smoke.sbatch
+sbatch notebooks/benchmarks_sg/dnabert_benchmark/alpine_dnabert2_frozen.sbatch
+```
+
+Use `aa100` first because it provides NVIDIA A100 GPUs. `al40` is a reasonable
+fallback for NVIDIA L40 GPUs. Avoid `ami100` for this workflow unless you are
+intentionally porting the environment to ROCm, because this SeqTrainer path uses
+the PyTorch CUDA/NVIDIA stack.
 
 The full run should write:
 
