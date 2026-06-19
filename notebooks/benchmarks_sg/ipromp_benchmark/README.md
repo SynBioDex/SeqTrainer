@@ -95,7 +95,13 @@ Then:
 - Download the E. coli pretrained iPro-MP model files from Zenodo.
 - Do not commit large model weights.
 - For `Escherichia coli str K-12 substr. MG1655`, use `species_id = 10`.
-- Verify model filenames after extraction. They may follow a fold pattern such as `10_fold_1.pth` through `10_fold_5.pth`, but the exact names should be confirmed from the downloaded archive.
+- The Zenodo API currently reports the pretrained archive as `model.zip`,
+  approximately 38.3 GB. Prefer downloading/extracting it on HPC or another
+  machine with enough storage rather than on a small local environment.
+- The official prediction script expects five fold files for the selected
+  species under `external/iPro-MP/models/`, with names like
+  `10_fold_1.pth` through `10_fold_5.pth` for E. coli species ID `10`.
+  Confirm these filenames after extracting the Zenodo archive.
 
 ## Run Official Prediction
 
