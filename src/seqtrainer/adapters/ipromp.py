@@ -131,7 +131,9 @@ def write_ipromp_run_commands(
         "#!/usr/bin/env bash",
         "set -euo pipefail",
         "",
-        f"cd {repo_dir}",
+        'SEQTRAINER_ROOT="$(pwd)"',
+        f'IPROMP_REPO_DIR="{repo_dir}"',
+        'cd "${IPROMP_REPO_DIR}"',
         "",
     ]
     for split in SPLIT_ORDER:
@@ -140,9 +142,9 @@ def write_ipromp_run_commands(
         lines.extend(
             [
                 f"python iPro-MP_predict.py \\",
-                f"  -i {fasta_path} \\",
+                f"  -i {_script_path(fasta_path)} \\",
                 f"  -s {species_id} \\",
-                f"  -o {pred_path}",
+                f"  -o {_script_path(pred_path)}",
                 "",
             ]
         )
@@ -374,3 +376,14 @@ def _resolve_input_path(path: str | Path, base_dir: str | Path | None) -> Path:
     if resolved.is_absolute():
         return resolved
     return Path(base_dir or Path.cwd()) / resolved
+
+
+def _as_posix(path: str | Path) -> str:
+    return Path(path).as_posix()
+
+
+def _script_path(path: str | Path) -> str:
+    resolved = Path(path)
+    if resolved.is_absolute():
+        return _as_posix(resolved)
+    return '"${SEQTRAINER_ROOT}/' + _as_posix(resolved) + '"'

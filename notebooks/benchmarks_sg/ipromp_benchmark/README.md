@@ -24,6 +24,13 @@ Sources:
 - Compare models primarily by held-out test MCC and secondarily by test AUPRC.
 - Do not fake metrics if official iPro-MP weights or predictions are missing.
 
+## Notebook
+
+- `ipromp_external_benchmark_colab.ipynb`: Colab/local notebook that prepares FASTA inputs, mapping CSV, official iPro-MP command scripts, and evaluates prediction files if they exist.
+
+The notebook is safe to run without iPro-MP installed. In that case it prepares
+all external-input files and writes a skipped manifest instead of fake metrics.
+
 Shared split files:
 
 ```text

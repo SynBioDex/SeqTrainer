@@ -159,7 +159,7 @@ def _run_ipromp(
         try:
             from seqtrainer.adapters.ipromp import normalize_ipromp_predictions, prepare_ipromp_inputs
 
-            if not Path(str(mapping_csv)).exists():
+            if not _configured_path_exists(mapping_csv, base_dir):
                 prepared = prepare_ipromp_inputs(config, base_dir=base_dir, output_dir=out_dir)
                 mapping_csv = prepared.mapping_csv
             predictions = normalize_ipromp_predictions(
