@@ -124,6 +124,8 @@ def main(argv: list[str] | None = None) -> int:
 
         benchmark = load_benchmark_config(args.config)
         split_files = benchmark.dataset.split_files
+        training_params = dict(benchmark.training.params)
+        model_params = dict(benchmark.model.params)
         result = run_cnn_csv_splits(
             CnnCsvSplitConfig(
                 train_csv=args.train_csv or Path(split_files["train"]),
@@ -140,7 +142,16 @@ def main(argv: list[str] | None = None) -> int:
                 batch_size=args.batch_size or benchmark.training.batch_size or 16,
                 cycles=args.cycles or benchmark.training.max_epochs or 10,
                 learning_rate=args.learning_rate or benchmark.training.learning_rate or 1e-3,
-                device=args.device or "cpu",
+                weight_decay=float(training_params.get("weight_decay", 0.0)),
+                optimizer_name=str(training_params.get("optimizer", "adam")).lower(),
+                scheduler_name=str(training_params.get("scheduler", "none")).lower(),
+                select_best_by_mcc=bool(training_params.get("select_best_by_mcc", False)),
+                early_stopping_patience=_optional_int(training_params.get("early_stopping_patience")),
+                model_variant=str(model_params.get("variant", "tiny")),
+                dropout=float(model_params.get("dropout", 0.25)),
+                class_weighting=bool(training_params.get("class_weighting", False)),
+                threshold_strategy=benchmark.evaluation.threshold_strategy,
+                device=args.device or _resolve_device(benchmark.environment.device),
             )
         )
         print(f"output_dir={result.output_dir}")
@@ -222,6 +233,23 @@ def _write_benchmark_manifest(config_path: Path, output_dir_arg: Path | None, ba
     for split, summary in split_summary.items():
         print(f"{split}: rows={summary['rows']} class_counts={summary['class_counts']}")
     return 0
+
+
+def _resolve_device(device: str) -> str:
+    if device != "auto":
+        return device
+    try:
+        import torch
+
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except ModuleNotFoundError:
+        return "cpu"
+
+
+def _optional_int(value: object) -> int | None:
+    if value is None:
+        return None
+    return int(value)
 
 
 if __name__ == "__main__":

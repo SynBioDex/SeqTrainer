@@ -36,7 +36,10 @@ def run_benchmark(
     family = config.model.family
     if family == "cnn":
         return _run_cnn(config, base_dir=base_dir, output_dir=output_dir)
-    raise BenchmarkSkipped(f"Only CNN benchmarks are implemented in this PR branch; got model family {family!r}.")
+    reason = f"Only CNN benchmarks are implemented in this PR branch; got model family {family!r}."
+    if not allow_skip:
+        raise BenchmarkSkipped(reason)
+    return _write_skipped_result(config, base_dir=base_dir, output_dir=output_dir, reason=reason)
 
 
 def _run_cnn(
@@ -74,6 +77,7 @@ def _run_cnn(
             model_variant=str(model_params.get("variant", "tiny")),
             dropout=float(model_params.get("dropout", 0.25)),
             class_weighting=bool(params.get("class_weighting", False)),
+            threshold_strategy=config.evaluation.threshold_strategy,
             device=_resolve_device(config.environment.device),
         )
     )
@@ -89,6 +93,35 @@ def _split_paths(config: BenchmarkConfig, base_dir: str | Path | None) -> dict[s
     from .splits import resolve_split_paths
 
     return resolve_split_paths(config, base_dir=base_dir)
+
+
+def _write_skipped_result(
+    config: BenchmarkConfig,
+    *,
+    base_dir: str | Path | None,
+    output_dir: str | Path | None,
+    reason: str,
+) -> BenchmarkRunResult:
+    from .artifacts import write_benchmark_outputs
+    from .manifest import build_run_manifest
+    from .splits import load_predefined_split_frames, summarize_split_frames
+
+    out_dir = Path(output_dir or config.outputs.output_dir)
+    try:
+        frames = load_predefined_split_frames(config, base_dir=base_dir)
+        split_summary: dict[str, Any] = summarize_split_frames(config, frames)
+    except Exception as exc:
+        split_summary = {"warning": f"Could not load configured splits: {exc}"}
+
+    manifest = build_run_manifest(
+        config,
+        split_summary=split_summary,
+        threshold=None,
+        model_metadata={"status": "skipped"},
+        extra={"status": "skipped", "skip_reason": reason},
+    )
+    write_benchmark_outputs(out_dir, manifest=manifest, config=config)
+    return BenchmarkRunResult(output_dir=out_dir, status="skipped", metrics={}, manifest=manifest)
 
 
 def _resolve_device(device: str) -> str:

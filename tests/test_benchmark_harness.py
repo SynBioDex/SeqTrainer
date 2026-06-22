@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 import pandas as pd
 import pytest
@@ -273,6 +274,182 @@ output_dir = "outputs/ignored"
     assert (output_dir / "predictions.csv").exists()
     assert (output_dir / "manifest.json").exists()
     assert (output_dir / "checkpoints" / "best_model.pt").exists()
+
+
+def test_non_strict_unsupported_benchmark_writes_skipped_manifest(tmp_path):
+    config_path = tmp_path / "unsupported.toml"
+    config_path.write_text(
+        """
+[experiment]
+name = "unsupported_smoke"
+task = "bacterial_promoter_prediction"
+seed = 42
+
+[dataset]
+name = "synthetic"
+format = "csv"
+sequence_field = "sequence"
+label_field = "label"
+
+[dataset.split_files]
+train = "data/promoter_classification/train.csv"
+validation = "data/promoter_classification/validation.csv"
+test = "data/promoter_classification/test.csv"
+
+[label]
+source = "provided_binary"
+
+[split]
+strategy = "predefined"
+seed = 42
+
+[preprocessing]
+encoding = "tokenizer"
+sequence_length = 32
+
+[model]
+family = "dnabert2"
+name = "unsupported_in_this_pr"
+
+[training]
+seed = 42
+batch_size = 2
+max_epochs = 1
+learning_rate = 0.001
+
+[evaluation]
+primary_metric = "mcc"
+threshold_strategy = "validation_mcc"
+metrics = [
+  "accuracy",
+  "balanced_accuracy",
+  "auroc",
+  "auprc",
+  "f1",
+  "mcc",
+  "precision",
+  "sensitivity",
+  "specificity",
+  "confusion_matrix",
+]
+
+[outputs]
+output_dir = "outputs/ignored"
+""",
+        encoding="utf-8",
+    )
+    config = load_benchmark_config(config_path)
+
+    result = run_benchmark(config, base_dir=tmp_path, output_dir=tmp_path / "skipped")
+
+    assert result.status == "skipped"
+    assert (tmp_path / "skipped" / "manifest.json").exists()
+    assert result.manifest["extra"]["status"] == "skipped"
+    assert "Only CNN benchmarks" in result.manifest["extra"]["skip_reason"]
+
+
+def test_direct_cnn_cli_propagates_configured_cnn_v2_params(tmp_path, monkeypatch):
+    split_dir = tmp_path / "data" / "promoter_classification"
+    split_dir.mkdir(parents=True)
+    sequences = ["ACGTACGT", "TGCATGCA", "AAAACCCC", "GGGGTTTT"]
+    for filename in ("train.csv", "validation.csv", "test.csv"):
+        pd.DataFrame({"sequence": sequences, "label": [0, 1, 0, 1]}).to_csv(
+            split_dir / filename,
+            index=False,
+        )
+
+    config_path = tmp_path / "cnn_v2_smoke.toml"
+    config_path.write_text(
+        """
+[experiment]
+name = "cnn_v2_smoke"
+task = "bacterial_promoter_prediction"
+seed = 42
+
+[dataset]
+name = "synthetic"
+format = "csv"
+sequence_field = "sequence"
+label_field = "label"
+
+[dataset.split_files]
+train = "data/promoter_classification/train.csv"
+validation = "data/promoter_classification/validation.csv"
+test = "data/promoter_classification/test.csv"
+
+[label]
+source = "provided_binary"
+
+[split]
+strategy = "predefined"
+seed = 42
+
+[preprocessing]
+encoding = "one_hot"
+sequence_length = 32
+
+[model]
+family = "cnn"
+name = "cnn_v2"
+
+[model.params]
+variant = "enhanced"
+dropout = 0.17
+
+[training]
+seed = 42
+batch_size = 2
+max_epochs = 1
+learning_rate = 0.001
+
+[training.params]
+optimizer = "adamw"
+scheduler = "one_cycle"
+weight_decay = 0.0001
+select_best_by_mcc = true
+early_stopping_patience = 2
+class_weighting = true
+
+[evaluation]
+primary_metric = "mcc"
+threshold_strategy = "fixed_0_5"
+metrics = [
+  "accuracy",
+  "balanced_accuracy",
+  "auroc",
+  "auprc",
+  "f1",
+  "mcc",
+  "precision",
+  "sensitivity",
+  "specificity",
+  "confusion_matrix",
+]
+
+[outputs]
+output_dir = "outputs/ignored"
+""",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "direct_cli"
+    monkeypatch.chdir(tmp_path)
+
+    exit_code = main(
+        [
+            "run-cnn-benchmark",
+            "--config",
+            str(config_path),
+            "--output-dir",
+            str(output_dir),
+        ]
+    )
+
+    assert exit_code == 0
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["model"]["variant"] == "enhanced"
+    assert manifest["training"]["optimizer_name"] == "adamw"
+    assert manifest["training"]["scheduler_name"] == "one_cycle"
+    assert manifest["training"]["threshold_strategy"] == "fixed_0_5"
 
 
 def test_benchmark_compare_cli_and_helper_rank_test_metrics(tmp_path, capsys):

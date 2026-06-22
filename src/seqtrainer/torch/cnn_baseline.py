@@ -24,7 +24,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - depends on optional ext
 
 from seqtrainer.data.materialized import MaterializedDataset
 from seqtrainer.data.sbol import build_dataset_from_files
-from seqtrainer.metrics import best_threshold_by_mcc, binary_classification_metrics
+from seqtrainer.metrics import best_threshold_by_metric, best_threshold_by_mcc, binary_classification_metrics
 from seqtrainer.transforms.dna import one_hot_encode, pad_or_trim
 
 
@@ -73,6 +73,7 @@ class CnnCsvSplitConfig:
     model_variant: str = "tiny"
     dropout: float = 0.25
     class_weighting: bool = False
+    threshold_strategy: str = "validation_mcc"
     device: str = "cpu"
     deterministic: bool = True
 
@@ -229,7 +230,8 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
     history: list[dict[str, float]] = []
     best_state = deepcopy(model.state_dict())
     best_threshold = 0.5
-    best_validation_mcc = float("-inf")
+    best_validation_score = float("-inf")
+    best_validation_metric = _threshold_metric_from_strategy(config.threshold_strategy)
     bad_cycles = 0
 
     for cycle in range(1, config.cycles + 1):
@@ -244,7 +246,12 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
         )
         val_loss, val_acc = _run_epoch(model, loaders["validation"], criterion, optimizer, device, train=False)
         val_pred = _predict(model, loaders["validation"], criterion, device)
-        val_threshold, val_mcc = best_threshold_by_mcc(val_pred["label"], val_pred["probability"])
+        val_threshold, val_score = _select_threshold(
+            config.threshold_strategy,
+            val_pred["label"],
+            val_pred["probability"],
+        )
+        val_mcc = best_threshold_by_metric(val_pred["label"], val_pred["probability"], metric="mcc")[1]
 
         history_row = {
             "cycle": float(cycle),
@@ -253,13 +260,14 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
             "validation_loss": val_loss,
             "validation_accuracy": val_acc,
             "validation_mcc": float(val_mcc),
+            "validation_selection_score": float(val_score),
             "validation_threshold": float(val_threshold),
         }
         history.append(history_row)
 
         if config.select_best_by_mcc or config.early_stopping_patience is not None:
-            if val_mcc > best_validation_mcc:
-                best_validation_mcc = float(val_mcc)
+            if val_score > best_validation_score:
+                best_validation_score = float(val_score)
                 best_threshold = float(val_threshold)
                 best_state = deepcopy(model.state_dict())
                 bad_cycles = 0
@@ -277,9 +285,10 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
         for split, loader in prediction_loaders.items()
     }
     if config.select_best_by_mcc or config.early_stopping_patience is not None:
-        threshold, validation_mcc = best_threshold, best_validation_mcc
+        threshold, validation_score = best_threshold, best_validation_score
     else:
-        threshold, validation_mcc = best_threshold_by_mcc(
+        threshold, validation_score = _select_threshold(
+            config.threshold_strategy,
             predictions["validation"]["label"],
             predictions["validation"]["probability"],
         )
@@ -294,7 +303,14 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
 
     output_dir = Path(config.output_dir)
     checkpoint_path = output_dir / "checkpoints" / "best_model.pt"
-    manifest = _csv_manifest(config, frames, metrics, threshold, validation_mcc)
+    manifest = _csv_manifest(
+        config,
+        frames,
+        metrics,
+        threshold,
+        validation_metric=best_validation_metric,
+        validation_score=validation_score,
+    )
     manifest["checkpoint"] = {
         "path": str(checkpoint_path),
         "selection": "best_validation_mcc" if config.select_best_by_mcc else "final_cycle",
@@ -655,7 +671,8 @@ def _csv_manifest(
     frames: dict[str, pd.DataFrame],
     metrics: dict[str, dict[str, Any]],
     threshold: float,
-    validation_mcc: float,
+    validation_metric: str,
+    validation_score: float,
 ) -> dict[str, Any]:
     split_summary = {}
     for split, frame in frames.items():
@@ -688,12 +705,35 @@ def _csv_manifest(
         "model": _csv_model_metadata(config=cfg),
         "training": asdict(cfg),
         "threshold_selection": {
-            "strategy": "validation_mcc",
+            "strategy": cfg.threshold_strategy,
             "threshold": float(threshold),
-            "validation_mcc": float(validation_mcc),
+            "validation_metric": validation_metric,
+            "validation_score": float(validation_score),
+            "validation_mcc": float(metrics["validation"]["mcc"]),
         },
         "metrics": metrics,
     }
+
+
+def _select_threshold(strategy: str, labels: np.ndarray, probabilities: np.ndarray) -> tuple[float, float]:
+    metric = _threshold_metric_from_strategy(strategy)
+    if metric == "fixed":
+        metrics = binary_classification_metrics(labels, probabilities, threshold=0.5)
+        return 0.5, float(metrics["mcc"])
+    return best_threshold_by_metric(labels, probabilities, metric=metric)
+
+
+def _threshold_metric_from_strategy(strategy: str) -> str:
+    mapping = {
+        "validation_mcc": "mcc",
+        "validation_f1": "f1",
+        "validation_balanced_accuracy": "balanced_accuracy",
+        "fixed_0_5": "fixed",
+        "none": "fixed",
+    }
+    if strategy not in mapping:
+        raise ValueError(f"Unsupported threshold strategy: {strategy}")
+    return mapping[strategy]
 
 
 def _write_outputs(

@@ -197,3 +197,38 @@ def test_cnn_csv_train_predictions_preserve_csv_row_order(tmp_path):
     assert train_predictions["sequence"].tolist() == sequences
     assert train_predictions["label"].tolist() == train["label"].tolist()
     assert train_predictions["idx"].tolist() == list(range(len(sequences)))
+
+
+def test_cnn_csv_split_honors_fixed_threshold_strategy(tmp_path):
+    sequences = [
+        "AAAAAAAAAAAAAAAA",
+        "CCCCCCCCCCCCCCCC",
+        "GGGGGGGGGGGGGGGG",
+        "TTTTTTTTTTTTTTTT",
+    ]
+    train = pd.DataFrame({"sequence": sequences, "label": [0, 1, 0, 1]})
+    validation = pd.DataFrame({"sequence": sequences, "label": [0, 1, 0, 1]})
+    test = pd.DataFrame({"sequence": sequences, "label": [0, 1, 0, 1]})
+    train_path = tmp_path / "train.csv"
+    validation_path = tmp_path / "validation.csv"
+    test_path = tmp_path / "test.csv"
+    train.to_csv(train_path, index=False)
+    validation.to_csv(validation_path, index=False)
+    test.to_csv(test_path, index=False)
+
+    result = run_cnn_csv_splits(
+        CnnCsvSplitConfig(
+            train_csv=train_path,
+            validation_csv=validation_path,
+            test_csv=test_path,
+            output_dir=tmp_path / "outputs",
+            sequence_length=32,
+            batch_size=2,
+            cycles=1,
+            threshold_strategy="fixed_0_5",
+            seed=42,
+        )
+    )
+
+    assert result.manifest["threshold_selection"]["strategy"] == "fixed_0_5"
+    assert result.manifest["threshold_selection"]["threshold"] == 0.5
