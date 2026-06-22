@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="420" viewBox="0 0 1180 420" role="img" aria-labelledby="title desc">
+  <title id="title">CNN reference benchmark metrics</title>
+  <desc id="desc">Reference CNN benchmark output for train, validation, and test splits, with threshold 0.67 and MCC values 0.239, 0.169, and 0.187.</desc>
+  <rect width="1180" height="420" fill="#1f2328"/>
+  <text x="28" y="42" fill="#f6f8fa" font-family="Arial, sans-serif" font-size="24" font-weight="700">CNN reference benchmark output</text>
+  <text x="28" y="70" fill="#c9d1d9" font-family="Arial, sans-serif" font-size="14">tiny 10-cycle CNN, validation-selected threshold = 0.67</text>
+
+  <g font-family="Arial, sans-serif" font-size="14">
+    <rect x="28" y="96" width="1124" height="36" fill="#30363d"/>
+    <text x="48" y="119" fill="#f6f8fa" font-weight="700">split</text>
+    <text x="176" y="119" fill="#f6f8fa" font-weight="700">accuracy</text>
+    <text x="286" y="119" fill="#f6f8fa" font-weight="700">balanced acc.</text>
+    <text x="438" y="119" fill="#f6f8fa" font-weight="700">precision</text>
+    <text x="556" y="119" fill="#f6f8fa" font-weight="700">recall</text>
+    <text x="650" y="119" fill="#f6f8fa" font-weight="700">F1</text>
+    <text x="724" y="119" fill="#f6f8fa" font-weight="700">MCC</text>
+    <text x="812" y="119" fill="#f6f8fa" font-weight="700">AUROC</text>
+    <text x="912" y="119" fill="#f6f8fa" font-weight="700">AUPRC</text>
+    <text x="1014" y="119" fill="#f6f8fa" font-weight="700">loss</text>
+
+    <rect x="28" y="132" width="1124" height="38" fill="#444"/>
+    <text x="48" y="156" fill="#f6f8fa">train</text>
+    <text x="176" y="156" fill="#f6f8fa">0.584</text>
+    <text x="286" y="156" fill="#f6f8fa">0.585</text>
+    <text x="438" y="156" fill="#f6f8fa">0.789</text>
+    <text x="556" y="156" fill="#f6f8fa">0.232</text>
+    <text x="650" y="156" fill="#f6f8fa">0.358</text>
+    <text x="724" y="156" fill="#f6f8fa">0.239</text>
+    <text x="812" y="156" fill="#f6f8fa">0.637</text>
+    <text x="912" y="156" fill="#f6f8fa">0.664</text>
+    <text x="1014" y="156" fill="#f6f8fa">0.653</text>
+
+    <rect x="28" y="170" width="1124" height="38" fill="#262b31"/>
+    <text x="48" y="194" fill="#f6f8fa">validation</text>
+    <text x="176" y="194" fill="#f6f8fa">0.560</text>
+    <text x="286" y="194" fill="#f6f8fa">0.559</text>
+    <text x="438" y="194" fill="#f6f8fa">0.705</text>
+    <text x="556" y="194" fill="#f6f8fa">0.203</text>
+    <text x="650" y="194" fill="#f6f8fa">0.316</text>
+    <text x="724" y="194" fill="#f6f8fa">0.169</text>
+    <text x="812" y="194" fill="#f6f8fa">0.598</text>
+    <text x="912" y="194" fill="#f6f8fa">0.611</text>
+    <text x="1014" y="194" fill="#f6f8fa">0.677</text>
+
+    <rect x="28" y="208" width="1124" height="38" fill="#444"/>
+    <text x="48" y="232" fill="#f6f8fa">test</text>
+    <text x="176" y="232" fill="#f6f8fa">0.569</text>
+    <text x="286" y="232" fill="#f6f8fa">0.567</text>
+    <text x="438" y="232" fill="#f6f8fa">0.720</text>
+    <text x="556" y="232" fill="#f6f8fa">0.218</text>
+    <text x="650" y="232" fill="#f6f8fa">0.334</text>
+    <text x="724" y="232" fill="#f6f8fa">0.187</text>
+    <text x="812" y="232" fill="#f6f8fa">0.600</text>
+    <text x="912" y="232" fill="#f6f8fa">0.619</text>
+    <text x="1014" y="232" fill="#f6f8fa">0.673</text>
+  </g>
+
+  <g font-family="Arial, sans-serif">
+    <text x="28" y="292" fill="#f6f8fa" font-size="18" font-weight="700">Training history snapshot</text>
+    <text x="28" y="322" fill="#c9d1d9" font-size="14">Best validation MCC in final cycles: 0.184 at cycle 7; final validation MCC: 0.169 at cycle 10.</text>
+    <text x="28" y="350" fill="#c9d1d9" font-size="14">Interpretation: reference CNN is reproducible but weak, leaving room for CNN-v2 and transformer baselines.</text>
+  </g>
+</svg>

@@ -14,7 +14,10 @@ CONFIG_DIR = Path(__file__).resolve().parents[1] / "config-examples" / "benchmar
 
 
 def test_example_benchmark_configs_load():
-    for name in ("cnn.toml", "dnabert2.toml", "ipromp.toml"):
+    for name in (
+        "cnn.toml",
+        "cnn_v2.toml",
+    ):
         config = load_benchmark_config(CONFIG_DIR / name)
         assert config.dataset.name == "ep_dnabert2_genomic_order"
         assert config.split.strategy == "predefined"
@@ -22,7 +25,13 @@ def test_example_benchmark_configs_load():
 
 
 def test_model_examples_share_dataset_and_split_contract():
-    configs = [load_benchmark_config(CONFIG_DIR / name) for name in ("cnn.toml", "dnabert2.toml", "ipromp.toml")]
+    configs = [
+        load_benchmark_config(CONFIG_DIR / name)
+        for name in (
+            "cnn.toml",
+            "cnn_v2.toml",
+        )
+    ]
     dataset_names = {config.dataset.name for config in configs}
     split_files = {tuple(sorted(config.dataset.split_files.items())) for config in configs}
     split_strategies = {config.split.strategy for config in configs}
