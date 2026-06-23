@@ -25,6 +25,15 @@ This folder is for the DNABERT2 promoter-classification benchmark on the same sp
 - `assets/dnabert2_cpu_smoke_metrics.csv`: CPU smoke metrics.
 - `assets/dnabert2_cpu_smoke_result.md`: explanation of the CPU smoke result.
 
+## Current Colab Notebook
+
+- Colab notebook: <https://colab.research.google.com/drive/1DookxBKrzfY2Hm56Cy7aAKMBInuE-wCg>
+- Google Drive file: <https://drive.google.com/file/d/1DookxBKrzfY2Hm56Cy7aAKMBInuE-wCg/view?usp=drivesdk>
+
+Use this notebook as the current DNABERT working copy for the shared-split
+benchmark. Keep its dataset split, seed, validation-threshold policy, and metric
+set aligned with the CNN-v2 benchmark before comparing results.
+
 ## Ubuntu/Local Result
 
 The Ubuntu/WSL work was only a smoke test because the local machine did not expose an NVIDIA CUDA GPU:
