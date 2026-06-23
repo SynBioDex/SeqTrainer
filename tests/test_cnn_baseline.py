@@ -9,6 +9,7 @@ torch = pytest.importorskip("torch")
 
 import pandas as pd
 
+import seqtrainer.torch.cnn_baseline as cnn_baseline
 from seqtrainer.metrics import best_threshold_by_mcc, binary_classification_metrics
 from seqtrainer.torch.cnn_baseline import (
     CnnBaselineConfig,
@@ -232,3 +233,61 @@ def test_cnn_csv_split_honors_fixed_threshold_strategy(tmp_path):
 
     assert result.manifest["threshold_selection"]["strategy"] == "fixed_0_5"
     assert result.manifest["threshold_selection"]["threshold"] == 0.5
+
+
+def test_cnn_csv_checkpoint_selection_uses_mcc_not_threshold_metric(tmp_path, monkeypatch):
+    sequences = [
+        "AAAAAAAAAAAAAAAA",
+        "CCCCCCCCCCCCCCCC",
+        "GGGGGGGGGGGGGGGG",
+        "TTTTTTTTTTTTTTTT",
+    ]
+    for name in ("train", "validation", "test"):
+        pd.DataFrame({"sequence": sequences, "label": [0, 1, 0, 1]}).to_csv(
+            tmp_path / f"{name}.csv",
+            index=False,
+        )
+
+    threshold_choices = iter([(0.2, 10.0), (0.8, 1.0)])
+    mcc_scores = iter([(0.5, 0.1), (0.5, 0.9)])
+
+    def fake_select_threshold(strategy, labels, probabilities):
+        assert strategy == "validation_f1"
+        return next(threshold_choices)
+
+    def fake_best_threshold_by_metric(labels, probabilities, metric="mcc", thresholds=None):
+        assert metric == "mcc"
+        return next(mcc_scores)
+
+    def fake_predict(model, loader, criterion, device):
+        return {
+            "label": torch.tensor([0, 1, 0, 1]).numpy(),
+            "probability": torch.tensor([0.1, 0.9, 0.2, 0.8]).numpy(),
+            "prediction": torch.tensor([0, 1, 0, 1]).numpy(),
+            "logit_argmax_prediction": torch.tensor([0, 1, 0, 1]).numpy(),
+            "loss": 0.1,
+        }
+
+    monkeypatch.setattr(cnn_baseline, "_run_epoch", lambda *args, **kwargs: (0.1, 1.0))
+    monkeypatch.setattr(cnn_baseline, "_predict", fake_predict)
+    monkeypatch.setattr(cnn_baseline, "_select_threshold", fake_select_threshold)
+    monkeypatch.setattr(cnn_baseline, "best_threshold_by_metric", fake_best_threshold_by_metric)
+
+    result = run_cnn_csv_splits(
+        CnnCsvSplitConfig(
+            train_csv=tmp_path / "train.csv",
+            validation_csv=tmp_path / "validation.csv",
+            test_csv=tmp_path / "test.csv",
+            output_dir=tmp_path / "outputs",
+            sequence_length=32,
+            batch_size=2,
+            cycles=2,
+            select_best_by_mcc=True,
+            threshold_strategy="validation_f1",
+            seed=42,
+        )
+    )
+
+    assert result.manifest["threshold_selection"]["strategy"] == "validation_f1"
+    assert result.manifest["threshold_selection"]["threshold"] == 0.8
+    assert result.manifest["threshold_selection"]["validation_score"] == 1.0

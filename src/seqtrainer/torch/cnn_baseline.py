@@ -230,7 +230,8 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
     history: list[dict[str, float]] = []
     best_state = deepcopy(model.state_dict())
     best_threshold = 0.5
-    best_validation_score = float("-inf")
+    best_threshold_score = float("-inf")
+    best_checkpoint_mcc = float("-inf")
     best_validation_metric = _threshold_metric_from_strategy(config.threshold_strategy)
     bad_cycles = 0
 
@@ -266,8 +267,9 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
         history.append(history_row)
 
         if config.select_best_by_mcc or config.early_stopping_patience is not None:
-            if val_score > best_validation_score:
-                best_validation_score = float(val_score)
+            if val_mcc > best_checkpoint_mcc:
+                best_checkpoint_mcc = float(val_mcc)
+                best_threshold_score = float(val_score)
                 best_threshold = float(val_threshold)
                 best_state = deepcopy(model.state_dict())
                 bad_cycles = 0
@@ -285,7 +287,7 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
         for split, loader in prediction_loaders.items()
     }
     if config.select_best_by_mcc or config.early_stopping_patience is not None:
-        threshold, validation_score = best_threshold, best_validation_score
+        threshold, validation_score = best_threshold, best_threshold_score
     else:
         threshold, validation_score = _select_threshold(
             config.threshold_strategy,

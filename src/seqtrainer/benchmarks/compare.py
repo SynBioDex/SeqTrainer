@@ -27,7 +27,7 @@ def compare_benchmark_outputs(
         manifest = _read_json(manifest_path) if manifest_path.exists() else {}
         model = manifest.get("model", {})
         experiment = manifest.get("experiment", {})
-        threshold = manifest.get("evaluation", {}).get("selected_threshold")
+        threshold = _selected_threshold(manifest)
 
         for _, metric_row in metrics.iterrows():
             row = {
@@ -107,6 +107,13 @@ def _summary_markdown(comparison: pd.DataFrame) -> str:
 
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _selected_threshold(manifest: dict[str, Any]) -> Any:
+    threshold_selection = manifest.get("threshold_selection", {})
+    if "threshold" in threshold_selection:
+        return threshold_selection["threshold"]
+    return manifest.get("evaluation", {}).get("selected_threshold")
 
 
 def _display(value: Any) -> str:

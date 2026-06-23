@@ -462,6 +462,7 @@ def test_benchmark_compare_cli_and_helper_rank_test_metrics(tmp_path, capsys):
             split_summary={"test": {"rows": 2, "class_counts": {"0": 1, "1": 1}}},
             threshold=0.5,
         )
+        manifest["threshold_selection"] = {"threshold": 0.63}
         metrics = {
             "test": {
                 "threshold": 0.5,
@@ -484,6 +485,7 @@ def test_benchmark_compare_cli_and_helper_rank_test_metrics(tmp_path, capsys):
     assert helper_written["comparison_metrics"].exists()
     helper_frame = pd.read_csv(helper_written["comparison_metrics"])
     assert helper_frame.iloc[0]["mcc"] == 0.8
+    assert helper_frame.iloc[0]["selected_threshold"] == 0.63
 
     exit_code = main(["benchmark", "compare", str(first), str(second), "--output-dir", str(tmp_path / "comparison_cli")])
     captured = capsys.readouterr()
