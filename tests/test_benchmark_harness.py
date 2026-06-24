@@ -1,5 +1,6 @@
-from pathlib import Path
 import json
+from dataclasses import replace
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -87,6 +88,32 @@ def test_predefined_split_loader_and_summary(tmp_path):
     assert summary["train"]["rows"] == 3
     assert summary["train"]["class_counts"] == {"0": 1, "1": 2}
     assert summary["train"]["sequence_length"]["max"] == 4
+
+
+def test_split_summary_supports_configured_string_labels(tmp_path):
+    config = load_benchmark_config(CONFIG_DIR / "cnn.toml")
+    config = replace(
+        config,
+        label=replace(
+            config.label,
+            negative_label="background",
+            positive_label="promoter",
+        ),
+    )
+    split_dir = tmp_path / "data" / "promoter_classification"
+    split_dir.mkdir(parents=True)
+    for filename in config.dataset.split_files.values():
+        pd.DataFrame(
+            {
+                "sequence": ["ACGT", "TGCA", "AAAA"],
+                "label": ["background", "promoter", "promoter"],
+            }
+        ).to_csv(tmp_path / filename, index=False)
+
+    frames = load_predefined_split_frames(config, base_dir=tmp_path)
+    summary = summarize_split_frames(config, frames)
+
+    assert summary["train"]["class_counts"] == {"background": 1, "promoter": 2}
 
 
 def test_predefined_split_loader_validates_required_columns(tmp_path):

@@ -76,10 +76,12 @@ The older SBOL tutorial baseline uses `data/sbol_data`, the first 40 `sample_des
 
 Open:
 
-- [CNN reference benchmark in Colab](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/cnn_benchmark/cnn_reference_benchmark_colab.ipynb)
-- [CNN-v2 final benchmark in Colab](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-cnn-baseline-reproduction/notebooks/benchmarks/cnn_benchmark/cnn_v2_final_benchmark_colab.ipynb)
+- [CNN reference benchmark in Colab](https://colab.research.google.com/github/Gonza10V/SeqTrainer/blob/dev/notebooks/benchmarks/cnn_benchmark/cnn_reference_benchmark_colab.ipynb)
+- [CNN-v2 final benchmark in Colab](https://colab.research.google.com/github/Gonza10V/SeqTrainer/blob/dev/notebooks/benchmarks/cnn_benchmark/cnn_v2_final_benchmark_colab.ipynb)
 
-After this branch is merged, replace `issue-3-cnn-baseline-reproduction` in the Colab URL with `dev`.
+The setup cells use upstream `dev` by default. Set the `SEQTRAINER_REVISION`
+environment variable to a release tag or commit SHA before running the setup
+cell when an exactly pinned revision is required.
 
 Use a GPU runtime for `cnn_v2_final_benchmark_colab.ipynb`:
 
