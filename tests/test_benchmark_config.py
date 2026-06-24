@@ -17,6 +17,8 @@ def test_example_benchmark_configs_load():
     for name in (
         "cnn.toml",
         "cnn_v2.toml",
+        "dnabert2.toml",
+        "ipromp.toml",
     ):
         config = load_benchmark_config(CONFIG_DIR / name)
         assert config.dataset.name == "ep_dnabert2_genomic_order"
@@ -30,6 +32,8 @@ def test_model_examples_share_dataset_and_split_contract():
         for name in (
             "cnn.toml",
             "cnn_v2.toml",
+            "dnabert2.toml",
+            "ipromp.toml",
         )
     ]
     dataset_names = {config.dataset.name for config in configs}
