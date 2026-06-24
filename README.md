@@ -43,6 +43,15 @@ pip install -e '.[dev]'
 
 ## CLI examples
 
+The promoter benchmark CSVs are bundled as a ZIP archive. Extract them once in
+a fresh checkout before running the benchmark commands:
+
+```bash
+python -m zipfile -e data/data_DNABERT/promoter_classification_DNABERT.zip data/promoter_classification
+```
+
+Then run:
+
 ```bash
 seqtrainer sparql prefixes
 seqtrainer inspect-sbol data/sbol_data/sample_design_0.xml

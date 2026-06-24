@@ -137,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
                 source_url=benchmark.dataset.source_url,
                 sequence_field=benchmark.dataset.sequence_field,
                 label_field=benchmark.dataset.label_field,
+                positive_label=benchmark.label.positive_label,
+                negative_label=benchmark.label.negative_label,
                 sequence_length=args.sequence_length or benchmark.preprocessing.sequence_length or 300,
                 seed=args.seed or benchmark.experiment.seed,
                 batch_size=args.batch_size or benchmark.training.batch_size or 16,
@@ -152,6 +154,9 @@ def main(argv: list[str] | None = None) -> int:
                 class_weighting=bool(training_params.get("class_weighting", False)),
                 threshold_strategy=benchmark.evaluation.threshold_strategy,
                 device=args.device or _resolve_device(benchmark.environment.device),
+                save_json=benchmark.outputs.save_json,
+                save_csv=benchmark.outputs.save_csv,
+                save_predictions=benchmark.outputs.save_predictions,
             )
         )
         print(f"output_dir={result.output_dir}")

@@ -200,6 +200,83 @@ def test_cnn_csv_train_predictions_preserve_csv_row_order(tmp_path):
     assert train_predictions["idx"].tolist() == list(range(len(sequences)))
 
 
+def test_cnn_csv_maps_configured_binary_labels_to_zero_and_one(tmp_path):
+    sequences = [
+        "AAAAAAAAAAAAAAAA",
+        "CCCCCCCCCCCCCCCC",
+        "GGGGGGGGGGGGGGGG",
+        "TTTTTTTTTTTTTTTT",
+    ]
+    for name in ("train", "validation", "test"):
+        pd.DataFrame({"sequence": sequences, "label": [-1, 1, -1, 1]}).to_csv(
+            tmp_path / f"{name}.csv",
+            index=False,
+        )
+
+    result = run_cnn_csv_splits(
+        CnnCsvSplitConfig(
+            train_csv=tmp_path / "train.csv",
+            validation_csv=tmp_path / "validation.csv",
+            test_csv=tmp_path / "test.csv",
+            output_dir=tmp_path / "outputs",
+            negative_label=-1,
+            positive_label=1,
+            sequence_length=32,
+            batch_size=2,
+            cycles=1,
+            seed=42,
+        )
+    )
+
+    predictions = pd.read_csv(result.output_dir / "predictions.csv")
+    assert set(predictions["label"]) == {0, 1}
+    assert result.manifest["dataset"]["label_mapping"] == {
+        "negative_label": -1,
+        "positive_label": 1,
+        "normalized_negative_label": 0,
+        "normalized_positive_label": 1,
+    }
+
+
+def test_cnn_csv_honors_output_save_flags(tmp_path):
+    sequences = [
+        "AAAAAAAAAAAAAAAA",
+        "CCCCCCCCCCCCCCCC",
+        "GGGGGGGGGGGGGGGG",
+        "TTTTTTTTTTTTTTTT",
+    ]
+    for name in ("train", "validation", "test"):
+        pd.DataFrame({"sequence": sequences, "label": [0, 1, 0, 1]}).to_csv(
+            tmp_path / f"{name}.csv",
+            index=False,
+        )
+
+    output_dir = tmp_path / "outputs"
+    run_cnn_csv_splits(
+        CnnCsvSplitConfig(
+            train_csv=tmp_path / "train.csv",
+            validation_csv=tmp_path / "validation.csv",
+            test_csv=tmp_path / "test.csv",
+            output_dir=output_dir,
+            sequence_length=32,
+            batch_size=2,
+            cycles=1,
+            save_json=False,
+            save_csv=False,
+            save_predictions=False,
+            seed=42,
+        )
+    )
+
+    assert (output_dir / "manifest.json").exists()
+    assert (output_dir / "checkpoints" / "best_model.pt").exists()
+    assert not (output_dir / "config.json").exists()
+    assert not (output_dir / "metrics.json").exists()
+    assert not (output_dir / "metrics.csv").exists()
+    assert not (output_dir / "history.csv").exists()
+    assert not (output_dir / "predictions.csv").exists()
+
+
 def test_cnn_csv_split_honors_fixed_threshold_strategy(tmp_path):
     sequences = [
         "AAAAAAAAAAAAAAAA",

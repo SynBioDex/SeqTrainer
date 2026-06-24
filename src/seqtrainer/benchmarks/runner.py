@@ -64,6 +64,8 @@ def _run_cnn(
             source_url=config.dataset.source_url,
             sequence_field=config.dataset.sequence_field,
             label_field=config.dataset.label_field,
+            positive_label=config.label.positive_label,
+            negative_label=config.label.negative_label,
             sequence_length=config.preprocessing.sequence_length or 300,
             seed=config.training.seed,
             batch_size=config.training.batch_size or 16,
@@ -79,6 +81,9 @@ def _run_cnn(
             class_weighting=bool(params.get("class_weighting", False)),
             threshold_strategy=config.evaluation.threshold_strategy,
             device=_resolve_device(config.environment.device),
+            save_json=config.outputs.save_json,
+            save_csv=config.outputs.save_csv,
+            save_predictions=config.outputs.save_predictions,
         )
     )
     return BenchmarkRunResult(

@@ -60,6 +60,8 @@ class CnnCsvSplitConfig:
     source_url: str = "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE144621"
     sequence_field: str = "sequence"
     label_field: str = "label"
+    positive_label: Any = 1
+    negative_label: Any = 0
     sequence_length: int = 300
     seed: int = 42
     batch_size: int = 16
@@ -76,6 +78,9 @@ class CnnCsvSplitConfig:
     threshold_strategy: str = "validation_mcc"
     device: str = "cpu"
     deterministic: bool = True
+    save_json: bool = True
+    save_csv: bool = True
+    save_predictions: bool = True
 
 
 @dataclass(frozen=True)
@@ -366,6 +371,9 @@ def _build_dataset(cfg: CnnBaselineConfig) -> dict[str, Any]:
 
 
 def _load_csv_split_frames(cfg: CnnCsvSplitConfig) -> dict[str, pd.DataFrame]:
+    if cfg.positive_label == cfg.negative_label:
+        raise ValueError("positive_label and negative_label must be different")
+
     paths = {
         "train": Path(cfg.train_csv),
         "validation": Path(cfg.validation_csv),
@@ -381,6 +389,20 @@ def _load_csv_split_frames(cfg: CnnCsvSplitConfig) -> dict[str, pd.DataFrame]:
             raise ValueError(f"{path} is missing required column(s): {sorted(missing)}")
         if frame.empty:
             raise ValueError(f"{path} is empty")
+        raw_labels = frame[cfg.label_field]
+        known_labels = raw_labels.isin([cfg.negative_label, cfg.positive_label])
+        if not known_labels.all():
+            unexpected = raw_labels.loc[~known_labels].drop_duplicates().tolist()
+            raise ValueError(
+                f"{path} contains labels outside the configured binary mapping "
+                f"{cfg.negative_label!r}->0 and {cfg.positive_label!r}->1: {unexpected!r}"
+            )
+        frame[cfg.label_field] = raw_labels.map(
+            {
+                cfg.negative_label: 0,
+                cfg.positive_label: 1,
+            }
+        ).astype(int)
         frames[split] = frame.copy()
     return frames
 
@@ -697,6 +719,12 @@ def _csv_manifest(
             },
             "sequence_field": cfg.sequence_field,
             "label_field": cfg.label_field,
+            "label_mapping": {
+                "negative_label": cfg.negative_label,
+                "positive_label": cfg.positive_label,
+                "normalized_negative_label": 0,
+                "normalized_positive_label": 1,
+            },
             "splits": split_summary,
         },
         "preprocessing": {
@@ -748,12 +776,15 @@ def _write_outputs(
     checkpoint_state: dict[str, Any] | None = None,
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "config.json").write_text(json.dumps(_json_ready(asdict(cfg)), indent=2), encoding="utf-8")
-    (output_dir / "metrics.json").write_text(json.dumps(_json_ready(metrics), indent=2), encoding="utf-8")
     (output_dir / "manifest.json").write_text(json.dumps(_json_ready(manifest), indent=2), encoding="utf-8")
-    pd.DataFrame(history).to_csv(output_dir / "history.csv", index=False)
-    pd.DataFrame(_flatten_metrics(metrics)).to_csv(output_dir / "metrics.csv", index=False)
-    pd.concat(prediction_frames, ignore_index=True).to_csv(output_dir / "predictions.csv", index=False)
+    if getattr(cfg, "save_json", True):
+        (output_dir / "config.json").write_text(json.dumps(_json_ready(asdict(cfg)), indent=2), encoding="utf-8")
+        (output_dir / "metrics.json").write_text(json.dumps(_json_ready(metrics), indent=2), encoding="utf-8")
+    if getattr(cfg, "save_csv", True):
+        pd.DataFrame(history).to_csv(output_dir / "history.csv", index=False)
+        pd.DataFrame(_flatten_metrics(metrics)).to_csv(output_dir / "metrics.csv", index=False)
+    if getattr(cfg, "save_predictions", True):
+        pd.concat(prediction_frames, ignore_index=True).to_csv(output_dir / "predictions.csv", index=False)
     if checkpoint_state is not None:
         checkpoint_name = "best_model.pt" if isinstance(cfg, CnnCsvSplitConfig) else "final_model.pt"
         checkpoint_path = output_dir / "checkpoints" / checkpoint_name
