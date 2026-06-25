@@ -15,66 +15,25 @@ This folder is for the DNABERT2 promoter-classification benchmark on the same sp
 
 ## Files
 
-- `dnabert2_ai_x_bio_frozen_colab.ipynb`: Colab-oriented DNABERT2 frozen benchmark notebook.
-- `dnabert2_local_hpc_benchmark.ipynb`: local/HPC notebook. On CPU-only machines, use it only for smoke checks.
-- `dnabert2_local_hpc_benchmark_executed.ipynb`: executed CPU-smoke reference from a no-CUDA machine.
-- `dnabert2_alpine_hpc_benchmark.ipynb`: Alpine runbook that writes SLURM scripts.
-- `dnabert2_alpine_hpc_benchmark_executed.ipynb`: executed script-generation copy.
-- `alpine_dnabert2_smoke.sbatch`: short Alpine smoke job.
-- `alpine_dnabert2_frozen.sbatch`: full frozen DNABERT2 Alpine job.
-- `assets/dnabert2_cpu_smoke_metrics.csv`: CPU smoke metrics.
-- `assets/dnabert2_cpu_smoke_result.md`: explanation of the CPU smoke result.
+- `dnabert2_shared_split_benchmark_colab.ipynb`: current Colab benchmark with
+  the same Conda-based execution pattern as the original working DNABERT2
+  notebook, plus the shared CNN split, validation-only threshold selection,
+  complete metric table, training curves, threshold analysis, confusion
+  matrices, ROC/PR curves, and optional CNN-v2 comparison.
 
-## Current Colab Notebook
+## Run In Colab
 
-- Colab notebook: <https://colab.research.google.com/drive/1DookxBKrzfY2Hm56Cy7aAKMBInuE-wCg>
-- Google Drive file: <https://drive.google.com/file/d/1DookxBKrzfY2Hm56Cy7aAKMBInuE-wCg/view?usp=drivesdk>
+Open:
 
-Use this notebook as the current DNABERT working copy for the shared-split
-benchmark. Keep its dataset split, seed, validation-threshold policy, and metric
-set aligned with the CNN-v2 benchmark before comparing results.
+<https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/dnabert_benchmark/dnabert2_shared_split_benchmark_colab.ipynb>
 
-## Ubuntu/Local Result
+Use a T4 GPU for an initial run. If the full embedding extraction exceeds the
+free Colab session limit, run the same package config on Alpine A100/L40
+hardware without changing the split, seed, threshold, or metric policy.
 
-The Ubuntu/WSL work was only a smoke test because the local machine did not expose an NVIDIA CUDA GPU:
-
-```text
-nvidia-smi: unavailable
-torch.cuda.is_available(): False
-```
-
-That smoke test proves the code path works: imports, shared split loading, DNABERT2 runner calls, metric formatting, and artifact writing. It does **not** prove DNABERT2 model performance and must not be compared with full CNN-v2 metrics.
-
-## Full DNABERT2 Run
-
-Use Alpine or another NVIDIA CUDA GPU system.
-
-Preferred Alpine partition:
-
-```text
-aa100
-```
-
-Fallback:
-
-```text
-al40
-```
-
-Avoid `ami100` for now because this workflow expects the PyTorch CUDA/NVIDIA stack, not ROCm.
-
-Before submitting, edit both SLURM files and replace:
-
-```bash
-#SBATCH --account=<YOUR_ACCOUNT>
-```
-
-Then run:
-
-```bash
-sbatch notebooks/benchmarks_sg/dnabert_benchmark/alpine_dnabert2_smoke.sbatch
-sbatch notebooks/benchmarks_sg/dnabert_benchmark/alpine_dnabert2_frozen.sbatch
-```
+Step 1 installs CondaColab and restarts the runtime. After Colab reconnects,
+continue from Step 2. The one-sequence preflight must succeed before starting
+the full embedding extraction.
 
 ## Compare With CNN-v2
 
