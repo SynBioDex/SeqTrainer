@@ -10,6 +10,8 @@ The purpose is to make the CNN baseline reproducible before comparing against DN
 - `cnn_v2_final_benchmark_colab.ipynb`: final CNN-v2 check with two regularized enhanced CNN candidates.
 - `assets/cnn_reference_benchmark_metrics.svg`: reference CNN result snapshot.
 - `assets/cnn_v2_mcc_comparison.svg`: CNN-v2 comparison snapshot.
+- `assets/RESULTS.md`: complete result tables plus detailed reference CNN and
+  CNN-v2 architecture, training, split, seed, and threshold specifications.
 
 ## Dataset
 

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="900" viewBox="0 0 1500 900" role="img" aria-labelledby="title desc">
+  <title id="title">CNN and frozen DNABERT2 promoter benchmark comparison</title>
+  <desc id="desc">Complete primary comparison and key specifications for CNN reference, selected CNN-v2, and frozen DNABERT2 on the shared held-out test split.</desc>
+  <rect width="1500" height="900" fill="#161b22"/>
+  <g font-family="Arial, sans-serif">
+    <text x="48" y="55" fill="#f0f6fc" font-size="30" font-weight="700">Shared-split promoter benchmark</text>
+    <text x="48" y="88" fill="#b1bac4" font-size="17">Candidate and probability threshold selected using validation only; test is held out for final reporting.</text>
+
+    <rect x="48" y="120" width="1404" height="48" rx="4" fill="#30363d"/>
+    <g fill="#f0f6fc" font-size="16" font-weight="700">
+      <text x="70" y="151">model</text><text x="520" y="151">val MCC</text><text x="650" y="151">test MCC</text>
+      <text x="790" y="151">test AUPRC</text><text x="950" y="151">test AUROC</text><text x="1100" y="151">bal. acc.</text><text x="1250" y="151">test F1</text>
+    </g>
+    <g font-size="16">
+      <rect x="48" y="168" width="1404" height="54" fill="#21262d"/>
+      <text x="70" y="201" fill="#f0f6fc">CNN reference (10 cycles)</text><text x="520" y="201" fill="#f0f6fc">0.168827</text><text x="650" y="201" fill="#f0f6fc">0.187208</text><text x="790" y="201" fill="#f0f6fc">0.618783</text><text x="950" y="201" fill="#f0f6fc">0.599882</text><text x="1100" y="201" fill="#f0f6fc">0.566921</text><text x="1250" y="201" fill="#f0f6fc">0.334257</text>
+      <rect x="48" y="222" width="1404" height="54" fill="#2d333b"/>
+      <text x="70" y="255" fill="#7ee787" font-weight="700">CNN-v2 selected (50 cycles)</text><text x="520" y="255" fill="#7ee787" font-weight="700">0.225811</text><text x="650" y="255" fill="#7ee787" font-weight="700">0.220884</text><text x="790" y="255" fill="#7ee787" font-weight="700">0.645976</text><text x="950" y="255" fill="#7ee787">0.610727</text><text x="1100" y="255" fill="#7ee787">0.576483</text><text x="1250" y="255" fill="#f0f6fc">0.337749</text>
+      <rect x="48" y="276" width="1404" height="54" fill="#21262d"/>
+      <text x="70" y="309" fill="#f0f6fc">DNABERT2 frozen v1</text><text x="520" y="309" fill="#f0f6fc">0.122066</text><text x="650" y="309" fill="#f0f6fc">0.124165</text><text x="790" y="309" fill="#f0f6fc">0.575073</text><text x="950" y="309" fill="#f0f6fc">0.573813</text><text x="1100" y="309" fill="#f0f6fc">0.556231</text><text x="1250" y="309" fill="#79c0ff" font-weight="700">0.436466</text>
+    </g>
+
+    <text x="48" y="382" fill="#f0f6fc" font-size="22" font-weight="700">Fixed comparison contract</text>
+    <g fill="#b1bac4" font-size="16">
+      <text x="70" y="417">Dataset: GSE144621 EP_DNA_BERT2_genomic_order</text>
+      <text x="70" y="445">Rows: train 136,484; validation 19,498; test 38,996</text>
+      <text x="70" y="473">Labels: provided binary 0/1 | seed: 42 | sequence length: 300 bp</text>
+      <text x="70" y="501">Threshold: validation MCC only | primary metric: MCC | secondary metric: AUPRC</text>
+    </g>
+
+    <text x="48" y="558" fill="#f0f6fc" font-size="22" font-weight="700">CNN-v2 selected specification</text>
+    <g fill="#b1bac4" font-size="16">
+      <text x="70" y="593">One-hot A/C/G/T/N | five convolutions: 5->64->64->128->128->256</text>
+      <text x="70" y="621">Adaptive max + average pooling | dropout 0.30 | batch 32 | 50 cycles/epochs</text>
+      <text x="70" y="649">AdamW | learning rate 3e-4 | weight decay 2e-4 | OneCycleLR</text>
+      <text x="70" y="677">Best checkpoint and threshold selected by validation MCC | selected threshold 0.630</text>
+    </g>
+
+    <text x="770" y="558" fill="#f0f6fc" font-size="22" font-weight="700">DNABERT2 frozen-v1 specification</text>
+    <g fill="#b1bac4" font-size="16">
+      <text x="792" y="593">zhihan1996/DNABERT-2-117M | native BPE | max length 104 tokens</text>
+      <text x="792" y="621">Frozen encoder | masked mean -> 768 values | dropout 0.10 | Linear(768,1)</text>
+      <text x="792" y="649">Extraction batch 16 | head epochs 50 | AdamW | learning rate 3e-4</text>
+      <text x="792" y="677">Weight decay 1e-4 | BCEWithLogits | selected threshold 0.505220</text>
+      <text x="792" y="705">Runtime 6,619 s | peak GPU memory 1,375.6 MB | no class weighting</text>
+    </g>
+
+    <rect x="48" y="754" width="1404" height="92" rx="4" fill="#21262d" stroke="#3d444d"/>
+    <text x="70" y="789" fill="#f0f6fc" font-size="18" font-weight="700">Current decision</text>
+    <text x="70" y="819" fill="#b1bac4" font-size="16">CNN-v2 leads on MCC and AUPRC. Frozen DNABERT2-v1 has higher recall/F1 but lower specificity and overall correlation.</text>
+    <text x="70" y="844" fill="#b1bac4" font-size="16">DNABERT2-v2 remains unrun; it repairs mini-batch head training and adds validation-selected pooling, length, head, LR, and seed trials.</text>
+  </g>
+</svg>
