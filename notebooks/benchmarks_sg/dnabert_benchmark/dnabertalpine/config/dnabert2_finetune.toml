@@ -1,7 +1,7 @@
 [experiment]
-name = "cnn_v2_regularized_ep_genomic_order"
+name = "dnabert2_finetune_ep_genomic_order"
 task = "bacterial_promoter_prediction"
-description = "Regularized CNN-v2 benchmark on the shared E. coli promoter classification split."
+description = "Full DNABERT2 fine-tuning benchmark on the shared E. coli promoter classification split."
 seed = 42
 
 [dataset]
@@ -29,37 +29,47 @@ seed = 42
 validation_name = "eval"
 
 [preprocessing]
-encoding = "one_hot"
+encoding = "dnabert2_tokenizer"
 sequence_length = 300
-pad_or_trim = true
+pad_or_trim = false
+
+[preprocessing.params]
+model_max_length = 70
+padding = "longest"
 
 [model]
-family = "cnn"
-name = "enhanced_dna_cnn"
-version = "cnn_v2_regularized_config_v1"
+family = "dnabert2"
+name = "zhihan1996/DNABERT-2-117M"
+version = "7bce263b15377fc15361f52cfab88f8b586abda0"
 
 [model.params]
-variant = "enhanced"
-dropout = 0.30
-input_channels = 5
-conv_channels = [64, 128]
-kernel_sizes = [15, 7, 7, 7]
-pooling = "adaptive_max_plus_avg"
+mode = "full_finetune"
+pooling = "mean"
+trust_remote_code = true
+allow_download = true
+require_model_files = true
+revision = "7bce263b15377fc15361f52cfab88f8b586abda0"
+classifier_dropout = 0.1
+fine_tuning_scope = "all_encoder_layers"
+
+disable_flash_attention = true
 
 [training]
 seed = 42
-batch_size = 32
-max_epochs = 50
-learning_rate = 0.0003
+batch_size = 4
+max_epochs = 4
+learning_rate = 0.00003
 
 [training.params]
 optimizer = "adamw"
-scheduler = "one_cycle"
-weight_decay = 0.0002
-loss = "cross_entropy"
-class_weighting = false
-select_best_by_mcc = true
-early_stopping_patience = 10
+loss = "bce_with_logits"
+warmup_ratio = 0.1
+weight_decay = 0.01
+early_stopping_patience = 2
+early_stopping_metric = "validation_mcc"
+gradient_accumulation_steps = 8
+max_grad_norm = 1.0
+diagnostics = ["train_loss", "validation_loss", "validation_mcc", "learning_rate"]
 
 [evaluation]
 primary_metric = "mcc"
@@ -78,11 +88,11 @@ metrics = [
 ]
 
 [outputs]
-output_dir = "outputs/benchmarks/cnn_v2_regularized_ep_genomic_order"
+output_dir = "outputs/benchmarks/dnabert2_finetune_ep_genomic_order"
 save_json = true
 save_csv = true
 save_predictions = true
 
 [environment]
 device = "auto"
-precision = "float32"
+precision = "bf16"
