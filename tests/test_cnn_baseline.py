@@ -269,7 +269,7 @@ def test_cnn_csv_honors_output_save_flags(tmp_path):
     )
 
     assert (output_dir / "manifest.json").exists()
-    assert (output_dir / "checkpoints" / "best_model.pt").exists()
+    assert (output_dir / "checkpoints" / "final_model.pt").exists()
     assert not (output_dir / "config.json").exists()
     assert not (output_dir / "metrics.json").exists()
     assert not (output_dir / "metrics.csv").exists()
