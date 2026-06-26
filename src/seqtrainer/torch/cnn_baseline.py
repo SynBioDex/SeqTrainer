@@ -309,7 +309,9 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
         prediction_frames.append(_csv_prediction_frame(split, frames[split], config, pred, threshold))
 
     output_dir = Path(config.output_dir)
-    checkpoint_path = output_dir / "checkpoints" / "best_model.pt"
+    uses_validation_checkpoint = config.select_best_by_mcc or config.early_stopping_patience is not None
+    checkpoint_name = "best_model.pt" if uses_validation_checkpoint else "final_model.pt"
+    checkpoint_path = output_dir / "checkpoints" / checkpoint_name
     manifest = _csv_manifest(
         config,
         frames,
@@ -320,7 +322,7 @@ def run_cnn_csv_splits(config: CnnCsvSplitConfig) -> CnnBaselineResult:
     )
     manifest["checkpoint"] = {
         "path": str(checkpoint_path),
-        "selection": "best_validation_mcc" if config.select_best_by_mcc else "final_cycle",
+        "selection": "best_validation_mcc" if uses_validation_checkpoint else "final_cycle",
     }
     _write_outputs(output_dir, config, metrics, manifest, history, prediction_frames, model.state_dict())
     return CnnBaselineResult(output_dir=output_dir, metrics=metrics, manifest=manifest, history=history)
@@ -786,7 +788,10 @@ def _write_outputs(
     if getattr(cfg, "save_predictions", True):
         pd.concat(prediction_frames, ignore_index=True).to_csv(output_dir / "predictions.csv", index=False)
     if checkpoint_state is not None:
-        checkpoint_name = "best_model.pt" if isinstance(cfg, CnnCsvSplitConfig) else "final_model.pt"
+        uses_validation_checkpoint = isinstance(cfg, CnnCsvSplitConfig) and (
+            cfg.select_best_by_mcc or cfg.early_stopping_patience is not None
+        )
+        checkpoint_name = "best_model.pt" if uses_validation_checkpoint else "final_model.pt"
         checkpoint_path = output_dir / "checkpoints" / checkpoint_name
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(checkpoint_state, checkpoint_path)

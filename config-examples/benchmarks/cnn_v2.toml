@@ -40,7 +40,7 @@ version = "cnn_v2_regularized_config_v1"
 
 [model.params]
 variant = "enhanced"
-dropout = 0.25
+dropout = 0.30
 input_channels = 5
 conv_channels = [64, 128]
 kernel_sizes = [15, 7, 7, 7]
@@ -48,18 +48,18 @@ pooling = "adaptive_max_plus_avg"
 
 [training]
 seed = 42
-batch_size = 16
+batch_size = 32
 max_epochs = 50
 learning_rate = 0.0003
 
 [training.params]
 optimizer = "adamw"
 scheduler = "one_cycle"
-weight_decay = 0.0001
+weight_decay = 0.0002
 loss = "cross_entropy"
 class_weighting = false
 select_best_by_mcc = true
-early_stopping_patience = 8
+early_stopping_patience = 10
 
 [evaluation]
 primary_metric = "mcc"
