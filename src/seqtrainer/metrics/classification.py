@@ -191,7 +191,9 @@ def _balanced_accuracy(sensitivity: float | None, specificity: float | None) -> 
 
 
 def _mcc_from_counts(tn: int, fp: int, fn: int, tp: int) -> float:
-    denominator = (tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)
+    tn_f, fp_f, fn_f, tp_f = (float(tn), float(fp), float(fn), float(tp))
+    denominator = (tp_f + fp_f) * (tp_f + fn_f) * (tn_f + fp_f) * (tn_f + fn_f)
     if denominator == 0:
         return 0.0
-    return float(((tp * tn) - (fp * fn)) / np.sqrt(denominator))
+    numerator = (tp_f * tn_f) - (fp_f * fn_f)
+    return float(numerator / np.sqrt(denominator))
