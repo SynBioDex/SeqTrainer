@@ -539,7 +539,11 @@ def test_prepare_ipromp_cli_writes_mapping_and_command_script(tmp_path, capsys):
     assert code == 0
     assert (tmp_path / "prepared_ipromp" / "ipromp_id_mapping.csv").exists()
     assert (tmp_path / "prepared_ipromp" / "ipromp_fasta" / "test.fasta").exists()
-    assert "-s 10" in (tmp_path / "prepared_ipromp" / "ipromp_run_commands.sh").read_text()
+    command_text = (tmp_path / "prepared_ipromp" / "ipromp_run_commands.sh").read_text()
+    assert "--species-id 10" in command_text
+    assert "--max-length 300" in command_text
+    assert "--batch-size 16" in command_text
+    assert "seqtrainer.adapters.ipromp_inference" in command_text
     assert "mapping_csv=" in capsys.readouterr().out
 
 
@@ -568,6 +572,65 @@ def test_ipromp_fasta_writer_rejects_invalid_bases(tmp_path):
                 str(tmp_path / "prepared_ipromp"),
             ]
         )
+
+
+def test_ipromp_inference_reads_multiline_seqtrainer_fasta(tmp_path):
+    from seqtrainer.adapters.ipromp_inference import read_seqtrainer_fasta
+
+    fasta = tmp_path / "validation.fasta"
+    fasta.write_text(
+        ">seqtrainer|split=validation|row_index=0|sequence_id=validation_000000|label=1\n"
+        "ACGT\n"
+        "TGCA\n",
+        encoding="utf-8",
+    )
+
+    records = read_seqtrainer_fasta(fasta, expected_split="validation")
+
+    assert len(records) == 1
+    assert records[0].sequence_id == "validation_000000"
+    assert records[0].sequence == "ACGTTGCA"
+
+
+def test_ipromp_inference_requires_all_five_fold_checkpoints(tmp_path):
+    from seqtrainer.adapters.ipromp_inference import fold_checkpoint_paths
+
+    for fold in range(1, 5):
+        (tmp_path / f"10_fold_{fold}.pth").touch()
+
+    with pytest.raises(FileNotFoundError, match="10_fold_5.pth"):
+        fold_checkpoint_paths(tmp_path, species_id=10)
+
+
+def test_ipromp_inference_normalizes_wrapped_parallel_state_dict():
+    from seqtrainer.adapters.ipromp_inference import normalize_state_dict
+
+    normalized = normalize_state_dict({"state_dict": {"module.fc1.weight": "value"}})
+
+    assert normalized == {"fc1.weight": "value"}
+
+
+def test_ipromp_mapping_honors_configured_string_labels():
+    from seqtrainer.adapters.ipromp import build_ipromp_mapping
+
+    config = load_benchmark_config(CONFIG_DIR / "ipromp_external.toml")
+    config = replace(
+        config,
+        label=replace(config.label, negative_label="background", positive_label="promoter"),
+    )
+    frame = pd.DataFrame(
+        {
+            config.dataset.sequence_field: ["ACGTACGT", "TGCATGCA"],
+            config.dataset.label_field: ["background", "promoter"],
+        }
+    )
+
+    mapping = build_ipromp_mapping(
+        config,
+        {"train": frame, "validation": frame, "test": frame},
+    )
+
+    assert mapping["label"].tolist() == [0, 1, 0, 1, 0, 1]
 
 
 def test_ipromp_external_predictions_are_evaluated_with_validation_threshold(tmp_path):

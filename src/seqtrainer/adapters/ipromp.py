@@ -73,7 +73,7 @@ def build_ipromp_mapping(config: BenchmarkConfig, frames: dict[str, pd.DataFrame
         for row_index, row in frame.iterrows():
             sequence_id = _sequence_id(config, row, split, int(row_index))
             sequence = normalize_dna_sequence(str(row[config.dataset.sequence_field]))
-            label = int(row[config.dataset.label_field])
+            label = _normalize_binary_label(config, row[config.dataset.label_field])
             rows.append(
                 {
                     "split": split,
@@ -125,15 +125,19 @@ def write_ipromp_run_commands(
     external_predictions_dir = out_dir / "external_predictions"
     external_predictions_dir.mkdir(parents=True, exist_ok=True)
     species_id = int(params.get("species_id", 10))
-    repo_dir = str(params.get("ipromp_repo_dir", "./external/iPro-MP"))
+    dnabert_dir = str(params.get("dnabert6_path", "./external/iPro-MP/DNABERT-6"))
+    model_dir = str(params.get("ipromp_model_dir", "./external/iPro-MP/models"))
+    batch_size = int(params.get("inference_batch_size", 32))
+    max_length = int(params.get("max_length", 128))
+    seed = int(config.training.seed)
     script = out_dir / "ipromp_run_commands.sh"
     lines = [
         "#!/usr/bin/env bash",
         "set -euo pipefail",
         "",
         'SEQTRAINER_ROOT="$(pwd)"',
-        f'IPROMP_REPO_DIR="{repo_dir}"',
-        'cd "${IPROMP_REPO_DIR}"',
+        f'DNABERT_DIR="{dnabert_dir}"',
+        f'IPROMP_MODEL_DIR="{model_dir}"',
         "",
     ]
     for split in SPLIT_ORDER:
@@ -141,10 +145,16 @@ def write_ipromp_run_commands(
         pred_path = external_predictions_dir / f"{split}_predictions.csv"
         lines.extend(
             [
-                f"python iPro-MP_predict.py \\",
-                f"  -i {_script_path(fasta_path)} \\",
-                f"  -s {species_id} \\",
-                f"  -o {_script_path(pred_path)}",
+                "python -m seqtrainer.adapters.ipromp_inference \\",
+                f"  --input-fasta {_script_path(fasta_path)} \\",
+                f"  --output-csv {_script_path(pred_path)} \\",
+                f"  --split {split} \\",
+                "  --dnabert-dir \"${DNABERT_DIR}\" \\",
+                "  --model-dir \"${IPROMP_MODEL_DIR}\" \\",
+                f"  --species-id {species_id} \\",
+                f"  --max-length {max_length} \\",
+                f"  --batch-size {batch_size} \\",
+                f"  --seed {seed}",
                 "",
             ]
         )
@@ -239,6 +249,17 @@ def normalize_dna_sequence(sequence: str) -> str:
     if invalid:
         raise ValueError(f"Invalid DNA bases for iPro-MP FASTA: {invalid}")
     return cleaned
+
+
+def _normalize_binary_label(config: BenchmarkConfig, raw_label: Any) -> int:
+    if raw_label == config.label.negative_label:
+        return 0
+    if raw_label == config.label.positive_label:
+        return 1
+    raise ValueError(
+        f"Label {raw_label!r} does not match configured negative/positive labels "
+        f"{config.label.negative_label!r}/{config.label.positive_label!r}"
+    )
 
 
 def _normalize_seqtrainer_predictions(
@@ -385,5 +406,5 @@ def _as_posix(path: str | Path) -> str:
 def _script_path(path: str | Path) -> str:
     resolved = Path(path)
     if resolved.is_absolute():
-        return _as_posix(resolved)
+        return '"' + _as_posix(resolved) + '"'
     return '"${SEQTRAINER_ROOT}/' + _as_posix(resolved) + '"'

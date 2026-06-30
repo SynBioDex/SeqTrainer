@@ -150,6 +150,8 @@ def _run_ipromp(
     validation_predictions_csv = params.get("validation_predictions_csv")
     test_predictions_csv = params.get("test_predictions_csv")
     train_predictions_csv = params.get("train_predictions_csv")
+    if train_predictions_csv and not _configured_path_exists(train_predictions_csv, base_dir):
+        train_predictions_csv = None
     mapping_csv = params.get("mapping_csv") or (out_dir / "ipromp_id_mapping.csv")
 
     prediction_files_ready = (
