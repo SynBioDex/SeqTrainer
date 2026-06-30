@@ -62,7 +62,6 @@ metrics = [
   "auprc",
   "f1",
   "mcc",
-  "precision",
   "sensitivity",
   "specificity",
   "confusion_matrix",
