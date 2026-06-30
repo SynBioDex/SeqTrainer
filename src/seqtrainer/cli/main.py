@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import TypeVar
 
 from seqtrainer.data.sbol import build_dataset_from_files, get_sequence_from_sbol
 from seqtrainer.sparql.prefixes import format_prefixes
+
+
+_T = TypeVar("_T")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -139,11 +143,11 @@ def main(argv: list[str] | None = None) -> int:
                 label_field=benchmark.dataset.label_field,
                 positive_label=benchmark.label.positive_label,
                 negative_label=benchmark.label.negative_label,
-                sequence_length=args.sequence_length or benchmark.preprocessing.sequence_length or 300,
-                seed=args.seed or benchmark.experiment.seed,
-                batch_size=args.batch_size or benchmark.training.batch_size or 16,
-                cycles=args.cycles or benchmark.training.max_epochs or 10,
-                learning_rate=args.learning_rate or benchmark.training.learning_rate or 1e-3,
+                sequence_length=_first_not_none(args.sequence_length, benchmark.preprocessing.sequence_length, 300),
+                seed=_first_not_none(args.seed, benchmark.training.seed, benchmark.experiment.seed),
+                batch_size=_first_not_none(args.batch_size, benchmark.training.batch_size, 16),
+                cycles=_first_not_none(args.cycles, benchmark.training.max_epochs, 10),
+                learning_rate=_first_not_none(args.learning_rate, benchmark.training.learning_rate, 1e-3),
                 weight_decay=float(training_params.get("weight_decay", 0.0)),
                 optimizer_name=str(training_params.get("optimizer", "adam")).lower(),
                 scheduler_name=str(training_params.get("scheduler", "none")).lower(),
@@ -255,6 +259,13 @@ def _optional_int(value: object) -> int | None:
     if value is None:
         return None
     return int(value)
+
+
+def _first_not_none(*values: _T | None) -> _T:
+    for value in values:
+        if value is not None:
+            return value
+    raise ValueError("At least one fallback value is required")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import json
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -477,6 +478,75 @@ output_dir = "outputs/ignored"
     assert manifest["training"]["optimizer_name"] == "adamw"
     assert manifest["training"]["scheduler_name"] == "one_cycle"
     assert manifest["training"]["threshold_strategy"] == "fixed_0_5"
+
+
+def test_cnn_runner_preserves_explicit_zero_training_values(tmp_path, monkeypatch):
+    import seqtrainer.benchmarks.runner as benchmark_runner
+    import seqtrainer.torch.cnn_baseline as cnn_baseline
+
+    config = load_benchmark_config(CONFIG_DIR / "cnn.toml")
+    config = replace(
+        config,
+        training=replace(config.training, max_epochs=0, learning_rate=0.0),
+    )
+    captured = {}
+
+    monkeypatch.setattr(
+        benchmark_runner,
+        "resolve_split_paths",
+        lambda *args, **kwargs: {
+            "train": tmp_path / "train.csv",
+            "validation": tmp_path / "validation.csv",
+            "test": tmp_path / "test.csv",
+        },
+    )
+
+    def fake_run(run_config):
+        captured["config"] = run_config
+        return SimpleNamespace(output_dir=tmp_path, metrics={}, manifest={})
+
+    monkeypatch.setattr(cnn_baseline, "run_cnn_csv_splits", fake_run)
+
+    result = benchmark_runner.run_benchmark(config, base_dir=tmp_path)
+
+    assert result.status == "completed"
+    assert captured["config"].cycles == 0
+    assert captured["config"].learning_rate == 0.0
+
+
+def test_direct_cnn_cli_preserves_zero_overrides(tmp_path, monkeypatch):
+    import seqtrainer.torch.cnn_baseline as cnn_baseline
+
+    captured = {}
+
+    def fake_run(run_config):
+        captured["config"] = run_config
+        return SimpleNamespace(
+            output_dir=tmp_path,
+            metrics={},
+            manifest={"threshold_selection": {"threshold": 0.5}},
+        )
+
+    monkeypatch.setattr(cnn_baseline, "run_cnn_csv_splits", fake_run)
+
+    exit_code = main(
+        [
+            "run-cnn-benchmark",
+            "--config",
+            str(CONFIG_DIR / "cnn.toml"),
+            "--seed",
+            "0",
+            "--cycles",
+            "0",
+            "--learning-rate",
+            "0",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["config"].seed == 0
+    assert captured["config"].cycles == 0
+    assert captured["config"].learning_rate == 0.0
 
 
 def test_benchmark_compare_cli_and_helper_rank_test_metrics(tmp_path, capsys):

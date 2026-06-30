@@ -66,11 +66,11 @@ def _run_cnn(
             label_field=config.dataset.label_field,
             positive_label=config.label.positive_label,
             negative_label=config.label.negative_label,
-            sequence_length=config.preprocessing.sequence_length or 300,
+            sequence_length=_default_if_none(config.preprocessing.sequence_length, 300),
             seed=config.training.seed,
-            batch_size=config.training.batch_size or 16,
-            cycles=config.training.max_epochs or 10,
-            learning_rate=config.training.learning_rate or 1e-3,
+            batch_size=_default_if_none(config.training.batch_size, 16),
+            cycles=_default_if_none(config.training.max_epochs, 10),
+            learning_rate=_default_if_none(config.training.learning_rate, 1e-3),
             weight_decay=float(params.get("weight_decay", 0.0)),
             optimizer_name=str(params.get("optimizer", "adam")).lower(),
             scheduler_name=str(params.get("scheduler", "none")).lower(),
@@ -95,8 +95,6 @@ def _run_cnn(
 
 
 def _split_paths(config: BenchmarkConfig, base_dir: str | Path | None) -> dict[str, Path]:
-    from .splits import resolve_split_paths
-
     return resolve_split_paths(config, base_dir=base_dir)
 
 
@@ -144,3 +142,7 @@ def _optional_int(value: Any) -> int | None:
     if value is None:
         return None
     return int(value)
+
+
+def _default_if_none(value: Any, default: Any) -> Any:
+    return default if value is None else value

@@ -24,7 +24,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - depends on optional ext
 
 from seqtrainer.data.materialized import MaterializedDataset
 from seqtrainer.data.sbol import build_dataset_from_files
-from seqtrainer.metrics import best_threshold_by_metric, best_threshold_by_mcc, binary_classification_metrics
+from seqtrainer.metrics import best_threshold_by_metric, binary_classification_metrics
 from seqtrainer.transforms.dna import one_hot_encode, pad_or_trim
 
 
