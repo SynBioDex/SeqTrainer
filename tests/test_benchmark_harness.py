@@ -943,3 +943,104 @@ class _TinyEncoder:
         hidden = input_ids.float().unsqueeze(-1).repeat(1, 1, 4) / 10.0
         return SimpleNamespace(last_hidden_state=hidden)
 
+
+def test_split_summary_supports_configured_string_labels(tmp_path):
+    config = load_benchmark_config(CONFIG_DIR / "cnn.toml")
+    config = replace(config, label=replace(config.label, negative_label="background", positive_label="promoter"))
+    for filename in config.dataset.split_files.values():
+        path = tmp_path / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(
+            {"sequence": ["ACGT", "TGCA", "AAAA"], "label": ["background", "promoter", "promoter"]}
+        ).to_csv(path, index=False)
+
+    summary = summarize_split_frames(config, load_predefined_split_frames(config, base_dir=tmp_path))
+
+    assert summary["train"]["class_counts"] == {"background": 1, "promoter": 2}
+
+
+def test_direct_cnn_cli_propagates_configured_cnn_v2_params(tmp_path, monkeypatch):
+    import seqtrainer.torch.cnn_baseline as cnn_baseline
+
+    captured = {}
+
+    def fake_run(run_config):
+        captured["config"] = run_config
+        return SimpleNamespace(
+            output_dir=tmp_path,
+            metrics={},
+            manifest={"threshold_selection": {"threshold": 0.5}},
+        )
+
+    monkeypatch.setattr(cnn_baseline, "run_cnn_csv_splits", fake_run)
+
+    assert main(["run-cnn-benchmark", "--config", str(CONFIG_DIR / "cnn_v2.toml")]) == 0
+    run_config = captured["config"]
+    assert run_config.model_variant == "enhanced"
+    assert run_config.optimizer_name == "adamw"
+    assert run_config.scheduler_name == "one_cycle"
+    assert run_config.threshold_strategy == "validation_mcc"
+
+
+def test_cnn_runner_preserves_explicit_zero_training_values(tmp_path, monkeypatch):
+    import seqtrainer.benchmarks.runner as benchmark_runner
+    import seqtrainer.torch.cnn_baseline as cnn_baseline
+
+    config = load_benchmark_config(CONFIG_DIR / "cnn.toml")
+    config = replace(config, training=replace(config.training, max_epochs=0, learning_rate=0.0))
+    captured = {}
+    monkeypatch.setattr(
+        benchmark_runner,
+        "resolve_split_paths",
+        lambda *args, **kwargs: {
+            "train": tmp_path / "train.csv",
+            "validation": tmp_path / "validation.csv",
+            "test": tmp_path / "test.csv",
+        },
+    )
+
+    def fake_run(run_config):
+        captured["config"] = run_config
+        return SimpleNamespace(output_dir=tmp_path, metrics={}, manifest={})
+
+    monkeypatch.setattr(cnn_baseline, "run_cnn_csv_splits", fake_run)
+
+    result = benchmark_runner.run_benchmark(config, base_dir=tmp_path)
+
+    assert result.status == "completed"
+    assert captured["config"].cycles == 0
+    assert captured["config"].learning_rate == 0.0
+
+
+def test_direct_cnn_cli_preserves_zero_overrides(tmp_path, monkeypatch):
+    import seqtrainer.torch.cnn_baseline as cnn_baseline
+
+    captured = {}
+
+    def fake_run(run_config):
+        captured["config"] = run_config
+        return SimpleNamespace(
+            output_dir=tmp_path,
+            metrics={},
+            manifest={"threshold_selection": {"threshold": 0.5}},
+        )
+
+    monkeypatch.setattr(cnn_baseline, "run_cnn_csv_splits", fake_run)
+
+    assert main(
+        [
+            "run-cnn-benchmark",
+            "--config",
+            str(CONFIG_DIR / "cnn.toml"),
+            "--seed",
+            "0",
+            "--cycles",
+            "0",
+            "--learning-rate",
+            "0",
+        ]
+    ) == 0
+    assert captured["config"].seed == 0
+    assert captured["config"].cycles == 0
+    assert captured["config"].learning_rate == 0.0
+

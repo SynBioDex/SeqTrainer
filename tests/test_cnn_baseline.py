@@ -9,6 +9,7 @@ torch = pytest.importorskip("torch")
 
 import pandas as pd
 
+import seqtrainer.torch.cnn_baseline as cnn_baseline
 from seqtrainer.metrics import best_threshold_by_mcc, binary_classification_metrics
 from seqtrainer.torch.cnn_baseline import (
     CnnBaselineConfig,
@@ -197,3 +198,173 @@ def test_cnn_csv_train_predictions_preserve_csv_row_order(tmp_path):
     assert train_predictions["sequence"].tolist() == sequences
     assert train_predictions["label"].tolist() == train["label"].tolist()
     assert train_predictions["idx"].tolist() == list(range(len(sequences)))
+
+
+def test_cnn_csv_maps_configured_binary_labels_to_zero_and_one(tmp_path):
+    sequences = [
+        "AAAAAAAAAAAAAAAA",
+        "CCCCCCCCCCCCCCCC",
+        "GGGGGGGGGGGGGGGG",
+        "TTTTTTTTTTTTTTTT",
+    ]
+    for name in ("train", "validation", "test"):
+        pd.DataFrame({"sequence": sequences, "label": [-1, 1, -1, 1]}).to_csv(
+            tmp_path / f"{name}.csv",
+            index=False,
+        )
+
+    result = run_cnn_csv_splits(
+        CnnCsvSplitConfig(
+            train_csv=tmp_path / "train.csv",
+            validation_csv=tmp_path / "validation.csv",
+            test_csv=tmp_path / "test.csv",
+            output_dir=tmp_path / "outputs",
+            negative_label=-1,
+            positive_label=1,
+            sequence_length=32,
+            batch_size=2,
+            cycles=1,
+            seed=42,
+        )
+    )
+
+    predictions = pd.read_csv(result.output_dir / "predictions.csv")
+    assert set(predictions["label"]) == {0, 1}
+    assert result.manifest["dataset"]["label_mapping"] == {
+        "negative_label": -1,
+        "positive_label": 1,
+        "normalized_negative_label": 0,
+        "normalized_positive_label": 1,
+    }
+
+
+def test_cnn_csv_honors_output_save_flags(tmp_path):
+    sequences = [
+        "AAAAAAAAAAAAAAAA",
+        "CCCCCCCCCCCCCCCC",
+        "GGGGGGGGGGGGGGGG",
+        "TTTTTTTTTTTTTTTT",
+    ]
+    for name in ("train", "validation", "test"):
+        pd.DataFrame({"sequence": sequences, "label": [0, 1, 0, 1]}).to_csv(
+            tmp_path / f"{name}.csv",
+            index=False,
+        )
+
+    output_dir = tmp_path / "outputs"
+    run_cnn_csv_splits(
+        CnnCsvSplitConfig(
+            train_csv=tmp_path / "train.csv",
+            validation_csv=tmp_path / "validation.csv",
+            test_csv=tmp_path / "test.csv",
+            output_dir=output_dir,
+            sequence_length=32,
+            batch_size=2,
+            cycles=1,
+            save_json=False,
+            save_csv=False,
+            save_predictions=False,
+            seed=42,
+        )
+    )
+
+    assert (output_dir / "manifest.json").exists()
+    assert (output_dir / "checkpoints" / "final_model.pt").exists()
+    assert not (output_dir / "config.json").exists()
+    assert not (output_dir / "metrics.json").exists()
+    assert not (output_dir / "metrics.csv").exists()
+    assert not (output_dir / "history.csv").exists()
+    assert not (output_dir / "predictions.csv").exists()
+
+
+def test_cnn_csv_split_honors_fixed_threshold_strategy(tmp_path):
+    sequences = [
+        "AAAAAAAAAAAAAAAA",
+        "CCCCCCCCCCCCCCCC",
+        "GGGGGGGGGGGGGGGG",
+        "TTTTTTTTTTTTTTTT",
+    ]
+    train = pd.DataFrame({"sequence": sequences, "label": [0, 1, 0, 1]})
+    validation = pd.DataFrame({"sequence": sequences, "label": [0, 1, 0, 1]})
+    test = pd.DataFrame({"sequence": sequences, "label": [0, 1, 0, 1]})
+    train_path = tmp_path / "train.csv"
+    validation_path = tmp_path / "validation.csv"
+    test_path = tmp_path / "test.csv"
+    train.to_csv(train_path, index=False)
+    validation.to_csv(validation_path, index=False)
+    test.to_csv(test_path, index=False)
+
+    result = run_cnn_csv_splits(
+        CnnCsvSplitConfig(
+            train_csv=train_path,
+            validation_csv=validation_path,
+            test_csv=test_path,
+            output_dir=tmp_path / "outputs",
+            sequence_length=32,
+            batch_size=2,
+            cycles=1,
+            threshold_strategy="fixed_0_5",
+            seed=42,
+        )
+    )
+
+    assert result.manifest["threshold_selection"]["strategy"] == "fixed_0_5"
+    assert result.manifest["threshold_selection"]["threshold"] == 0.5
+
+
+def test_cnn_csv_checkpoint_selection_uses_mcc_not_threshold_metric(tmp_path, monkeypatch):
+    sequences = [
+        "AAAAAAAAAAAAAAAA",
+        "CCCCCCCCCCCCCCCC",
+        "GGGGGGGGGGGGGGGG",
+        "TTTTTTTTTTTTTTTT",
+    ]
+    for name in ("train", "validation", "test"):
+        pd.DataFrame({"sequence": sequences, "label": [0, 1, 0, 1]}).to_csv(
+            tmp_path / f"{name}.csv",
+            index=False,
+        )
+
+    threshold_choices = iter([(0.2, 10.0), (0.8, 1.0)])
+    mcc_scores = iter([(0.5, 0.1), (0.5, 0.9)])
+
+    def fake_select_threshold(strategy, labels, probabilities):
+        assert strategy == "validation_f1"
+        return next(threshold_choices)
+
+    def fake_best_threshold_by_metric(labels, probabilities, metric="mcc", thresholds=None):
+        assert metric == "mcc"
+        return next(mcc_scores)
+
+    def fake_predict(model, loader, criterion, device):
+        return {
+            "label": torch.tensor([0, 1, 0, 1]).numpy(),
+            "probability": torch.tensor([0.1, 0.9, 0.2, 0.8]).numpy(),
+            "prediction": torch.tensor([0, 1, 0, 1]).numpy(),
+            "logit_argmax_prediction": torch.tensor([0, 1, 0, 1]).numpy(),
+            "loss": 0.1,
+        }
+
+    monkeypatch.setattr(cnn_baseline, "_run_epoch", lambda *args, **kwargs: (0.1, 1.0))
+    monkeypatch.setattr(cnn_baseline, "_predict", fake_predict)
+    monkeypatch.setattr(cnn_baseline, "_select_threshold", fake_select_threshold)
+    monkeypatch.setattr(cnn_baseline, "best_threshold_by_metric", fake_best_threshold_by_metric)
+
+    result = run_cnn_csv_splits(
+        CnnCsvSplitConfig(
+            train_csv=tmp_path / "train.csv",
+            validation_csv=tmp_path / "validation.csv",
+            test_csv=tmp_path / "test.csv",
+            output_dir=tmp_path / "outputs",
+            sequence_length=32,
+            batch_size=2,
+            cycles=2,
+            select_best_by_mcc=True,
+            threshold_strategy="validation_f1",
+            seed=42,
+        )
+    )
+
+    assert result.manifest["threshold_selection"]["strategy"] == "validation_f1"
+    assert result.manifest["threshold_selection"]["threshold"] == 0.8
+    assert result.manifest["threshold_selection"]["validation_score"] == 1.0

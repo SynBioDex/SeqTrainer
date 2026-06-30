@@ -23,7 +23,7 @@ from .artifacts import write_benchmark_outputs
 from .config import BenchmarkConfig, load_benchmark_config
 from .manifest import build_run_manifest
 from .policy import decide_imbalance_policy, threshold_metric_from_strategy
-from .splits import load_predefined_split_frames, summarize_split_frames
+from .splits import load_predefined_split_frames, resolve_split_paths, summarize_split_frames
 
 
 @dataclass(frozen=True)
@@ -81,11 +81,13 @@ def _run_cnn(
             source_url=config.dataset.source_url,
             sequence_field=config.dataset.sequence_field,
             label_field=config.dataset.label_field,
-            sequence_length=config.preprocessing.sequence_length or 300,
+            positive_label=config.label.positive_label,
+            negative_label=config.label.negative_label,
+            sequence_length=_default_if_none(config.preprocessing.sequence_length, 300),
             seed=config.training.seed,
-            batch_size=config.training.batch_size or 16,
-            cycles=config.training.max_epochs or 10,
-            learning_rate=config.training.learning_rate or 1e-3,
+            batch_size=_default_if_none(config.training.batch_size, 16),
+            cycles=_default_if_none(config.training.max_epochs, 10),
+            learning_rate=_default_if_none(config.training.learning_rate, 1e-3),
             weight_decay=float(params.get("weight_decay", 0.0)),
             optimizer_name=str(params.get("optimizer", "adam")).lower(),
             scheduler_name=str(params.get("scheduler", "none")).lower(),
@@ -94,7 +96,11 @@ def _run_cnn(
             model_variant=str(model_params.get("variant", "tiny")),
             dropout=float(model_params.get("dropout", 0.25)),
             class_weighting=bool(params.get("class_weighting", False)),
+            threshold_strategy=config.evaluation.threshold_strategy,
             device=_resolve_device(config.environment.device),
+            save_json=config.outputs.save_json,
+            save_csv=config.outputs.save_csv,
+            save_predictions=config.outputs.save_predictions,
         )
     )
     return BenchmarkRunResult(
@@ -433,8 +439,6 @@ def _write_skipped_result(
 
 
 def _split_paths(config: BenchmarkConfig, base_dir: str | Path | None) -> dict[str, Path]:
-    from .splits import resolve_split_paths
-
     return resolve_split_paths(config, base_dir=base_dir)
 
 
@@ -476,6 +480,10 @@ def _optional_int(value: Any) -> int | None:
     if value is None:
         return None
     return int(value)
+
+
+def _default_if_none(value: Any, default: Any) -> Any:
+    return default if value is None else value
 
 
 def _configured_path_exists(path: Any, base_dir: str | Path | None) -> bool:

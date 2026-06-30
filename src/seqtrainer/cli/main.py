@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import TypeVar
 
 from seqtrainer.data.sbol import build_dataset_from_files, get_sequence_from_sbol
 from seqtrainer.sparql.prefixes import format_prefixes
+
+
+_T = TypeVar("_T")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -146,6 +150,8 @@ def main(argv: list[str] | None = None) -> int:
 
         benchmark = load_benchmark_config(args.config)
         split_files = benchmark.dataset.split_files
+        training_params = dict(benchmark.training.params)
+        model_params = dict(benchmark.model.params)
         result = run_cnn_csv_splits(
             CnnCsvSplitConfig(
                 train_csv=args.train_csv or Path(split_files["train"]),
@@ -157,12 +163,26 @@ def main(argv: list[str] | None = None) -> int:
                 source_url=benchmark.dataset.source_url,
                 sequence_field=benchmark.dataset.sequence_field,
                 label_field=benchmark.dataset.label_field,
-                sequence_length=args.sequence_length or benchmark.preprocessing.sequence_length or 300,
-                seed=args.seed or benchmark.experiment.seed,
-                batch_size=args.batch_size or benchmark.training.batch_size or 16,
-                cycles=args.cycles or benchmark.training.max_epochs or 10,
-                learning_rate=args.learning_rate or benchmark.training.learning_rate or 1e-3,
-                device=args.device or "cpu",
+                positive_label=benchmark.label.positive_label,
+                negative_label=benchmark.label.negative_label,
+                sequence_length=_first_not_none(args.sequence_length, benchmark.preprocessing.sequence_length, 300),
+                seed=_first_not_none(args.seed, benchmark.training.seed, benchmark.experiment.seed),
+                batch_size=_first_not_none(args.batch_size, benchmark.training.batch_size, 16),
+                cycles=_first_not_none(args.cycles, benchmark.training.max_epochs, 10),
+                learning_rate=_first_not_none(args.learning_rate, benchmark.training.learning_rate, 1e-3),
+                weight_decay=float(training_params.get("weight_decay", 0.0)),
+                optimizer_name=str(training_params.get("optimizer", "adam")).lower(),
+                scheduler_name=str(training_params.get("scheduler", "none")).lower(),
+                select_best_by_mcc=bool(training_params.get("select_best_by_mcc", False)),
+                early_stopping_patience=_optional_int(training_params.get("early_stopping_patience")),
+                model_variant=str(model_params.get("variant", "tiny")),
+                dropout=float(model_params.get("dropout", 0.25)),
+                class_weighting=bool(training_params.get("class_weighting", False)),
+                threshold_strategy=benchmark.evaluation.threshold_strategy,
+                device=args.device or _resolve_device(benchmark.environment.device),
+                save_json=benchmark.outputs.save_json,
+                save_csv=benchmark.outputs.save_csv,
+                save_predictions=benchmark.outputs.save_predictions,
             )
         )
         print(f"output_dir={result.output_dir}")
@@ -289,6 +309,30 @@ def _write_benchmark_manifest(config_path: Path, output_dir_arg: Path | None, ba
     for split, summary in split_summary.items():
         print(f"{split}: rows={summary['rows']} class_counts={summary['class_counts']}")
     return 0
+
+
+def _resolve_device(device: str) -> str:
+    if device != "auto":
+        return device
+    try:
+        import torch
+
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except ModuleNotFoundError:
+        return "cpu"
+
+
+def _optional_int(value: object) -> int | None:
+    if value is None:
+        return None
+    return int(value)
+
+
+def _first_not_none(*values: _T | None) -> _T:
+    for value in values:
+        if value is not None:
+            return value
+    raise ValueError("At least one fallback value is required")
 
 
 if __name__ == "__main__":

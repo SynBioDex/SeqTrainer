@@ -43,6 +43,15 @@ pip install -e '.[dev]'
 
 ## CLI examples
 
+The promoter benchmark CSVs are bundled as a ZIP archive. Extract them once in
+a fresh checkout before running the benchmark commands:
+
+```bash
+python -m zipfile -e data/data_DNABERT/promoter_classification_DNABERT.zip data/promoter_classification
+```
+
+Then run:
+
 ```bash
 seqtrainer sparql prefixes
 seqtrainer inspect-sbol data/sbol_data/sample_design_0.xml
@@ -56,13 +65,12 @@ seqtrainer benchmark compare outputs/benchmarks/* --output-dir outputs/benchmark
 ```
 
 Benchmark configs for CNN, CNN-v2, DNABERT2, and iPro-MP live in
-`config-examples/benchmarks/`. The benchmark runner writes shared artifacts such
-as `metrics.csv`, `metrics.json`, `predictions.csv`, `manifest.json`, and model
-checkpoints when a model is trained. DNABERT2 and iPro-MP runs are
-dependency-gated so missing external model files are recorded as skipped
-manifests rather than silent failures.
-See `docs/benchmarks/promoter_benchmark.md` for the Colab-ready workflow and
-model comparison rules.
+`config-examples/benchmarks/`. The benchmark runner writes reproducible
+artifacts such as `metrics.csv`, `metrics.json`, `predictions.csv`,
+`manifest.json`, `history.csv`, and model checkpoints when training occurs.
+Heavy model dependencies are gated so missing model files produce explicit
+skipped manifests rather than fake metrics. See
+`docs/benchmarks/promoter_benchmark.md` for the complete workflow.
 
 ## Status
 

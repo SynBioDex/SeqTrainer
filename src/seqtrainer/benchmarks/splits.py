@@ -53,7 +53,7 @@ def summarize_split_frames(config: BenchmarkConfig, frames: dict[str, pd.DataFra
     summary: dict[str, Any] = {}
     for split in REQUIRED_SPLITS:
         frame = frames[split]
-        labels = frame[config.dataset.label_field].astype(int)
+        labels = frame[config.dataset.label_field]
         class_counts = labels.value_counts().sort_index().to_dict()
         split_summary: dict[str, Any] = {
             "rows": int(len(frame)),
