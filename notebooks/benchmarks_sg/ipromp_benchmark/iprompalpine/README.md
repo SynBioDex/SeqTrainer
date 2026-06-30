@@ -27,6 +27,19 @@ Example placeholders used below:
 <JOB_ID>                  -> the number printed by sbatch, for example 12345678
 ```
 
+Before setup, load Alpine's Slurm commands and confirm that your account can
+see the requested A100 partition:
+
+```bash
+module load slurm/alpine
+sinfo --Format=Partition,Gres | grep aa100
+```
+
+The production job uses Alpine's supported `aa100` partition, requests one GPU
+with `--gres=gpu:1`, and uses the `normal` QoS. The current 12-hour request is
+within the `normal` QoS 24-hour limit. If your allocation cannot submit to
+`aa100`, ask the allocation owner or CURC support before changing the script.
+
 ## 1. Put Code And Data On Alpine
 
 From an Alpine login node:
@@ -62,10 +75,13 @@ it there and use that absolute directory as `DATA_DIR` during submission.
 
 ## 2. Build The Environment Once
 
-Run setup on an `acompile` or other compute session, not on the login node:
+Run setup on an `acompile` session, not on the login node. Alpine documents
+`acompile` as its CPU-only environment-building partition; two cores and two
+hours are sufficient for the initial package and model downloads in normal
+conditions:
 
 ```bash
-acompile
+acompile --ntasks=2 --time=02:00:00
 cd /projects/$USER/SeqTrainer
 bash notebooks/benchmarks_sg/ipromp_benchmark/iprompalpine/setup_ipromp_alpine.sh
 exit
@@ -98,6 +114,7 @@ sbatch \
 Replace `<YOUR_ALPINE_ALLOCATION>` in that command with the allocation name.
 For example, if the allocation is `ucb-general`, use
 `--account=ucb-general`. Do not add the angle brackets to the real command.
+The `--account` value is the allocation name, not your Alpine username.
 
 On success, Alpine prints something similar to:
 
@@ -163,6 +180,11 @@ until the five `10_fold_*.pth` files and DNABERT-6 model are present in the
 paths shown above. The job performs explicit file checks and exits rather than
 producing incomplete metrics.
 
+The optional `atesting_a100` partition is suitable only for a short workflow
+check. It provides a 20 GB A100 MIG slice and a maximum one-hour testing job, so
+it should not be used for the complete five-model benchmark or for reporting
+final scientific metrics.
+
 ## Scientific Comparison Contract
 
 - Same predefined train/validation/test CSVs as CNN-v2.
@@ -176,3 +198,9 @@ producing incomplete metrics.
 The paper's 5-fold training design explains why five pretrained checkpoints are
 ensembled. This run does not retrain those folds on SeqTrainer data; it measures
 the external pretrained E. coli model on SeqTrainer's held-out split.
+
+## Alpine References
+
+- [Alpine hardware, partitions, GPUs, and QoS](https://curc.readthedocs.io/en/latest/clusters/alpine/alpine-hardware.html)
+- [CU DBMI Python and Anaconda workflow](https://cu-dbmi.github.io/set-website/2023/07/07/Using-Python-and-Anaconda-with-the-Alpine-HPC-Cluster.html)
+- [CU DBMI Alpine Python example](https://github.com/CU-DBMI/example-hpc-alpine-python)
