@@ -5,6 +5,28 @@ iPro-MP five-fold ensemble. Code and environments live under `/projects`; the
 job uses `/scratch/alpine` for temporary data and copies final artifacts back to
 `/projects`.
 
+## Values You Must Provide
+
+Only two site-specific values are required:
+
+1. Your Alpine allocation/account name, used in `--account=<YOUR_ALPINE_ALLOCATION>`.
+   Replace only the text inside angle brackets. You can find the allocation in
+   the Alpine portal or ask the allocation owner/mentor.
+2. The directory containing the three shared benchmark CSV files, passed as
+   `DATA_DIR=...` when submitting the job.
+
+Do not replace `$USER`: Alpine expands it automatically to your login name.
+Do not invent a job ID: `sbatch` prints the real ID after submission. The
+Zenodo record and Hugging Face model IDs are already encoded in the setup
+scripts and do not need to be entered manually.
+
+Example placeholders used below:
+
+```text
+<YOUR_ALPINE_ALLOCATION>  -> your project allocation, for example ucb-general
+<JOB_ID>                  -> the number printed by sbatch, for example 12345678
+```
+
 ## 1. Put Code And Data On Alpine
 
 From an Alpine login node:
@@ -29,6 +51,15 @@ test_EP_DNA_BERT2_genomic_order.csv
 Each CSV must contain `sequence` and `label`. These are the same rows used by
 CNN and DNABERT2; do not regenerate or reshuffle them.
 
+Verify the location before continuing:
+
+```bash
+ls -lh /projects/$USER/SeqTrainer/data/promoter_classification/*.csv
+```
+
+The command must show all three files. If your data is stored elsewhere, keep
+it there and use that absolute directory as `DATA_DIR` during submission.
+
 ## 2. Build The Environment Once
 
 Run setup on an `acompile` or other compute session, not on the login node:
@@ -44,6 +75,14 @@ Setup creates `/projects/$USER/seqtrainer_ipromp/env`, downloads DNABERT-6,
 and selectively downloads the five E. coli checkpoints from Zenodo. It does
 not download the complete 38.3 GB all-species archive.
 
+Run setup only once unless the environment or model files are removed. Verify
+the downloaded checkpoints with:
+
+```bash
+ls -lh /projects/$USER/seqtrainer_ipromp/models/ipromp_ecoli/10_fold_*.pth
+ls -lh /projects/$USER/seqtrainer_ipromp/models/DNABERT-6/pytorch_model.bin
+```
+
 ## 3. Submit The A100 Job
 
 ```bash
@@ -55,6 +94,18 @@ sbatch \
   --export=ALL,DATA_DIR=/projects/$USER/SeqTrainer/data/promoter_classification \
   run_ipromp_alpine.sbatch
 ```
+
+Replace `<YOUR_ALPINE_ALLOCATION>` in that command with the allocation name.
+For example, if the allocation is `ucb-general`, use
+`--account=ucb-general`. Do not add the angle brackets to the real command.
+
+On success, Alpine prints something similar to:
+
+```text
+Submitted batch job 12345678
+```
+
+Here, `12345678` is the `<JOB_ID>` used in the monitoring and result commands.
 
 The script requests one NVIDIA A100, 64 GB RAM, eight CPU cores, and up to 12
 hours. Override `BATCH_SIZE` at submission if memory is tight:
@@ -73,6 +124,16 @@ squeue --me
 tail -f logs/ipromp-<JOB_ID>.out
 ```
 
+For the example job above, the log command would be:
+
+```bash
+tail -f logs/ipromp-12345678.out
+```
+
+Use `Ctrl+C` to stop following the log; this does not cancel the job. To see a
+failure log, run `cat logs/ipromp-<JOB_ID>.err`. To cancel a submitted job, use
+`scancel <JOB_ID>`.
+
 Persistent results are copied to:
 
 ```text
@@ -85,6 +146,22 @@ Verify:
 cat /projects/$USER/seqtrainer_ipromp/results/<JOB_ID>/metrics.csv
 cat /projects/$USER/seqtrainer_ipromp/results/<JOB_ID>/manifest.json
 ```
+
+The completed result directory should contain at least:
+
+```text
+metrics.csv
+metrics.json
+predictions.csv
+manifest.json
+external_predictions/
+ipromp_fasta/
+```
+
+If setup cannot access Zenodo or Hugging Face, do not run the benchmark job
+until the five `10_fold_*.pth` files and DNABERT-6 model are present in the
+paths shown above. The job performs explicit file checks and exits rather than
+producing incomplete metrics.
 
 ## Scientific Comparison Contract
 
