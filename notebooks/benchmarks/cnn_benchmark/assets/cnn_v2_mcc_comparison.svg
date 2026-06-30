@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="620" viewBox="0 0 1400 620" role="img" aria-labelledby="title desc">
+  <title id="title">CNN-v2 MCC comparison</title>
+  <desc id="desc">CNN-v2 regularized 50-cycle model improves validation MCC from 0.169 to 0.226 and test MCC from 0.187 to 0.221 compared with the 10-cycle reference CNN.</desc>
+
+  <rect width="1400" height="620" fill="#1f2328"/>
+
+  <g font-family="Arial, sans-serif">
+    <text x="40" y="48" fill="#f6f8fa" font-size="28" font-weight="700">CNN-v2 final benchmark comparison</text>
+    <text x="40" y="80" fill="#c9d1d9" font-size="16">Model choice uses validation MCC; held-out test MCC and AUPRC are checked only after the candidate is selected.</text>
+  </g>
+
+  <g font-family="Arial, sans-serif" font-size="15">
+    <rect x="40" y="112" width="1320" height="44" rx="4" fill="#30363d"/>
+    <text x="62" y="140" fill="#f6f8fa" font-weight="700">experiment</text>
+    <text x="535" y="140" fill="#f6f8fa" font-weight="700">validation MCC</text>
+    <text x="720" y="140" fill="#f6f8fa" font-weight="700">test MCC</text>
+    <text x="875" y="140" fill="#f6f8fa" font-weight="700">test AUPRC</text>
+    <text x="1035" y="140" fill="#f6f8fa" font-weight="700">interpretation</text>
+
+    <rect x="40" y="156" width="1320" height="50" fill="#3b424a"/>
+    <text x="62" y="187" fill="#f6f8fa">tiny_10_cycles_reference</text>
+    <text x="535" y="187" fill="#f6f8fa">0.168827</text>
+    <text x="720" y="187" fill="#f6f8fa">0.187208</text>
+    <text x="875" y="187" fill="#f6f8fa">0.618783</text>
+    <text x="1035" y="187" fill="#c9d1d9">reference CNN</text>
+
+    <rect x="40" y="206" width="1320" height="50" fill="#292f36"/>
+    <text x="62" y="237" fill="#f6f8fa">cnn_v2_regularized_100_cycles</text>
+    <text x="535" y="237" fill="#f6f8fa">0.219189</text>
+    <text x="720" y="237" fill="#f6f8fa">0.208165</text>
+    <text x="875" y="237" fill="#f6f8fa">0.634116</text>
+    <text x="1035" y="237" fill="#c9d1d9">improves over reference, but not best</text>
+
+    <rect x="40" y="256" width="1320" height="54" fill="#3b424a"/>
+    <text x="62" y="290" fill="#f6f8fa">cnn_v2_regularized_50_cycles</text>
+    <text x="535" y="290" fill="#7ee787" font-weight="700">0.225811</text>
+    <text x="720" y="290" fill="#7ee787" font-weight="700">0.220884</text>
+    <text x="875" y="290" fill="#7ee787" font-weight="700">0.645976</text>
+    <text x="1035" y="290" fill="#7ee787" font-weight="700">best CNN-v2 candidate</text>
+  </g>
+
+  <g font-family="Arial, sans-serif">
+    <text x="40" y="360" fill="#f6f8fa" font-size="21" font-weight="700">Progression from reference CNN</text>
+    <text x="40" y="390" fill="#c9d1d9" font-size="15">Validation MCC: 0.168827 -> 0.225811, absolute gain +0.056984, relative gain about +33.8%.</text>
+    <text x="40" y="416" fill="#c9d1d9" font-size="15">Test MCC: 0.187208 -> 0.220884, absolute gain +0.033676, relative gain about +18.0%.</text>
+    <text x="40" y="442" fill="#c9d1d9" font-size="15">Test AUPRC: 0.618783 -> 0.645976, absolute gain +0.027193.</text>
+  </g>
+
+  <g font-family="Arial, sans-serif" font-size="14">
+    <text x="40" y="500" fill="#f6f8fa" font-size="19" font-weight="700">MCC bars</text>
+
+    <text x="40" y="532" fill="#c9d1d9">Reference validation MCC</text>
+    <rect x="260" y="516" width="580" height="18" rx="3" fill="#30363d"/>
+    <rect x="260" y="516" width="433" height="18" rx="3" fill="#8b949e"/>
+    <text x="860" y="531" fill="#f6f8fa" font-weight="700">0.169</text>
+
+    <text x="40" y="566" fill="#c9d1d9">CNN-v2 validation MCC</text>
+    <rect x="260" y="550" width="580" height="18" rx="3" fill="#30363d"/>
+    <rect x="260" y="550" width="580" height="18" rx="3" fill="#7ee787"/>
+    <text x="860" y="565" fill="#f6f8fa" font-weight="700">0.226</text>
+
+    <text x="990" y="532" fill="#c9d1d9">Reference test MCC</text>
+    <rect x="1162" y="516" width="150" height="18" rx="3" fill="#30363d"/>
+    <rect x="1162" y="516" width="127" height="18" rx="3" fill="#8b949e"/>
+    <text x="1324" y="531" fill="#f6f8fa" font-weight="700">0.187</text>
+
+    <text x="990" y="566" fill="#c9d1d9">CNN-v2 test MCC</text>
+    <rect x="1162" y="550" width="150" height="18" rx="3" fill="#30363d"/>
+    <rect x="1162" y="550" width="150" height="18" rx="3" fill="#7ee787"/>
+    <text x="1324" y="565" fill="#f6f8fa" font-weight="700">0.221</text>
+  </g>
+
+  <g font-family="Arial, sans-serif" font-size="14">
+    <rect x="40" y="584" width="1320" height="1" fill="#3b424a"/>
+    <text x="40" y="608" fill="#8b949e">Future model-family benchmarks should reuse the same predefined split.</text>
+  </g>
+</svg>

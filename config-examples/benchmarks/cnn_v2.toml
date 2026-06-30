@@ -1,7 +1,7 @@
 [experiment]
-name = "cnn_ep_genomic_order"
+name = "cnn_v2_regularized_ep_genomic_order"
 task = "bacterial_promoter_prediction"
-description = "CNN benchmark on the shared E. coli promoter classification split."
+description = "Regularized CNN-v2 benchmark on the shared E. coli promoter classification split."
 seed = 42
 
 [dataset]
@@ -35,26 +35,31 @@ pad_or_trim = true
 
 [model]
 family = "cnn"
-name = "tiny_dna_cnn"
-version = "baseline_config_v1"
+name = "enhanced_dna_cnn"
+version = "cnn_v2_regularized_config_v1"
 
 [model.params]
+variant = "enhanced"
+dropout = 0.30
 input_channels = 5
-conv_channels = [32, 64]
-kernel_sizes = [7, 5]
-pooling = "adaptive_max"
-classifier_hidden = 32
+conv_channels = [64, 128]
+kernel_sizes = [15, 7, 7, 7]
+pooling = "adaptive_max_plus_avg"
 
 [training]
 seed = 42
-batch_size = 16
+batch_size = 32
 max_epochs = 50
-learning_rate = 0.001
+learning_rate = 0.0003
 
 [training.params]
-optimizer = "adam"
+optimizer = "adamw"
+scheduler = "one_cycle"
+weight_decay = 0.0002
 loss = "cross_entropy"
-early_stopping_metric = "mcc"
+class_weighting = false
+select_best_by_mcc = true
+early_stopping_patience = 10
 
 [evaluation]
 primary_metric = "mcc"
@@ -73,7 +78,7 @@ metrics = [
 ]
 
 [outputs]
-output_dir = "outputs/benchmarks/cnn_ep_genomic_order"
+output_dir = "outputs/benchmarks/cnn_v2_regularized_ep_genomic_order"
 save_json = true
 save_csv = true
 save_predictions = true
