@@ -323,6 +323,24 @@ def test_dnabert2_setter_handles_config_without_pad_token_attribute():
     assert config.pad_token_id == 3
 
 
+def test_dnabert2_gradient_checkpointing_is_enabled_explicitly():
+    from seqtrainer.torch.dnabert2_benchmark import _enable_gradient_checkpointing
+
+    class _Encoder:
+        def __init__(self):
+            self.enabled = False
+            self.config = SimpleNamespace(use_cache=True)
+
+        def gradient_checkpointing_enable(self):
+            self.enabled = True
+
+    encoder = _Encoder()
+    _enable_gradient_checkpointing(encoder)
+
+    assert encoder.enabled is True
+    assert encoder.config.use_cache is False
+
+
 def test_dnabert2_loader_uses_state_dict_fallback_for_meta_device_model(monkeypatch):
     import seqtrainer.torch.dnabert2_benchmark as dnabert2_benchmark
     from seqtrainer.torch.dnabert2_benchmark import _load_huggingface_dnabert2

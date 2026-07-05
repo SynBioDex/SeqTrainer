@@ -74,6 +74,9 @@ def run_dnabert2_csv_splits(
     if freeze_encoder:
         for parameter in encoder.parameters():
             parameter.requires_grad = False
+    gradient_checkpointing = bool(train_params.get("gradient_checkpointing", False))
+    if gradient_checkpointing and not freeze_encoder:
+        _enable_gradient_checkpointing(encoder)
 
     hidden_size = int(getattr(encoder.config, "hidden_size", 768))
     model = _DnaBert2Classifier(
@@ -244,6 +247,7 @@ def run_dnabert2_csv_splits(
             "optimizer": "adamw",
             "warmup_ratio": float(train_params.get("warmup_ratio", 0.0)),
             "gradient_accumulation_steps": gradient_accumulation_steps,
+            "gradient_checkpointing": gradient_checkpointing,
             "physical_batch_size": config.training.batch_size or 16,
             "effective_batch_size": (config.training.batch_size or 16)
             * gradient_accumulation_steps,
@@ -632,6 +636,20 @@ def _disable_dnabert2_flash_attention(model: Any) -> None:
         return
     if hasattr(module, "flash_attn_qkvpacked_func"):
         setattr(module, "flash_attn_qkvpacked_func", None)
+
+
+def _enable_gradient_checkpointing(model: Any) -> None:
+    """Enable activation checkpointing for resource-constrained fine-tuning."""
+    enable = getattr(model, "gradient_checkpointing_enable", None)
+    if not callable(enable):
+        raise BenchmarkSkipped(
+            "This DNABERT2 implementation does not expose gradient checkpointing. "
+            "Disable training.params.gradient_checkpointing or use the pinned model revision."
+        )
+    enable()
+    config = getattr(model, "config", None)
+    if config is not None and hasattr(config, "use_cache"):
+        config.use_cache = False
 
 
 def _ensure_pad_token_id(config: Any, tokenizer: Any) -> None:

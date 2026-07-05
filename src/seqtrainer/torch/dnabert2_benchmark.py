@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import random
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
+from math import ceil
 from pathlib import Path
 from typing import Any
 
@@ -66,11 +68,15 @@ def run_dnabert2_csv_splits(
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
             disable_flash_attention=bool(params.get("disable_flash_attention", False)),
+            revision=params.get("revision"),
         )
     freeze_encoder = str(params.get("mode", "frozen_embedding_classifier")) != "full_finetune"
     if freeze_encoder:
         for parameter in encoder.parameters():
             parameter.requires_grad = False
+    gradient_checkpointing = bool(train_params.get("gradient_checkpointing", False))
+    if gradient_checkpointing and not freeze_encoder:
+        _enable_gradient_checkpointing(encoder)
 
     hidden_size = int(getattr(encoder.config, "hidden_size", 768))
     model = _DnaBert2Classifier(
@@ -89,6 +95,14 @@ def run_dnabert2_csv_splits(
             TensorDataset(value.input_ids, value.attention_mask, value.labels),
             batch_size=config.training.batch_size or 16,
             shuffle=(split == "train"),
+        )
+        for split, value in encoded.items()
+    }
+    prediction_loaders = {
+        split: DataLoader(
+            TensorDataset(value.input_ids, value.attention_mask, value.labels),
+            batch_size=config.training.batch_size or 16,
+            shuffle=False,
         )
         for split, value in encoded.items()
     }
@@ -117,20 +131,48 @@ def run_dnabert2_csv_splits(
         weight_decay=float(train_params.get("weight_decay", 0.01)),
     )
     max_epochs = config.training.max_epochs or 3
-    total_steps = max(1, max_epochs * len(loaders["train"]))
+    gradient_accumulation_steps = max(
+        1, int(train_params.get("gradient_accumulation_steps", 1))
+    )
+    optimizer_steps_per_epoch = ceil(
+        len(loaders["train"]) / gradient_accumulation_steps
+    )
+    total_steps = max(1, max_epochs * optimizer_steps_per_epoch)
     warmup_steps = int(total_steps * float(train_params.get("warmup_ratio", 0.0)))
     scheduler = _linear_warmup_scheduler(optimizer, warmup_steps, total_steps)
+    precision = str(config.environment.precision).lower()
+    max_grad_norm = float(train_params.get("max_grad_norm", 1.0))
 
     history: list[dict[str, float]] = []
-    best_state = {key: value.detach().cpu().clone() for key, value in model.state_dict().items()}
     best_mcc = float("-inf")
     best_threshold = 0.5
     patience = int(train_params.get("early_stopping_patience", 3))
     bad_epochs = 0
+    out_dir = Path(output_dir or config.outputs.output_dir)
+    checkpoint_path = out_dir / "checkpoints" / "best_model.pt"
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
     for epoch in range(1, max_epochs + 1):
-        train_loss = _run_epoch(model, loaders["train"], criterion, optimizer, scheduler, device, torch)
-        validation = _predict(model, loaders["validation"], criterion, device, torch)
+        train_loss = _run_epoch(
+            model,
+            loaders["train"],
+            criterion,
+            optimizer,
+            scheduler,
+            device,
+            torch,
+            precision=precision,
+            gradient_accumulation_steps=gradient_accumulation_steps,
+            max_grad_norm=max_grad_norm,
+        )
+        validation = _predict(
+            model,
+            prediction_loaders["validation"],
+            criterion,
+            device,
+            torch,
+            precision=precision,
+        )
         threshold, validation_mcc = best_threshold_by_metric(
             validation["label"],
             validation["probability"],
@@ -149,7 +191,7 @@ def run_dnabert2_csv_splits(
         if validation_mcc > best_mcc:
             best_mcc = float(validation_mcc)
             best_threshold = float(threshold)
-            best_state = {key: value.detach().cpu().clone() for key, value in model.state_dict().items()}
+            torch.save(model.state_dict(), checkpoint_path)
             bad_epochs = 0
         else:
             bad_epochs += 1
@@ -157,8 +199,20 @@ def run_dnabert2_csv_splits(
                 history[-1]["stopped_early"] = 1.0
                 break
 
-    model.load_state_dict(best_state)
-    predictions = {split: _predict(model, loader, criterion, device, torch) for split, loader in loaders.items()}
+    if not checkpoint_path.exists():
+        raise RuntimeError("DNABERT2 fine-tuning did not produce a checkpoint")
+    model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
+    predictions = {
+        split: _predict(
+            model,
+            loader,
+            criterion,
+            device,
+            torch,
+            precision=precision,
+        )
+        for split, loader in prediction_loaders.items()
+    }
     metrics: dict[str, dict[str, Any]] = {}
     prediction_frames = []
     for split, pred in predictions.items():
@@ -180,8 +234,6 @@ def run_dnabert2_csv_splits(
             )
         )
 
-    out_dir = Path(output_dir or config.outputs.output_dir)
-    checkpoint_path = out_dir / "checkpoints" / "best_model.pt"
     manifest = build_run_manifest(
         config,
         split_summary=split_summary,
@@ -194,6 +246,14 @@ def run_dnabert2_csv_splits(
             "pos_weight": float(pos_weight.item()),
             "optimizer": "adamw",
             "warmup_ratio": float(train_params.get("warmup_ratio", 0.0)),
+            "gradient_accumulation_steps": gradient_accumulation_steps,
+            "gradient_checkpointing": gradient_checkpointing,
+            "physical_batch_size": config.training.batch_size or 16,
+            "effective_batch_size": (config.training.batch_size or 16)
+            * gradient_accumulation_steps,
+            "precision": precision,
+            "max_grad_norm": max_grad_norm,
+            "optimizer_steps_per_epoch": optimizer_steps_per_epoch,
             "early_stopping_metric": "validation_mcc",
             "resolved_device": str(device),
             "runtime_seconds": float(time.perf_counter() - run_started),
@@ -218,8 +278,6 @@ def run_dnabert2_csv_splits(
         history=pd.DataFrame(history),
         config=config,
     )
-    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(best_state, checkpoint_path)
     return BenchmarkRunResult(output_dir=out_dir, status="completed", metrics=metrics, manifest=manifest)
 
 
@@ -450,6 +508,7 @@ def _load_huggingface_dnabert2(
     trust_remote_code: bool,
     local_files_only: bool,
     disable_flash_attention: bool = False,
+    revision: str | None = None,
 ) -> tuple[Any, Any]:
     try:
         from transformers import AutoConfig, AutoModel, AutoTokenizer
@@ -463,6 +522,7 @@ def _load_huggingface_dnabert2(
             model_name,
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
+            revision=revision,
         )
         pad_token_id = _safe_pad_token_id(tokenizer)
         _patch_bert_config_pad_token_id(pad_token_id)
@@ -470,6 +530,7 @@ def _load_huggingface_dnabert2(
             model_name,
             trust_remote_code=trust_remote_code,
             local_files_only=local_files_only,
+            revision=revision,
         )
         _set_pad_token_id(config, pad_token_id)
         try:
@@ -480,6 +541,7 @@ def _load_huggingface_dnabert2(
                 device_map=None,
                 local_files_only=local_files_only,
                 config=config,
+                revision=revision,
             )
         except RuntimeError as exc:
             if not _is_meta_device_error(exc):
@@ -489,6 +551,7 @@ def _load_huggingface_dnabert2(
                 config=config,
                 trust_remote_code=trust_remote_code,
                 local_files_only=local_files_only,
+                revision=revision,
             )
         meta_params = _meta_parameter_names(model)
         if meta_params:
@@ -498,6 +561,7 @@ def _load_huggingface_dnabert2(
                     config=config,
                     trust_remote_code=trust_remote_code,
                     local_files_only=local_files_only,
+                    revision=revision,
                 )
             except Exception as fallback_exc:
                 raise BenchmarkSkipped(
@@ -525,6 +589,7 @@ def _load_huggingface_dnabert2(
                 config=config,
                 trust_remote_code=trust_remote_code,
                 local_files_only=local_files_only,
+                revision=revision,
             )
             _set_pad_token_id(getattr(model, "config", None), pad_token_id)
             model.to(device)
@@ -571,6 +636,20 @@ def _disable_dnabert2_flash_attention(model: Any) -> None:
         return
     if hasattr(module, "flash_attn_qkvpacked_func"):
         setattr(module, "flash_attn_qkvpacked_func", None)
+
+
+def _enable_gradient_checkpointing(model: Any) -> None:
+    """Enable activation checkpointing for resource-constrained fine-tuning."""
+    enable = getattr(model, "gradient_checkpointing_enable", None)
+    if not callable(enable):
+        raise BenchmarkSkipped(
+            "This DNABERT2 implementation does not expose gradient checkpointing. "
+            "Disable training.params.gradient_checkpointing or use the pinned model revision."
+        )
+    enable()
+    config = getattr(model, "config", None)
+    if config is not None and hasattr(config, "use_cache"):
+        config.use_cache = False
 
 
 def _ensure_pad_token_id(config: Any, tokenizer: Any) -> None:
@@ -629,6 +708,7 @@ def _load_dnabert2_from_state_dict(
     config: Any,
     trust_remote_code: bool,
     local_files_only: bool,
+    revision: str | None = None,
 ) -> Any:
     """Load DNABERT2 without Transformers' meta-device checkpoint path.
 
@@ -645,6 +725,7 @@ def _load_dnabert2_from_state_dict(
         repo_id=model_name,
         filename="pytorch_model.bin",
         local_files_only=local_files_only,
+        revision=revision,
     )
     try:
         state_dict = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
@@ -773,25 +854,64 @@ def _linear_warmup_scheduler(optimizer: Any, warmup_steps: int, total_steps: int
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
 
-def _run_epoch(model: Any, loader: Any, criterion: Any, optimizer: Any, scheduler: Any, device: Any, torch: Any) -> float:
+def _run_epoch(
+    model: Any,
+    loader: Any,
+    criterion: Any,
+    optimizer: Any,
+    scheduler: Any,
+    device: Any,
+    torch: Any,
+    *,
+    precision: str = "float32",
+    gradient_accumulation_steps: int = 1,
+    max_grad_norm: float = 1.0,
+) -> float:
     model.train()
     total_loss, total = 0.0, 0
-    for input_ids, attention_mask, labels in loader:
-        optimizer.zero_grad(set_to_none=True)
+    accumulation = max(1, int(gradient_accumulation_steps))
+    scaler = _grad_scaler(torch, device, precision)
+    optimizer.zero_grad(set_to_none=True)
+    for batch_index, (input_ids, attention_mask, labels) in enumerate(loader, start=1):
         input_ids = _tensor_to_device(input_ids, device)
         attention_mask = _tensor_to_device(attention_mask, device)
         labels = _tensor_to_device(labels, device)
-        logits = model(input_ids, attention_mask)
-        loss = criterion(logits, labels)
-        loss.backward()
-        optimizer.step()
-        scheduler.step()
-        total_loss += float(loss.item()) * labels.shape[0]
+        with _autocast_context(torch, device, precision):
+            logits = model(input_ids, attention_mask)
+            raw_loss = criterion(logits, labels)
+            loss = raw_loss / accumulation
+        if scaler is None:
+            loss.backward()
+        else:
+            scaler.scale(loss).backward()
+
+        should_step = batch_index % accumulation == 0 or batch_index == len(loader)
+        if should_step:
+            if scaler is None:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+                optimizer.step()
+            else:
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+                scaler.step(optimizer)
+                scaler.update()
+            scheduler.step()
+            optimizer.zero_grad(set_to_none=True)
+
+        total_loss += float(raw_loss.item()) * labels.shape[0]
         total += int(labels.shape[0])
     return total_loss / max(total, 1)
 
 
-def _predict(model: Any, loader: Any, criterion: Any, device: Any, torch: Any) -> dict[str, Any]:
+def _predict(
+    model: Any,
+    loader: Any,
+    criterion: Any,
+    device: Any,
+    torch: Any,
+    *,
+    precision: str = "float32",
+) -> dict[str, Any]:
     model.eval()
     labels_out, probs_out = [], []
     total_loss, total = 0.0, 0
@@ -800,8 +920,9 @@ def _predict(model: Any, loader: Any, criterion: Any, device: Any, torch: Any) -
             input_ids = _tensor_to_device(input_ids, device)
             attention_mask = _tensor_to_device(attention_mask, device)
             labels = _tensor_to_device(labels, device)
-            logits = model(input_ids, attention_mask)
-            loss = criterion(logits, labels)
+            with _autocast_context(torch, device, precision):
+                logits = model(input_ids, attention_mask)
+                loss = criterion(logits, labels)
             probs = torch.sigmoid(logits)
             labels_out.extend(labels.detach().cpu().numpy())
             probs_out.extend(probs.detach().cpu().numpy())
@@ -812,6 +933,26 @@ def _predict(model: Any, loader: Any, criterion: Any, device: Any, torch: Any) -
         "probability": np.asarray(probs_out, dtype=float),
         "loss": total_loss / max(total, 1),
     }
+
+
+def _autocast_context(torch: Any, device: Any, precision: str) -> Any:
+    if getattr(device, "type", None) != "cuda":
+        return nullcontext()
+    normalized = str(precision).lower()
+    if normalized in {"bf16", "bfloat16"}:
+        return torch.autocast(device_type="cuda", dtype=torch.bfloat16)
+    if normalized in {"fp16", "float16"}:
+        return torch.autocast(device_type="cuda", dtype=torch.float16)
+    return nullcontext()
+
+
+def _grad_scaler(torch: Any, device: Any, precision: str) -> Any | None:
+    if (
+        getattr(device, "type", None) == "cuda"
+        and str(precision).lower() in {"fp16", "float16"}
+    ):
+        return torch.cuda.amp.GradScaler()
+    return None
 
 
 def _seed_everything(seed: int) -> None:
