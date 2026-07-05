@@ -63,8 +63,8 @@ def test_t4_profiles_preserve_the_shared_scientific_contract():
 
     assert dnabert2.model.name == "zhihan1996/DNABERT-2-117M"
     assert dnabert2.model.params["mode"] == "full_finetune"
-    assert dnabert2.training.batch_size == 1
-    assert dnabert2.training.params["gradient_accumulation_steps"] == 32
+    assert dnabert2.training.batch_size == 2
+    assert dnabert2.training.params["gradient_accumulation_steps"] == 16
     assert dnabert2.environment.precision == "fp16"
 
     assert ipromp.model.params["folds"] == 5
