@@ -24,6 +24,36 @@ SeqTrainer uses a stronger model to make annotation claims, it should make the
 data, labels, splits, thresholds, metrics, and run conditions identical across
 model families.
 
+## Current Implementation Status
+
+The plan is being implemented in staged benchmark PRs rather than one large
+annotation change.
+
+- PR #14 added the TOML benchmark configuration contract for shared dataset,
+  split, seed, metric, threshold, and output settings.
+- PR #15 merged the CNN benchmark work into upstream `dev`. It reproduces the
+  reference CNN path and adds CNN-v2 with AdamW, scheduler support, dropout,
+  validation-MCC checkpoint selection, early stopping, threshold-consistent
+  predictions, row-aligned artifacts, and Colab-ready CNN notebooks.
+- PR #20 is the active combined model-baselines branch for DNABERT2 and iPro-MP.
+  It builds on the CNN benchmark contract and keeps DNABERT2 and iPro-MP on the
+  same predefined train/validation/test CSV splits, shared metrics, validation-
+  only threshold selection, manifests, prediction tables, and comparison
+  artifacts.
+- DNABERT2 now has package-facing frozen and fine-tuning paths, plus Colab and
+  Alpine/SLURM execution profiles. Colab T4 notebooks are intended as lightweight
+  reproducibility paths; Alpine/HPC runs are the preferred route for claim-bearing
+  fine-tuning scores.
+- iPro-MP is treated first as an external pretrained E. coli inference baseline,
+  not a retraining task. SeqTrainer converts shared CSV splits to iPro-MP inputs,
+  records model/dependency provenance, and converts predictions back into the
+  shared benchmark metrics.
+
+The next scientific step is not more benchmark scaffolding. It is to run the
+HPC/Colab model paths, compare CNN-v2, DNABERT2, and iPro-MP with the same test
+split, and improve the DNABERT2/iPro-MP scores only through controlled changes
+that preserve the shared evaluation contract.
+
 ## Existing SeqTrainer Capabilities
 
 SeqTrainer already provides several building blocks for this work:
@@ -146,34 +176,37 @@ The initial benchmark should include:
 
 ## Benchmark Development Roadmap
 
-The benchmark should be developed in the following order:
+The benchmark should be developed in the following order. Items marked complete
+or active reflect the current project state as of July 2026.
 
-1. **Reproduce the CNN tutorial baseline.** This establishes a reference result
+1. **Reproduce the CNN tutorial baseline.** Completed in PR #15. This establishes a reference result
    for the current notebook behavior, including the median-derived labels,
    existing preprocessing, seed `42`, and unweighted loss.
-2. **Create a shared experiment contract.** A single configuration schema should
+2. **Create a shared experiment contract.** Completed in PR #14 and extended in
+   PR #15/#20. A single configuration schema should
    describe datasets, labels, splits, model identifiers, thresholds,
    hyperparameters, metrics, seeds, environment details, and output paths for all
    model families.
-3. **Persist shared splits and metrics.** Split files, metric computation, JSON
+3. **Persist shared splits and metrics.** Completed for CNN and active for
+   DNABERT2/iPro-MP in PR #20. Split files, metric computation, JSON
    and CSV output, and prediction tables should be produced by shared code so
    CNN, DNABERT2, and iPro-MP are evaluated under identical rules.
-4. **Improve the CNN baseline after reproduction.** CNN improvements should be
+4. **Improve the CNN baseline after reproduction.** Completed in PR #15. CNN improvements should be
    treated as controlled ablations, such as weighted loss, early stopping,
    validation-threshold selection, or reverse-complement augmentation. These
    improved CNNs should be compared against the exact reproduced CNN baseline,
    not replace it silently.
-5. **Add a frozen DNABERT2 baseline.** DNABERT2 should first be used as a frozen
+5. **Add a frozen DNABERT2 baseline.** Active in PR #20. DNABERT2 should first be used as a frozen
    sequence encoder with a lightweight classifier head. This is lower risk than
    full fine-tuning and gives a strong transfer-learning comparison.
-6. **Evaluate iPro-MP through an adapter.** iPro-MP should first be isolated
+6. **Evaluate iPro-MP through an adapter.** Active in PR #20. iPro-MP should first be isolated
    behind a file-format adapter and smoke-tested on the shared split. It should
    not be deeply coupled to SeqTrainer internals until it proves useful on the
    same benchmark outputs.
-7. **Select a model for annotation.** The selected model should improve relevant
+7. **Select a model for annotation.** Pending real model-comparison outputs. The selected model should improve relevant
    held-out metrics or provide a justified tradeoff such as simpler operation,
    better reproducibility, or more useful annotation behavior.
-8. **Build the plasmid annotation MVP.** Only after model selection should the
+8. **Build the plasmid annotation MVP.** Pending model decision. Only after model selection should the
    annotation workflow generate candidate windows, score them, merge positive
    windows, and export promoter call tables and SBOL drafts.
 
