@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1040" viewBox="0 0 1600 1040" role="img" aria-labelledby="title desc">
   <title id="title">CNN and DNABERT2 promoter benchmark comparison</title>
   <desc id="desc">Current SeqTrainer shared-split promoter benchmark results, including CNN reference, CNN-v2, DNABERT2 frozen, DNABERT2 T4 fine-tuning, and the planned A100 Alpine profile.</desc>
-  <rect width="1600" height="980" fill="#0d1117"/>
+  <rect width="1600" height="1040" fill="#0d1117"/>
   <g font-family="Arial, Helvetica, sans-serif">
     <text x="52" y="58" fill="#f0f6fc" font-size="32" font-weight="700">SeqTrainer shared-split promoter benchmark</text>
     <text x="52" y="92" fill="#b1bac4" font-size="18">All recorded scores use validation-only threshold selection and held-out test reporting. Primary metric: MCC. Secondary metric: AUPRC.</text>
 
-    <rect x="52" y="125" width="1496" height="260" rx="8" fill="#161b22" stroke="#30363d"/>
+    <rect x="52" y="125" width="1496" height="305" rx="8" fill="#161b22" stroke="#30363d"/>
     <text x="82" y="166" fill="#f0f6fc" font-size="23" font-weight="700">Recorded test results</text>
     <text x="82" y="193" fill="#8b949e" font-size="15">Higher is better. CNN-v2 is still the strongest completed run.</text>
 
@@ -47,42 +47,49 @@
       <text x="910" y="356" fill="#f0f6fc">0.767876</text>
       <text x="1050" y="356" fill="#f0f6fc">0.505220</text>
       <text x="1190" y="356" fill="#b1bac4">Frozen encoder baseline</text>
+
+      <rect x="72" y="371" width="1456" height="42" fill="#21262d"/>
+      <text x="82" y="398" fill="#f0f6fc">DNABERT2 full fine-tuning, T4</text>
+      <text x="500" y="398" fill="#f0f6fc">0.147631</text>
+      <text x="640" y="398" fill="#f0f6fc">0.365169</text>
+      <text x="790" y="398" fill="#f0f6fc">0.078098</text>
+      <text x="910" y="398" fill="#f0f6fc">0.981870</text>
+      <text x="1050" y="398" fill="#f0f6fc">0.750244</text>
+      <text x="1190" y="398" fill="#b1bac4">Completed T4 workflow check</text>
     </g>
 
-    <rect x="52" y="415" width="1496" height="175" rx="8" fill="#161b22" stroke="#30363d"/>
-    <text x="82" y="456" fill="#f0f6fc" font-size="23" font-weight="700">DNABERT2 full fine-tuning status</text>
+    <rect x="52" y="460" width="1496" height="150" rx="8" fill="#161b22" stroke="#30363d"/>
+    <text x="82" y="501" fill="#f0f6fc" font-size="23" font-weight="700">DNABERT2 full fine-tuning profiles</text>
     <g font-size="15" fill="#f0f6fc">
-      <text x="82" y="494">Colab T4 completed run</text>
-      <text x="82" y="525" fill="#b1bac4">2 epochs, batch 2, gradient accumulation 16, effective batch 32, FP16, patience 1, gradient checkpointing enabled.</text>
-      <text x="82" y="554" fill="#b1bac4">Test MCC 0.147631, test AUPRC 0.365169, recall 0.078098, specificity 0.981870, threshold 0.750244.</text>
-      <text x="820" y="494">A100/Alpine planned canonical run</text>
-      <text x="820" y="525" fill="#b1bac4">4 epochs, batch 4, gradient accumulation 8, effective batch 32, BF16, patience 2, same seed and splits.</text>
-      <text x="820" y="554" fill="#b1bac4">Not yet claim-bearing until run completes and held-out test MCC/AUPRC are recorded.</text>
+      <text x="82" y="539">T4 completed profile</text>
+      <text x="82" y="568" fill="#b1bac4">2 epochs | batch 2 | accumulation 16 | effective batch 32 | FP16 | patience 1 | checkpointing enabled</text>
+      <text x="820" y="539">A100/Alpine canonical profile</text>
+      <text x="820" y="568" fill="#b1bac4">4 epochs | batch 4 | accumulation 8 | effective batch 32 | BF16 | patience 2 | same seed and splits</text>
     </g>
 
-    <rect x="52" y="620" width="725" height="235" rx="8" fill="#161b22" stroke="#30363d"/>
-    <text x="82" y="661" fill="#f0f6fc" font-size="23" font-weight="700">Fixed scientific contract</text>
+    <rect x="52" y="640" width="725" height="250" rx="8" fill="#161b22" stroke="#30363d"/>
+    <text x="82" y="681" fill="#f0f6fc" font-size="23" font-weight="700">Fixed scientific contract</text>
     <g fill="#b1bac4" font-size="16">
-      <text x="82" y="699">Dataset: GSE144621 EP_DNA_BERT2_genomic_order</text>
-      <text x="82" y="728">Rows: train 136,484; validation 19,498; test 38,996</text>
-      <text x="82" y="757">Labels: 0 negative, 1 promoter-positive</text>
-      <text x="82" y="786">Seed: 42 | sequence length: 300 bp</text>
-      <text x="82" y="815">Threshold: selected on validation MCC only</text>
-      <text x="82" y="844">Test set: final reporting only, never tuning</text>
+      <text x="82" y="719">Dataset: GSE144621 EP_DNA_BERT2_genomic_order</text>
+      <text x="82" y="748">Rows: train 136,484; validation 19,498; test 38,996</text>
+      <text x="82" y="777">Labels: 1 = promoter-positive; 0 = non-promoter/background</text>
+      <text x="82" y="806">Seed: 42 | sequence length: 300 bp</text>
+      <text x="82" y="835">Threshold: selected on validation MCC only</text>
+      <text x="82" y="864">Test set: final reporting only, never tuning</text>
     </g>
 
-    <rect x="823" y="620" width="725" height="235" rx="8" fill="#161b22" stroke="#30363d"/>
-    <text x="853" y="661" fill="#f0f6fc" font-size="23" font-weight="700">Interpretation</text>
+    <rect x="823" y="640" width="725" height="250" rx="8" fill="#161b22" stroke="#30363d"/>
+    <text x="853" y="681" fill="#f0f6fc" font-size="23" font-weight="700">Interpretation</text>
     <g fill="#b1bac4" font-size="16">
-      <text x="853" y="699">CNN-v2 currently improves over the CNN reference.</text>
-      <text x="853" y="728">DNABERT2 T4 fine-tuning ran successfully but did not improve MCC.</text>
-      <text x="853" y="757">The T4 result predicted too few positives, causing low recall.</text>
-      <text x="853" y="786">More epochs may help only if validation MCC improves before overfitting.</text>
-      <text x="853" y="815">The next claim-bearing DNABERT2 run should be A100/Alpine.</text>
-      <text x="853" y="844">All final comparisons should rank by test MCC, then test AUPRC.</text>
+      <text x="853" y="719">CNN-v2 currently improves over the CNN reference.</text>
+      <text x="853" y="748">DNABERT2 T4 fine-tuning ran successfully but did not improve MCC.</text>
+      <text x="853" y="777">The T4 result predicted too few positives, causing low recall.</text>
+      <text x="853" y="806">More epochs may help only if validation MCC improves before overfitting.</text>
+      <text x="853" y="835">The next claim-bearing DNABERT2 run should be A100/Alpine.</text>
+      <text x="853" y="864">All final comparisons should rank by test MCC, then test AUPRC.</text>
     </g>
 
-    <rect x="52" y="890" width="1496" height="50" rx="8" fill="#21262d" stroke="#30363d"/>
-    <text x="82" y="921" fill="#f0f6fc" font-size="17" font-weight="700">Current decision: keep CNN-v2 as the strongest completed baseline while running the canonical DNABERT2 A100/Alpine profile.</text>
+    <rect x="52" y="925" width="1496" height="50" rx="8" fill="#21262d" stroke="#30363d"/>
+    <text x="82" y="956" fill="#f0f6fc" font-size="17" font-weight="700">Current decision: keep CNN-v2 as the strongest completed baseline while running the canonical DNABERT2 A100/Alpine profile.</text>
   </g>
 </svg>
