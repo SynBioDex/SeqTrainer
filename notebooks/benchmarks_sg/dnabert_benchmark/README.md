@@ -51,8 +51,51 @@ validation MCC, with mean validation AUPRC as a tie-break.
 
 ![CNN and frozen DNABERT2 comparison](assets/cnn_dnabert2_comparison.svg)
 
-The assets record completed frozen DNABERT2-v1 results. They do not present
-DNABERT2-v2 metrics because v2 has not yet been executed.
+The assets now record three completed result sets:
+
+1. CNN reference.
+2. CNN-v2, which is the current strongest CNN baseline.
+3. DNABERT2 runs:
+   - frozen DNABERT2-v1,
+   - full DNABERT2 fine-tuning on Colab T4.
+
+Open `assets/RESULTS.md` for the complete tables.
+
+### Current Score Summary
+
+| Model/run | Test MCC | Test AUPRC | Status |
+| --- | ---: | ---: | --- |
+| CNN reference | 0.187208 | 0.618783 | Reproduced baseline |
+| CNN-v2, 50 cycles | **0.220884** | **0.645976** | Current best recorded model |
+| DNABERT2 frozen v1 | 0.124165 | 0.575073 | Reproducible frozen baseline |
+| DNABERT2 full fine-tuning, Colab T4 | 0.147631 | 0.365169 | Completed T4 workflow check |
+
+The Colab T4 full fine-tuning run completed and wrote the expected artifacts,
+but it did not improve over CNN-v2. It had high specificity but very low recall,
+so it predicted too few promoter-positive examples. The T4 result is therefore
+useful as a resource-constrained reproducibility check, not as the final
+claim-bearing DNABERT2 result.
+
+The next DNABERT2 step is to run the A100/Alpine full fine-tuning profile and
+verify the exact split files before comparing against CNN-v2.
+
+### T4 vs A100/Alpine Profile Difference
+
+Both profiles keep the same scientific comparison contract: same predefined
+split names, seed `42`, DNABERT2 backbone, full encoder fine-tuning, mean
+pooling, AdamW, learning rate `3e-5`, validation-MCC threshold selection, and
+held-out test reporting.
+
+| Setting | Colab T4 profile | A100/Alpine profile |
+| --- | ---: | ---: |
+| Maximum epochs | 2 | 4 |
+| Physical batch size | 2 | 4 |
+| Gradient accumulation | 16 | 8 |
+| Effective batch size | 32 | 32 |
+| Precision | FP16 | BF16 |
+| Early-stopping patience | 1 | 2 |
+| Gradient checkpointing | Enabled | Not required in the canonical profile |
+| Purpose | Resource-constrained reproducibility run | Canonical claim-bearing fine-tuning run |
 
 ## Run In Colab
 
