@@ -4,6 +4,8 @@ This folder records DNABERT2 promoter-classification work on the same benchmark
 surface used by CNN-v2: predefined GSE144621 splits, seed `42`, validation-only
 threshold selection, and held-out test reporting.
 
+![CNN, DNABERT2, and Colab T4 benchmark comparison](assets/cnn_dnabert2_comparison.svg)
+
 ## Current Result Summary
 
 | Model/run | Test MCC | Test AUPRC | Status |
@@ -20,8 +22,6 @@ resource-constrained reproducibility check, not as the final DNABERT2 result.
 
 Open [`assets/RESULTS.md`](assets/RESULTS.md) for the complete metric tables,
 training history, model settings, and interpretation.
-
-![CNN and frozen DNABERT2 comparison](assets/cnn_dnabert2_comparison.svg)
 
 ## T4 vs A100/Alpine Profile
 
