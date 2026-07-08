@@ -65,9 +65,21 @@ coverage, validation-MCC threshold, test metrics, and output schema are not
 reduced. Model weights require roughly 1.8 GB for the five iPro-MP checkpoints,
 plus the DNABERT-6 backbone.
 
+## iPro-MP A100 Inference
+
+[`ipromp_a100_colab.ipynb`](ipromp_a100_colab.ipynb) mirrors the Alpine
+iPro-MP external-inference workflow on a Colab A100. It keeps the same official
+E. coli model 10, five-fold ensemble, 6-mer tokenization, shared split, seed
+`42`, validation-MCC threshold, and held-out test metrics.
+
+iPro-MP is not trained in this benchmark, so epochs remain `0`. The A100 profile
+only increases the inference batch size from `4` to `16`, matching the Alpine
+profile and reducing wall-clock time without changing the model or scientific
+comparison policy.
+
 ## Comparison Rule
 
-The T4 notebooks keep the scientific comparison surface fixed: identical input
+The Colab notebooks keep the scientific comparison surface fixed: identical input
 CSVs and labels, seed `42`, no test-set tuning, validation-selected threshold,
 and held-out test MCC/AUPRC. Resource settings such as precision, physical batch
 size, checkpointing, and epoch budget must be reported alongside the metrics.
