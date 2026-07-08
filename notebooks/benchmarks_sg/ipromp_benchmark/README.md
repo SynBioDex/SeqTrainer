@@ -6,6 +6,20 @@ The pretrained model is used for inference only. SeqTrainer selects one
 probability threshold from the validation split by MCC and applies that fixed
 threshold to the held-out test split.
 
+## Current Result Status
+
+| Model/run | Test MCC | Test AUPRC | Status |
+| --- | ---: | ---: | --- |
+| CNN-v2, 50 cycles | 0.220884 | 0.645976 | Current benchmark to beat |
+| DNABERT2 full fine-tuning, Colab T4 | 0.147631 | 0.365169 | Completed workflow check |
+| iPro-MP E. coli model 10 / five-fold ensemble | Not run yet | Not run yet | Setup and Alpine workflow ready |
+
+Conclusion: **iPro-MP does not have a completed benchmark score yet**. This
+folder is currently the setup and execution path for producing that score. Once
+the Alpine or Colab run finishes, place the resulting metric table at the top of
+this README and in an assets result file, using test MCC first and test AUPRC
+second.
+
 ## What Is Reproduced
 
 - Model: iPro-MP DNABERT-6 classifier for species ID 10, E. coli K-12 MG1655.

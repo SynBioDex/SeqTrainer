@@ -4,6 +4,22 @@ This folder contains the Colab-ready CNN benchmark notebooks for the shared E. c
 
 The purpose is to make the CNN baseline reproducible before comparing against DNABERT2 and iPro-MP. The reference notebook preserves the original CNN baseline. The CNN-v2 notebook gives CNN one final stronger attempt before moving to DNABERT2.
 
+## Current Result Summary
+
+| Model/run | Test MCC | Test AUPRC | Status |
+| --- | ---: | ---: | --- |
+| CNN reference, 10 cycles | 0.187208 | 0.618783 | Reproduced baseline |
+| CNN-v2, 50 cycles | **0.220884** | **0.645976** | Current best CNN result |
+| CNN-v2, 100 cycles | 0.208165 | 0.634116 | Longer run, did not improve |
+
+Conclusion: **CNN-v2 at 50 cycles is the current CNN baseline to beat**. It was
+selected by validation MCC and then reported once on the held-out test split.
+The 100-cycle run did not improve the validation/test MCC, so more cycles alone
+were not helpful.
+
+Open [`assets/RESULTS.md`](assets/RESULTS.md) for the complete metric tables,
+architecture, optimizer settings, threshold policy, and notebook output notes.
+
 ## Files
 
 - `cnn_reference_benchmark_colab.ipynb`: original/reference 10-cycle CNN baseline.
