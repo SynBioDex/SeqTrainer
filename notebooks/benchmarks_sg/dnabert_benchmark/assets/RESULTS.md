@@ -1,8 +1,9 @@
 # CNN and DNABERT2 Benchmark Results
 
-This document records the completed CNN and frozen DNABERT2-v1 promoter
-classification experiments. DNABERT2-v2 has not yet been run, so no v2 scores
-are reported here.
+This document records the completed CNN, frozen DNABERT2-v1, and DNABERT2
+Colab T4 fine-tuning promoter classification experiments. The T4 run is a
+resource-constrained full fine-tuning profile; the canonical A100/Alpine
+fine-tuning profile still needs to be run for final claim-bearing scores.
 
 ## What Was Kept Identical
 
@@ -243,3 +244,66 @@ therefore lower.
 The next valid comparison is to execute DNABERT2-v2. Its candidate settings
 must still be selected on validation data, and its held-out test result must
 remain untouched until selection is complete.
+
+## DNABERT2 Full Fine-Tuning, Colab T4 Result
+
+This run completed in `notebooks/colab_benchmarks/dnabert2_finetune_t4_colab.ipynb`.
+It proves that the full fine-tuning workflow can run on a Colab T4 with the
+reduced resource profile. It should not yet be treated as the final DNABERT2
+claim because the output split sizes differ from the CNN/DNABERT2 frozen table
+above and should be verified before claiming a direct model improvement.
+
+| Split | Threshold | Accuracy | Balanced accuracy | Precision | Recall / sensitivity | F1 | MCC | Specificity | TN | FP | FN | TP | AUROC | AUPRC | Loss |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Train | 0.750244 | 0.721295 | 0.539548 | 0.704437 | 0.095954 | 0.168902 | 0.183657 | 0.983142 | 155,771 | 2,671 | 59,978 | 6,366 | 0.541029 | 0.345434 | 0.952912 |
+| Validation | 0.750244 | 0.692529 | 0.530771 | 0.655226 | 0.081780 | 0.145410 | 0.146619 | 0.979762 | 42,797 | 884 | 18,863 | 1,680 | 0.532065 | 0.355913 | 0.985773 |
+| Test | 0.750244 | 0.683493 | 0.529984 | 0.679803 | 0.078098 | 0.140102 | **0.147631** | 0.981870 | 21,121 | 390 | 9,774 | 828 | 0.531969 | **0.365169** | 0.995106 |
+
+Training history:
+
+| Epoch | Train loss | Validation loss | Validation MCC | Validation threshold | Learning rate |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 0.964707 | 0.996619 | 0.108300 | 0.590820 | 0.000017 |
+| 2 | 0.957736 | 0.985773 | 0.146619 | 0.750244 | 0.000000 |
+
+The selected threshold came from validation MCC and was then applied unchanged
+to the held-out test split. The run wrote the expected artifacts:
+`metrics.csv`, `metrics.json`, `predictions.csv`, `manifest.json`,
+`history.csv`, `config.json`, `input_split_audit.json`, and
+`checkpoints/best_model.pt`.
+
+### T4 Code/Profile Difference From A100/Alpine
+
+The T4 notebook and the A100/Alpine notebook keep the same scientific comparison
+surface: dataset identity, predefined split file names, seed `42`, DNABERT2
+backbone, model revision, full encoder fine-tuning, mean pooling, AdamW,
+learning rate `0.00003`, validation-MCC threshold selection, and final held-out
+test reporting.
+
+The differences are resource settings:
+
+| Setting | Colab T4 profile | A100/Alpine profile |
+| --- | ---: | ---: |
+| Maximum epochs | 2 | 4 |
+| Physical batch size | 2 | 4 |
+| Gradient accumulation | 16 | 8 |
+| Effective batch size | 32 | 32 |
+| Precision | FP16 | BF16 |
+| Early-stopping patience | 1 | 2 |
+| Gradient checkpointing | Enabled | Not required in the canonical profile |
+| Purpose | Resource-constrained reproducibility run | Canonical claim-bearing fine-tuning run |
+
+Both profiles use `model_max_length = 70`, native DNABERT2 tokenization,
+`classifier_dropout = 0.1`, `weight_decay = 0.01`, `warmup_ratio = 0.1`, and
+`max_grad_norm = 1.0`.
+
+The T4 full fine-tuning run did not improve on CNN-v2:
+
+- CNN-v2 test MCC: 0.220884 versus 0.147631 for DNABERT2 T4 full fine-tuning.
+- CNN-v2 test AUPRC: 0.645976 versus 0.365169 for DNABERT2 T4 full fine-tuning.
+
+The T4 model has high specificity but very low recall, so it predicts very few
+positive promoters. This is why accuracy looks reasonable while MCC and AUPRC
+remain below CNN-v2. The next claim-bearing comparison should run the
+A100/Alpine full fine-tuning profile, verify the exact split files, and compare
+held-out test MCC and AUPRC against CNN-v2.
