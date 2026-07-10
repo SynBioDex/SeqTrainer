@@ -50,7 +50,7 @@ species_name = "Escherichia coli str K-12 substr. MG1655"
 kmer_size = 6
 folds = 5
 max_length = 300
-inference_batch_size = 16
+inference_batch_size = 32
 dnabert6_source = "zhihan1996/DNA_bert_6"
 pretrained_model_source = "https://doi.org/10.5281/zenodo.15180139"
 mapping_csv = "outputs/benchmarks/ipromp_external_a100_ep_genomic_order/ipromp_id_mapping.csv"
@@ -60,7 +60,7 @@ test_predictions_csv = "outputs/benchmarks/ipromp_external_a100_ep_genomic_order
 
 [training]
 seed = 42
-batch_size = 16
+batch_size = 32
 max_epochs = 0
 learning_rate = 0.0
 
@@ -68,7 +68,7 @@ learning_rate = 0.0
 mode = "official_pretrained_external_inference"
 optimizer = "not_applicable"
 loss = "not_applicable"
-resource_profile = "colab_a100_validation_test_only"
+resource_profile = "colab_a100_validation_test_only_batch32"
 
 [evaluation]
 primary_metric = "mcc"
