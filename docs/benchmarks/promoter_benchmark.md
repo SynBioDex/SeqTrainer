@@ -172,13 +172,21 @@ python -m pip install -r requirements.txt
 
 Then:
 
-- download DNABERT-6 into `external/iPro-MP/DNABERT-6`
+- download DNABERT-6 into `external/iPro-MP/DNABERT-6`; the Colab/Alpine helper
+  uses Hugging Face model `zhihan1996/DNA_bert_6`
 - download pretrained iPro-MP model files from
-  `https://doi.org/10.5281/zenodo.15180138`
+  `https://doi.org/10.5281/zenodo.15180139`; the SeqTrainer helper range-downloads
+  only the E. coli species 10 checkpoints from `model.zip`
 - do not commit large weights
 - for `Escherichia coli str K-12 substr. MG1655`, use `species_id = 10`
-- verify the exact downloaded model filenames; they may follow a fold pattern
-  such as `10_fold_1.pth` through `10_fold_5.pth`
+- verify the exact downloaded fold filenames: `10_fold_1.pth` through
+  `10_fold_5.pth`
+
+The five iPro-MP folds are used as a pretrained ensemble. They are not new
+SeqTrainer data folds. Each fold scores the same validation/test FASTA records,
+then SeqTrainer averages the five positive-class probabilities per sequence. A
+single threshold is selected from averaged validation probabilities by MCC and
+applied unchanged to averaged test probabilities.
 
 Official prediction command shape:
 
@@ -221,6 +229,15 @@ After prediction files exist at the paths configured in
 ```bash
 seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml
 ```
+
+## Current Recorded iPro-MP T4 Check
+
+The completed Colab T4 iPro-MP inference run reported validation-selected
+threshold `0.327886`, held-out test MCC `0.068364`, and test AUPRC `0.372180`.
+This does not improve over CNN-v2. Because the notebook audit printed
+`/content/drive/MyDrive` and larger row counts, rerun with the explicit nested
+`AIxBio/Promoter Classification/Data` folder before using it as the final
+same-split iPro-MP comparison.
 
 ## Compare Completed Runs
 

@@ -12,19 +12,23 @@ threshold to the held-out test split.
 | --- | ---: | ---: | --- |
 | CNN-v2, 50 cycles | 0.220884 | 0.645976 | Current benchmark to beat |
 | DNABERT2 full fine-tuning, Colab T4 | 0.147631 | 0.365169 | Completed workflow check |
-| iPro-MP E. coli model 10 / five-fold ensemble | Not run yet | Not run yet | Setup and Alpine workflow ready |
+| iPro-MP E. coli model 10 / five-fold ensemble, Colab T4 | 0.068364 | 0.372180 | Completed pretrained inference check |
 
-Conclusion: **iPro-MP does not have a completed benchmark score yet**. This
-folder is currently the setup and execution path for producing that score. Once
-the Alpine or Colab run finishes, place the resulting metric table at the top of
-this README and in an assets result file, using test MCC first and test AUPRC
-second.
+Conclusion: **iPro-MP has a completed Colab T4 inference result, but it does not
+yet beat CNN-v2**. The run selected threshold `0.327886` on validation MCC and
+reported held-out test MCC `0.068364` and test AUPRC `0.372180`. Treat this as a
+resource-constrained pretrained-inference check. The final same-split claim
+should be rerun with the explicit `AIxBio/Promoter Classification/Data` path and
+then confirmed on the Alpine/A100 workflow.
 
 ## What Is Reproduced
 
 - Model: iPro-MP DNABERT-6 classifier for species ID 10, E. coli K-12 MG1655.
 - Tokenization: overlapping 6-mers.
-- Ensemble: five official fold checkpoints, averaged by positive-class probability.
+- Ensemble: five official E. coli fold checkpoints, each evaluated on the same
+  SeqTrainer validation/test sequences and averaged by positive-class
+  probability. These are iPro-MP's pretrained fold models, not new SeqTrainer
+  train/validation/test folds.
 - Seed: 42.
 - Input sequence length: the shared CSV sequences remain unchanged at 300 bp.
 - Model token limit: 300 tokens, so all overlapping 6-mers from each shared
@@ -40,6 +44,16 @@ window is not silently truncated. The official prediction code averages five
 fold models at a fixed 0.5 threshold. SeqTrainer preserves those probabilities
 but replaces the final decision threshold with the validation-MCC threshold so
 the comparison follows the same policy as CNN-v2 without tuning on test data.
+
+### How The Five Folds Are Used
+
+For the current external-inference baseline, SeqTrainer does not retrain or
+refit the five iPro-MP folds. The notebook/script loads `10_fold_1.pth` through
+`10_fold_5.pth` one at a time to reduce GPU memory. Each fold scores every
+sequence in the validation and test FASTA files. The five fold probabilities are
+then averaged per sequence to produce one ensemble probability. Validation MCC
+selects one threshold from the averaged validation probabilities; that same
+threshold is applied unchanged to the averaged test probabilities.
 
 ## Why A Wrapper Is Needed
 

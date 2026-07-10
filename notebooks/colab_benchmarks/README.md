@@ -65,6 +65,12 @@ coverage, validation-MCC threshold, test metrics, and output schema are not
 reduced. Model weights require roughly 1.8 GB for the five iPro-MP checkpoints,
 plus the DNABERT-6 backbone.
 
+Latest recorded T4 inference result: validation-selected threshold `0.327886`,
+held-out test MCC `0.068364`, test AUPRC `0.372180`, recall `0.234484`, and
+specificity `0.823207`. The five official E. coli fold checkpoints are loaded
+one at a time, each produces probabilities for the same validation/test rows,
+and the final score is the arithmetic mean of those five probabilities.
+
 ## iPro-MP A100 Inference
 
 [`ipromp_a100_colab.ipynb`](ipromp_a100_colab.ipynb) mirrors the Alpine

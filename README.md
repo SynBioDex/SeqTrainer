@@ -70,7 +70,10 @@ artifacts such as `metrics.csv`, `metrics.json`, `predictions.csv`,
 `manifest.json`, `history.csv`, and model checkpoints when training occurs.
 Heavy model dependencies are gated so missing model files produce explicit
 skipped manifests rather than fake metrics. See
-`docs/benchmarks/promoter_benchmark.md` for the complete workflow.
+`docs/benchmarks/promoter_benchmark.md` for the complete workflow. Current
+recorded benchmark summaries live under `notebooks/benchmarks_sg/`, especially
+`notebooks/benchmarks_sg/dnabert_benchmark/README.md` and
+`notebooks/benchmarks_sg/ipromp_benchmark/README.md`.
 
 ## Status
 
