@@ -1,95 +1,80 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1040" viewBox="0 0 1600 1040" role="img" aria-labelledby="title desc">
-  <title id="title">CNN and DNABERT2 promoter benchmark comparison</title>
-  <desc id="desc">Current SeqTrainer shared-split promoter benchmark results, including CNN reference, CNN-v2, DNABERT2 frozen, DNABERT2 T4 fine-tuning, and the planned A100 Alpine profile.</desc>
-  <rect width="1600" height="1040" fill="#0d1117"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1120" viewBox="0 0 1700 1120" role="img" aria-labelledby="title desc">
+  <title id="title">SeqTrainer CNN, DNABERT2, and iPro-MP promoter benchmark comparison</title>
+  <desc id="desc">Current shared-split promoter benchmark results, including CNN reference, CNN-v2, DNABERT2 frozen, DNABERT2 T4 fine-tuning, and iPro-MP T4 pretrained inference.</desc>
+  <rect width="1700" height="1120" fill="#0d1117"/>
   <g font-family="Arial, Helvetica, sans-serif">
     <text x="52" y="58" fill="#f0f6fc" font-size="32" font-weight="700">SeqTrainer shared-split promoter benchmark</text>
-    <text x="52" y="92" fill="#b1bac4" font-size="18">All recorded scores use validation-only threshold selection and held-out test reporting. Primary metric: MCC. Secondary metric: AUPRC.</text>
+    <text x="52" y="92" fill="#b1bac4" font-size="18">Validation-only threshold selection; held-out test reporting. Primary metric: MCC. Secondary metric: AUPRC.</text>
 
-    <rect x="52" y="125" width="1496" height="305" rx="8" fill="#161b22" stroke="#30363d"/>
-    <text x="82" y="166" fill="#f0f6fc" font-size="23" font-weight="700">Recorded test results</text>
-    <text x="82" y="193" fill="#8b949e" font-size="15">Higher is better. CNN-v2 is still the strongest completed run.</text>
+    <rect x="52" y="125" width="1596" height="360" rx="8" fill="#161b22" stroke="#30363d"/>
+    <text x="82" y="166" fill="#f0f6fc" font-size="23" font-weight="700">Recorded held-out test results</text>
+    <text x="82" y="193" fill="#8b949e" font-size="15">Higher is better. CNN-v2 remains the strongest completed run. iPro-MP is pretrained inference only.</text>
 
     <g font-size="15" font-weight="700" fill="#f0f6fc">
       <text x="82" y="230">Model/run</text>
-      <text x="500" y="230">Test MCC</text>
-      <text x="640" y="230">Test AUPRC</text>
-      <text x="790" y="230">Recall</text>
-      <text x="910" y="230">Specificity</text>
-      <text x="1050" y="230">Threshold</text>
-      <text x="1190" y="230">Status</text>
+      <text x="525" y="230">MCC</text>
+      <text x="650" y="230">AUPRC</text>
+      <text x="775" y="230">Recall</text>
+      <text x="900" y="230">Specificity</text>
+      <text x="1045" y="230">Threshold</text>
+      <text x="1195" y="230">Status</text>
     </g>
 
     <g font-size="15">
-      <rect x="72" y="245" width="1456" height="42" fill="#21262d"/>
+      <rect x="72" y="245" width="1556" height="42" fill="#21262d"/>
       <text x="82" y="272" fill="#f0f6fc">CNN reference, 10 cycles</text>
-      <text x="500" y="272" fill="#f0f6fc">0.187208</text>
-      <text x="640" y="272" fill="#f0f6fc">0.618783</text>
-      <text x="790" y="272" fill="#f0f6fc">0.217647</text>
-      <text x="910" y="272" fill="#f0f6fc">0.916195</text>
-      <text x="1050" y="272" fill="#f0f6fc">0.670</text>
-      <text x="1190" y="272" fill="#b1bac4">Reproduced baseline</text>
+      <text x="525" y="272" fill="#f0f6fc">0.187208</text><text x="650" y="272" fill="#f0f6fc">0.618783</text><text x="775" y="272" fill="#f0f6fc">0.217647</text><text x="900" y="272" fill="#f0f6fc">0.916195</text><text x="1045" y="272" fill="#f0f6fc">0.670</text>
+      <text x="1195" y="272" fill="#b1bac4">Reproduced baseline</text>
 
-      <rect x="72" y="287" width="1456" height="42" fill="#263529"/>
+      <rect x="72" y="287" width="1556" height="42" fill="#263529"/>
       <text x="82" y="314" fill="#7ee787" font-weight="700">CNN-v2, 50 cycles</text>
-      <text x="500" y="314" fill="#7ee787" font-weight="700">0.220884</text>
-      <text x="640" y="314" fill="#7ee787" font-weight="700">0.645976</text>
-      <text x="790" y="314" fill="#7ee787">0.216152</text>
-      <text x="910" y="314" fill="#7ee787">0.936814</text>
-      <text x="1050" y="314" fill="#7ee787">0.630</text>
-      <text x="1190" y="314" fill="#7ee787">Current best completed model</text>
+      <text x="525" y="314" fill="#7ee787" font-weight="700">0.220884</text><text x="650" y="314" fill="#7ee787" font-weight="700">0.645976</text><text x="775" y="314" fill="#7ee787">0.216152</text><text x="900" y="314" fill="#7ee787">0.936814</text><text x="1045" y="314" fill="#7ee787">0.630</text>
+      <text x="1195" y="314" fill="#7ee787">Current best completed model</text>
 
-      <rect x="72" y="329" width="1456" height="42" fill="#21262d"/>
+      <rect x="72" y="329" width="1556" height="42" fill="#21262d"/>
       <text x="82" y="356" fill="#f0f6fc">DNABERT2 frozen v1</text>
-      <text x="500" y="356" fill="#f0f6fc">0.124165</text>
-      <text x="640" y="356" fill="#f0f6fc">0.575073</text>
-      <text x="790" y="356" fill="#f0f6fc">0.344586</text>
-      <text x="910" y="356" fill="#f0f6fc">0.767876</text>
-      <text x="1050" y="356" fill="#f0f6fc">0.505220</text>
-      <text x="1190" y="356" fill="#b1bac4">Frozen encoder baseline</text>
+      <text x="525" y="356" fill="#f0f6fc">0.124165</text><text x="650" y="356" fill="#f0f6fc">0.575073</text><text x="775" y="356" fill="#f0f6fc">0.344586</text><text x="900" y="356" fill="#f0f6fc">0.767876</text><text x="1045" y="356" fill="#f0f6fc">0.505220</text>
+      <text x="1195" y="356" fill="#b1bac4">Frozen encoder baseline</text>
 
-      <rect x="72" y="371" width="1456" height="42" fill="#21262d"/>
+      <rect x="72" y="371" width="1556" height="42" fill="#21262d"/>
       <text x="82" y="398" fill="#f0f6fc">DNABERT2 full fine-tuning, T4</text>
-      <text x="500" y="398" fill="#f0f6fc">0.147631</text>
-      <text x="640" y="398" fill="#f0f6fc">0.365169</text>
-      <text x="790" y="398" fill="#f0f6fc">0.078098</text>
-      <text x="910" y="398" fill="#f0f6fc">0.981870</text>
-      <text x="1050" y="398" fill="#f0f6fc">0.750244</text>
-      <text x="1190" y="398" fill="#b1bac4">Completed T4 workflow check</text>
+      <text x="525" y="398" fill="#f0f6fc">0.147631</text><text x="650" y="398" fill="#f0f6fc">0.365169</text><text x="775" y="398" fill="#f0f6fc">0.078098</text><text x="900" y="398" fill="#f0f6fc">0.981870</text><text x="1045" y="398" fill="#f0f6fc">0.750244</text>
+      <text x="1195" y="398" fill="#b1bac4">Completed T4 workflow check</text>
+
+      <rect x="72" y="413" width="1556" height="42" fill="#2d2226"/>
+      <text x="82" y="440" fill="#ffa657" font-weight="700">iPro-MP E. coli pretrained ensemble, T4</text>
+      <text x="525" y="440" fill="#ffa657" font-weight="700">0.068364</text><text x="650" y="440" fill="#ffa657">0.372180</text><text x="775" y="440" fill="#ffa657">0.234484</text><text x="900" y="440" fill="#ffa657">0.823207</text><text x="1045" y="440" fill="#ffa657">0.327886</text>
+      <text x="1195" y="440" fill="#ffa657">Pretrained inference; rerun with explicit AIxBio Data path</text>
     </g>
 
-    <rect x="52" y="460" width="1496" height="150" rx="8" fill="#161b22" stroke="#30363d"/>
-    <text x="82" y="501" fill="#f0f6fc" font-size="23" font-weight="700">DNABERT2 full fine-tuning profiles</text>
-    <g font-size="15" fill="#f0f6fc">
-      <text x="82" y="539">T4 completed profile</text>
-      <text x="82" y="568" fill="#b1bac4">2 epochs | batch 2 | accumulation 16 | effective batch 32 | FP16 | patience 1 | checkpointing enabled</text>
-      <text x="820" y="539">A100/Alpine canonical profile</text>
-      <text x="820" y="568" fill="#b1bac4">4 epochs | batch 4 | accumulation 8 | effective batch 32 | BF16 | patience 2 | same seed and splits</text>
+    <rect x="52" y="515" width="1596" height="170" rx="8" fill="#161b22" stroke="#30363d"/>
+    <text x="82" y="556" fill="#f0f6fc" font-size="23" font-weight="700">iPro-MP T4 loading path</text>
+    <g font-size="16" fill="#b1bac4">
+      <text x="82" y="592">Weights: Zenodo record 15180139, model.zip, selective range-download of species 10 fold checkpoints.</text>
+      <text x="82" y="622">Files: 07-final/10_fold_1.pth through 10_fold_5.pth; averaged as a five-fold E. coli ensemble.</text>
+      <text x="82" y="652">Backbone: DNABERT-6 from Hugging Face zhihan1996/DNA_bert_6. Epochs: 0 because this path is inference-only.</text>
     </g>
 
-    <rect x="52" y="640" width="725" height="250" rx="8" fill="#161b22" stroke="#30363d"/>
-    <text x="82" y="681" fill="#f0f6fc" font-size="23" font-weight="700">Fixed scientific contract</text>
+    <rect x="52" y="715" width="770" height="255" rx="8" fill="#161b22" stroke="#30363d"/>
+    <text x="82" y="756" fill="#f0f6fc" font-size="23" font-weight="700">Fixed scientific contract</text>
     <g fill="#b1bac4" font-size="16">
-      <text x="82" y="719">Dataset: GSE144621 EP_DNA_BERT2_genomic_order</text>
-      <text x="82" y="748">Rows: train 136,484; validation 19,498; test 38,996</text>
-      <text x="82" y="777">Labels: 1 = promoter-positive; 0 = non-promoter/background</text>
-      <text x="82" y="806">Seed: 42 | sequence length: 300 bp</text>
-      <text x="82" y="835">Threshold: selected on validation MCC only</text>
-      <text x="82" y="864">Test set: final reporting only, never tuning</text>
+      <text x="82" y="794">Dataset: GSE144621 EP_DNA_BERT2_genomic_order</text>
+      <text x="82" y="823">Labels: 1 = promoter-positive; 0 = non-promoter/background</text>
+      <text x="82" y="852">Seed: 42 | sequence length: 300 bp</text>
+      <text x="82" y="881">Threshold: selected on validation MCC only</text>
+      <text x="82" y="910">Test set: final reporting only, never tuning</text>
+      <text x="82" y="939">Drive verified AIxBio; rerun with explicit AIxBio/Data path for final same-split claim.</text>
     </g>
 
-    <rect x="823" y="640" width="725" height="250" rx="8" fill="#161b22" stroke="#30363d"/>
-    <text x="853" y="681" fill="#f0f6fc" font-size="23" font-weight="700">Interpretation</text>
+    <rect x="878" y="715" width="770" height="255" rx="8" fill="#161b22" stroke="#30363d"/>
+    <text x="908" y="756" fill="#f0f6fc" font-size="23" font-weight="700">Current interpretation</text>
     <g fill="#b1bac4" font-size="16">
-      <text x="853" y="719">CNN-v2 currently improves over the CNN reference.</text>
-      <text x="853" y="748">DNABERT2 T4 fine-tuning ran successfully but did not improve MCC.</text>
-      <text x="853" y="777">The T4 result predicted too few positives, causing low recall.</text>
-      <text x="853" y="806">More epochs may help only if validation MCC improves before overfitting.</text>
-      <text x="853" y="835">The next claim-bearing DNABERT2 run should be A100/Alpine.</text>
-      <text x="853" y="864">All final comparisons should rank by test MCC, then test AUPRC.</text>
+      <text x="908" y="794">CNN-v2 remains best by test MCC and AUPRC.</text>
+      <text x="908" y="823">DNABERT2 T4 is conservative: high specificity, very low recall.</text>
+      <text x="908" y="852">iPro-MP T4 catches more positives than DNABERT2 T4 but ranks weakly.</text>
+      <text x="908" y="881">Next: run A100/Alpine profiles and verify exact split hashes.</text>
     </g>
 
-    <rect x="52" y="925" width="1496" height="50" rx="8" fill="#21262d" stroke="#30363d"/>
-    <text x="82" y="956" fill="#f0f6fc" font-size="17" font-weight="700">Current decision: keep CNN-v2 as the strongest completed baseline while running the canonical DNABERT2 A100/Alpine profile.</text>
+    <text x="52" y="1040" fill="#8b949e" font-size="14">Updated with iPro-MP T4 run. Scores are from recorded notebook outputs; final claims require explicit AIxBio/Data split path and canonical hardware run.</text>
   </g>
 </svg>

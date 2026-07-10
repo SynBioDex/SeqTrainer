@@ -14,14 +14,38 @@ threshold selection, and held-out test reporting.
 | CNN-v2, 50 cycles | **0.220884** | **0.645976** | Current best recorded model |
 | DNABERT2 frozen v1 | 0.124165 | 0.575073 | Reproducible frozen baseline |
 | DNABERT2 full fine-tuning, Colab T4 | 0.147631 | 0.365169 | Completed T4 workflow check |
+| iPro-MP E. coli pretrained ensemble, Colab T4 | 0.068364 | 0.372180 | Completed pretrained inference check |
 
-Conclusion so far: **DNABERT2 has not yet improved over CNN-v2**. The Colab T4
-full fine-tuning run completed, but it had high specificity and very low recall,
-so it predicted too few promoter-positive examples. Treat the T4 run as a
-resource-constrained reproducibility check, not as the final DNABERT2 result.
+Conclusion so far: **CNN-v2 remains the strongest completed run by held-out test MCC and AUPRC**.
+DNABERT2 T4 full fine-tuning and iPro-MP T4 pretrained inference both completed,
+but neither improved over CNN-v2. DNABERT2 T4 had high specificity and very low
+recall, while iPro-MP T4 produced the lowest MCC among recorded runs. Treat both
+T4 runs as resource-constrained workflow checks until the iPro-MP notebook is
+rerun with the explicit `AIxBio/Promoter Classification/Data` path and the
+A100/Alpine profiles are run.
 
 Open [`assets/RESULTS.md`](assets/RESULTS.md) for the complete metric tables,
 training history, model settings, and interpretation.
+
+## iPro-MP T4 Pretrained Inference
+
+The iPro-MP Colab T4 notebook loads the official pretrained E. coli model rather
+than training a new model. It uses the selective downloader in
+`notebooks/benchmarks_sg/ipromp_benchmark/iprompalpine/download_ecoli_weights.py`
+to range-download only the five E. coli fold checkpoints from Zenodo record
+`15180139`, then downloads the DNABERT-6 backbone from Hugging Face
+`zhihan1996/DNA_bert_6`. The five fold probabilities are averaged as an ensemble.
+No epochs or learning rate apply to this current iPro-MP path because it is
+inference-only.
+
+The completed T4 run selected threshold `0.327886` on validation MCC and reported
+test MCC `0.068364`, test AUPRC `0.372180`, recall `0.234484`, and specificity
+`0.823207`. Drive inspection verified one accessible `AIxBio` folder with the
+canonical nested `Promoter Classification/Data` split files. The notebook audit
+printed `/content/drive/MyDrive` and larger row counts, so this is recorded as an
+AIxBio T4 inference run but should be rerun with an explicit
+`AIxBio/Promoter Classification/Data` path before the final direct same-split
+comparison claim.
 
 ## T4 vs A100/Alpine Profile
 

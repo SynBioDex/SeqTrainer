@@ -1,9 +1,10 @@
-# CNN and DNABERT2 Benchmark Results
+# CNN, DNABERT2, and iPro-MP Benchmark Results
 
-This document records the completed CNN, frozen DNABERT2-v1, and DNABERT2
-Colab T4 fine-tuning promoter classification experiments. The T4 run is a
-resource-constrained full fine-tuning profile; the canonical A100/Alpine
-fine-tuning profile still needs to be run for final claim-bearing scores.
+This document records the completed CNN, frozen DNABERT2-v1, DNABERT2 Colab
+T4 fine-tuning, and iPro-MP Colab T4 pretrained-inference promoter
+classification experiments. The T4 transformer runs are resource-constrained
+workflow checks; the canonical A100/Alpine profiles still need to be run for
+final claim-bearing scores.
 
 ## What Was Kept Identical
 
@@ -229,6 +230,64 @@ classifier update per epoch. Fifty epochs therefore meant only about 50
 optimizer updates. DNABERT2-v2 corrects this by using shuffled mini-batches for
 the classifier head. This is why frozen-v1 should be treated as a reproducible
 reference, not the final DNABERT2 capability estimate.
+
+## iPro-MP Pretrained E. coli Ensemble, Colab T4 Result
+
+This run completed in `notebooks/colab_benchmarks/ipromp_t4_colab.ipynb`. It is
+not a training run. The notebook loads the official pretrained iPro-MP E. coli
+model 10 fold checkpoints and evaluates them on validation and test FASTA files
+prepared from the shared SeqTrainer CSV splits.
+
+### How the pretrained iPro-MP model is loaded in Colab
+
+The notebook uses the same helper as the Alpine workflow:
+
+```text
+notebooks/benchmarks_sg/ipromp_benchmark/iprompalpine/download_ecoli_weights.py
+```
+
+That helper opens the official Zenodo archive through:
+
+```text
+https://zenodo.org/api/records/15180139/files/model.zip/content
+```
+
+Instead of downloading the full 38.3 GB archive, it range-downloads only the
+E. coli species `10` fold checkpoints:
+
+```text
+07-final/10_fold_1.pth
+07-final/10_fold_2.pth
+07-final/10_fold_3.pth
+07-final/10_fold_4.pth
+07-final/10_fold_5.pth
+```
+
+These are saved under the Colab runtime or Drive cache as `10_fold_1.pth` through
+`10_fold_5.pth`. The DNABERT-6 backbone files are downloaded separately from
+Hugging Face model `zhihan1996/DNA_bert_6`. During inference, each fold produces
+a promoter probability, and the notebook averages the five probabilities as the
+E. coli ensemble score.
+
+### T4 iPro-MP metrics
+
+The validation-selected threshold was `0.327886`. The test split was used only
+for final reporting after that threshold was chosen on validation.
+
+| Split | Threshold | Accuracy | Balanced accuracy | Precision | Recall / sensitivity | F1 | MCC | Specificity | TN | FP | FN | TP | AUROC | AUPRC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Validation | 0.327886 | 0.635059 | 0.529546 | 0.385292 | 0.236674 | 0.293227 | 0.069366 | 0.822417 | 35,924 | 7,757 | 15,681 | 4,862 | 0.545005 | 0.364548 |
+| Test | 0.327886 | 0.628842 | 0.528845 | 0.395293 | 0.234484 | 0.294358 | **0.068364** | 0.823207 | 17,708 | 3,803 | 8,116 | 2,486 | 0.541454 | **0.372180** |
+
+Interpretation: this pretrained iPro-MP E. coli ensemble did not improve over
+CNN-v2 on the current T4 run. Its held-out test MCC is lower than CNN reference,
+CNN-v2, frozen DNABERT2, and DNABERT2 T4 fine-tuning. It catches more positives
+than the DNABERT2 T4 run, but the ranking quality remains weak by MCC/AUROC.
+Drive inspection verified the accessible `AIxBio` source folder and its nested
+`Promoter Classification/Data` split files. The notebook audit still reported
+`/content/drive/MyDrive` and larger row counts, so this result is useful as an
+AIxBio T4 inference run but should be rerun with the explicit nested Data path
+before it is treated as the final claim-bearing same-split iPro-MP comparison.
 
 ## Interpretation
 
