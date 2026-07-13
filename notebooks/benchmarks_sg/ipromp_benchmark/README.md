@@ -18,8 +18,7 @@ Conclusion: **iPro-MP has a completed Colab T4 inference result, but it does not
 yet beat CNN-v2**. The run selected threshold `0.327886` on validation MCC and
 reported held-out test MCC `0.068364` and test AUPRC `0.372180`. Treat this as a
 resource-constrained pretrained-inference check. The final same-split claim
-should be rerun with the explicit `AIxBio/Promoter Classification/Data` path and
-then confirmed on the Alpine/A100 workflow.
+should be rerun with the explicit `AIxBio/Promoter Classification/Data` path.
 
 ## What Is Reproduced
 
@@ -64,14 +63,10 @@ architecture and checkpoint values while making paths explicit, preserving
 stable IDs, loading folds sequentially to reduce GPU memory, and writing the
 shared benchmark artifact format.
 
-## Alpine Bundle
+## Model Downloader
 
-The runnable files are in [`iprompalpine`](iprompalpine/README.md):
-
-- `setup_ipromp_alpine.sh` creates the pinned environment and downloads models.
-- `download_ecoli_weights.py` range-downloads only the five E. coli checkpoints.
-- `run_ipromp_alpine.sbatch` runs inference and shared evaluation on an A100.
-- `config/ipromp_external.toml` records the fixed scientific settings.
+The Colab notebooks use [`download_ecoli_weights.py`](download_ecoli_weights.py)
+to range-download only the five E. coli checkpoints.
 
 Model weights are not committed. The official Zenodo ZIP is 38.3 GB and holds
 all 23 species. The selective downloader retrieves only `10_fold_1.pth` through
@@ -99,4 +94,3 @@ runtime, device, seed, model paths, and inference settings.
 - [iPro-MP paper](https://link.springer.com/article/10.1186/s13059-025-03819-9)
 - [Official iPro-MP repository](https://github.com/Jackie-Suv/iPro-MP)
 - [Official model record](https://doi.org/10.5281/zenodo.15180139)
-- [Alpine hardware documentation](https://curc.readthedocs.io/en/latest/clusters/alpine/alpine-hardware.html)

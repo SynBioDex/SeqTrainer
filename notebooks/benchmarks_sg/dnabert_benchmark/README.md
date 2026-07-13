@@ -21,8 +21,7 @@ DNABERT2 T4 full fine-tuning and iPro-MP T4 pretrained inference both completed,
 but neither improved over CNN-v2. DNABERT2 T4 had high specificity and very low
 recall, while iPro-MP T4 produced the lowest MCC among recorded runs. Treat both
 T4 runs as resource-constrained workflow checks until the iPro-MP notebook is
-rerun with the explicit `AIxBio/Promoter Classification/Data` path and the
-A100/Alpine profiles are run.
+rerun with the explicit `AIxBio/Promoter Classification/Data` path.
 
 Open [`assets/RESULTS.md`](assets/RESULTS.md) for the complete metric tables,
 training history, model settings, and interpretation.
@@ -31,7 +30,7 @@ training history, model settings, and interpretation.
 
 The iPro-MP Colab T4 notebook loads the official pretrained E. coli model rather
 than training a new model. It uses the selective downloader in
-`notebooks/benchmarks_sg/ipromp_benchmark/iprompalpine/download_ecoli_weights.py`
+`notebooks/benchmarks_sg/ipromp_benchmark/download_ecoli_weights.py`
 to range-download only the five E. coli fold checkpoints from Zenodo record
 `15180139`, then downloads the DNABERT-6 backbone from Hugging Face
 `zhihan1996/DNA_bert_6`. The five fold probabilities are averaged as an ensemble.
@@ -47,26 +46,26 @@ AIxBio T4 inference run but should be rerun with an explicit
 `AIxBio/Promoter Classification/Data` path before the final direct same-split
 comparison claim.
 
-## T4 vs A100/Alpine Profile
+## T4 Resource Profile
 
 Both DNABERT2 full fine-tuning profiles keep the same scientific comparison
 contract: same predefined split names, seed `42`, DNABERT2 backbone, full encoder
 fine-tuning, mean pooling, AdamW, learning rate `3e-5`, validation-MCC threshold
 selection, and held-out test reporting.
 
-| Setting | Colab T4 profile | A100/Alpine profile |
-| --- | ---: | ---: |
-| Maximum epochs | 2 | 4 |
-| Physical batch size | 2 | 4 |
-| Gradient accumulation | 16 | 8 |
-| Effective batch size | 32 | 32 |
-| Precision | FP16 | BF16 |
-| Early-stopping patience | 1 | 2 |
-| Gradient checkpointing | Enabled | Not required in the canonical profile |
-| Purpose | Resource-constrained reproducibility run | Canonical claim-bearing fine-tuning run |
+| Setting | Colab T4 profile |
+| --- | ---: |
+| Maximum epochs | 2 |
+| Physical batch size | 2 |
+| Gradient accumulation | 16 |
+| Effective batch size | 32 |
+| Precision | FP16 |
+| Early-stopping patience | 1 |
+| Gradient checkpointing | Enabled |
+| Purpose | Resource-constrained reproducibility run |
 
-Next step: run the A100/Alpine full fine-tuning profile, verify the exact split
-files, then compare held-out test MCC and AUPRC against CNN-v2.
+Next step: verify the exact split files and compare held-out test MCC and AUPRC
+against CNN-v2 before deciding whether a longer run is worth promoting.
 
 ## What Stays Fixed
 
@@ -86,8 +85,6 @@ files, then compare held-out test MCC and AUPRC against CNN-v2.
   notebook, plus the shared CNN split, validation-only threshold selection,
   complete metric table, training curves, threshold analysis, confusion
   matrices, ROC/PR curves, and optional CNN-v2 comparison.
-- `dnabertalpine/`: Alpine/HPC bundle for claim-bearing DNABERT2 full
-  fine-tuning.
 - `assets/RESULTS.md`: complete recorded result tables and plain-language model,
   data, architecture, optimization, threshold, runtime, and limitation details.
 - `assets/cnn_dnabert2_comparison.svg`: readable summary of earlier CNN and
@@ -106,7 +103,7 @@ The bounded future ablations are:
 - Mean, CLS, and max pooling.
 - Linear and regularized MLP heads.
 - Head learning rates `3e-4` and `1e-3`.
-- Seeds `42`, `43`, and `44` on Alpine.
+- Seeds `42`, `43`, and `44` for future multi-seed confirmation.
 
 The test split is evaluated only after the candidate is selected by validation
 MCC, with validation AUPRC as a tie-break.
@@ -118,9 +115,8 @@ Open:
 <https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-all-model-baselines/notebooks/benchmarks_sg/dnabert_benchmark/dnabert2_shared_split_benchmark_colab.ipynb>
 
 Use a T4 GPU for an initial workflow check. If the full embedding extraction or
-fine-tuning exceeds the free Colab session limit, run the same package config on
-Alpine A100/L40 hardware without changing the split, seed, threshold, or metric
-policy.
+fine-tuning exceeds the free Colab session limit, use a larger runtime without
+changing the split, seed, threshold, or metric policy.
 
 Step 1 installs CondaColab and restarts the runtime. After Colab reconnects,
 continue from Step 2. The one-sequence preflight must succeed before starting
@@ -148,4 +144,4 @@ this DNABERT2 benchmark.
 - Official implementation: <https://github.com/MAGICS-LAB/DNABERT_2>
 - Official model card: <https://huggingface.co/zhihan1996/DNABERT-2-117M>
 - DNABERT2 paper: <https://arxiv.org/abs/2306.15006>
-- Alpine hardware: <https://curc.readthedocs.io/en/latest/clusters/alpine/alpine-hardware.html>
+

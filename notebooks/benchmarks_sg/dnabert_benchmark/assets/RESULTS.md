@@ -3,7 +3,7 @@
 This document records the completed CNN, frozen DNABERT2-v1, DNABERT2 Colab
 T4 fine-tuning, and iPro-MP Colab T4 pretrained-inference promoter
 classification experiments. The T4 transformer runs are resource-constrained
-workflow checks; the canonical A100/Alpine profiles still need to be run for
+workflow checks; the canonical larger-resource profiles still need to be run for
 final claim-bearing scores.
 
 ## What Was Kept Identical
@@ -173,7 +173,7 @@ candidate afterward.
 
 ## Model 3: DNABERT2 Frozen v1
 
-### What “frozen” means
+### What â€œfrozenâ€ means
 
 DNABERT2 contains approximately 117 million pretrained parameters. During this
 experiment, those encoder parameters were not updated. DNABERT2 converted each
@@ -240,10 +240,10 @@ prepared from the shared SeqTrainer CSV splits.
 
 ### How the pretrained iPro-MP model is loaded in Colab
 
-The notebook uses the same helper as the Alpine workflow:
+The notebook uses the same helper used by SeqTrainer:
 
 ```text
-notebooks/benchmarks_sg/ipromp_benchmark/iprompalpine/download_ecoli_weights.py
+notebooks/benchmarks_sg/ipromp_benchmark/download_ecoli_weights.py
 ```
 
 That helper opens the official Zenodo archive through:
@@ -291,7 +291,7 @@ before it is treated as the final claim-bearing same-split iPro-MP comparison.
 
 ## Interpretation
 
-CNN-v2 currently leads on the project’s primary criteria:
+CNN-v2 currently leads on the projectâ€™s primary criteria:
 
 - test MCC: 0.220884 versus 0.124165 for frozen DNABERT2
 - test AUPRC: 0.645976 versus 0.575073
@@ -331,9 +331,9 @@ to the held-out test split. The run wrote the expected artifacts:
 `history.csv`, `config.json`, `input_split_audit.json`, and
 `checkpoints/best_model.pt`.
 
-### T4 Code/Profile Difference From A100/Alpine
+### T4 Code/Profile Difference From The Larger Profile
 
-The T4 notebook and the A100/Alpine notebook keep the same scientific comparison
+The T4 notebook and the larger-resource notebook keep the same scientific comparison
 surface: dataset identity, predefined split file names, seed `42`, DNABERT2
 backbone, model revision, full encoder fine-tuning, mean pooling, AdamW,
 learning rate `0.00003`, validation-MCC threshold selection, and final held-out
@@ -341,7 +341,7 @@ test reporting.
 
 The differences are resource settings:
 
-| Setting | Colab T4 profile | A100/Alpine profile |
+| Setting | Colab T4 profile | larger-resource profile |
 | --- | ---: | ---: |
 | Maximum epochs | 2 | 4 |
 | Physical batch size | 2 | 4 |
@@ -363,6 +363,8 @@ The T4 full fine-tuning run did not improve on CNN-v2:
 
 The T4 model has high specificity but very low recall, so it predicts very few
 positive promoters. This is why accuracy looks reasonable while MCC and AUPRC
-remain below CNN-v2. The next claim-bearing comparison should run the
-A100/Alpine full fine-tuning profile, verify the exact split files, and compare
+remain below CNN-v2. The next claim-bearing comparison should run a longer
+full fine-tuning profile, verify the exact split files, and compare
 held-out test MCC and AUPRC against CNN-v2.
+
+

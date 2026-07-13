@@ -72,9 +72,10 @@
       <text x="908" y="794">CNN-v2 remains best by test MCC and AUPRC.</text>
       <text x="908" y="823">DNABERT2 T4 is conservative: high specificity, very low recall.</text>
       <text x="908" y="852">iPro-MP T4 catches more positives than DNABERT2 T4 but ranks weakly.</text>
-      <text x="908" y="881">Next: run A100/Alpine profiles and verify exact split hashes.</text>
+      <text x="908" y="881">Next: run larger-resource profiles and verify exact split hashes.</text>
     </g>
 
     <text x="52" y="1040" fill="#8b949e" font-size="14">Updated with iPro-MP T4 run. Scores are from recorded notebook outputs; final claims require explicit AIxBio/Data split path and canonical hardware run.</text>
   </g>
 </svg>
+
