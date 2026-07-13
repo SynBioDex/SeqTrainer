@@ -50,6 +50,14 @@ Install the annotation extra first:
 pip install -e ".[annotation]"
 ```
 
+On Shreeya's local Anaconda setup, the matching install command is:
+
+```powershell
+C:\Users\Sgoff\anaconda3\python.exe -m pip install -e ".[annotation]"
+```
+
+For step-by-step local viewing commands, see `docs/annotation/README.md`.
+
 Then run the dummy smoke test:
 
 ```bash
