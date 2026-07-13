@@ -25,6 +25,7 @@ Optional extras:
 pip install -e '.[torch]'
 pip install -e '.[keras]'
 pip install -e '.[gnn]'
+pip install -e '.[annotation]'
 pip install -e '.[dev]'
 ```
 
@@ -62,6 +63,7 @@ seqtrainer benchmark prepare-dnabert2 config-examples/benchmarks/dnabert2_smoke.
 seqtrainer benchmark run config-examples/benchmarks/dnabert2_frozen.toml
 seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml
 seqtrainer benchmark compare outputs/benchmarks/* --output-dir outputs/benchmarks/comparison
+seqtrainer annotate promoters pAN1717_cyan.gb --model-family dummy --output annotated.gb
 ```
 
 Benchmark configs for CNN, CNN-v2, DNABERT2, and iPro-MP live in
@@ -74,6 +76,12 @@ skipped manifests rather than fake metrics. See
 recorded benchmark summaries live under `notebooks/benchmarks_sg/`, especially
 `notebooks/benchmarks_sg/dnabert_benchmark/README.md` and
 `notebooks/benchmarks_sg/ipromp_benchmark/README.md`.
+
+Promoter annotation starts from GenBank input and preserves existing exact-hit
+features while adding separate computational `predicted_promoter` features. The
+dummy predictor is only for smoke tests. Real DNABERT2 or CNN-v2 annotation
+requires a checkpoint and benchmark manifest from completed benchmark outputs.
+See `docs/annotation/promoter_annotation_mvp.md`.
 
 ## Status
 

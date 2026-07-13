@@ -97,6 +97,24 @@ def _build_parser() -> argparse.ArgumentParser:
     benchmark_prepare_ai_x_bio.add_argument("--output-dir", type=Path, default=Path("data/benchmarks/ai_x_bio"))
     benchmark_prepare_ai_x_bio.add_argument("--seed", type=int, default=42)
 
+    annotate = subparsers.add_parser("annotate", help="Annotation workflows")
+    annotate_sub = annotate.add_subparsers(dest="annotate_command", required=True)
+    annotate_promoters = annotate_sub.add_parser("promoters", help="Annotate predicted promoters in GenBank files")
+    annotate_promoters.add_argument("input", type=Path)
+    annotate_promoters.add_argument("--model-family", choices=("dnabert2", "cnn_v2", "dummy"), default="dummy")
+    annotate_promoters.add_argument("--checkpoint", type=Path)
+    annotate_promoters.add_argument("--benchmark-manifest", type=Path)
+    annotate_promoters.add_argument("--threshold", type=float)
+    annotate_promoters.add_argument("--window-size", type=int)
+    annotate_promoters.add_argument("--step-size", type=int, default=25)
+    annotate_promoters.add_argument("--scan-both-strands", action=argparse.BooleanOptionalAction, default=True)
+    annotate_promoters.add_argument("--merge-distance", type=int, default=25)
+    annotate_promoters.add_argument("--min-score", type=float)
+    annotate_promoters.add_argument("--predictions-csv", type=Path)
+    annotate_promoters.add_argument("--manifest", type=Path)
+    annotate_promoters.add_argument("--output", type=Path)
+    annotate_promoters.add_argument("--preserve-existing-features", action=argparse.BooleanOptionalAction, default=True)
+
     sparql = subparsers.add_parser("sparql", help="SPARQL helpers")
     sparql_sub = sparql.add_subparsers(dest="sparql_command", required=True)
     sparql_sub.add_parser("prefixes", help="Print default prefixes")
@@ -275,6 +293,34 @@ def main(argv: list[str] | None = None) -> int:
             print(f"metadata={result.metadata_path}")
             for split, path in result.split_paths.items():
                 print(f"{split}={path}")
+            return 0
+
+    if args.command == "annotate":
+        if args.annotate_command == "promoters":
+            from seqtrainer.annotation import PromoterAnnotationConfig, run_promoter_annotation
+
+            manifest = run_promoter_annotation(
+                PromoterAnnotationConfig(
+                    input_file=args.input,
+                    output_file=args.output,
+                    predictions_csv=args.predictions_csv,
+                    manifest=args.manifest,
+                    model_family=args.model_family,
+                    checkpoint=args.checkpoint,
+                    benchmark_manifest=args.benchmark_manifest,
+                    threshold=args.threshold,
+                    window_size=args.window_size,
+                    step_size=args.step_size,
+                    scan_both_strands=args.scan_both_strands,
+                    merge_distance=args.merge_distance,
+                    min_score=args.min_score,
+                    preserve_existing_features=args.preserve_existing_features,
+                )
+            )
+            print(f"output_file={manifest['output_file']}")
+            print(f"predictions_csv={manifest['predictions_csv']}")
+            print(f"manifest={manifest['manifest_file']}")
+            print(f"predicted_promoters_added={manifest['predicted_promoters_added']}")
             return 0
 
     if args.command == "benchmark-manifest":
