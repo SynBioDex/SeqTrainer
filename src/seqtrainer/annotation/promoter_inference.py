@@ -48,7 +48,10 @@ def run_promoter_annotation(
     if not config.preserve_existing_features:
         record.features = []
 
-    manifest_data = _load_manifest(config.benchmark_manifest)
+    manifest_data, manifest_warnings = _load_manifest(
+        config.benchmark_manifest,
+        allow_missing=config.threshold is not None and config.window_size is not None,
+    )
     threshold, threshold_source = _resolve_threshold(config.threshold, manifest_data)
     window_size = _resolve_window_size(config.window_size, manifest_data)
     step_size = config.step_size or 25
@@ -120,7 +123,7 @@ def run_promoter_annotation(
     predictions_csv.parent.mkdir(parents=True, exist_ok=True)
     prediction_frame.to_csv(predictions_csv, index=False)
 
-    warnings = []
+    warnings = list(manifest_warnings)
     if config.model_family == "dummy":
         warnings.append("Dummy predictor used for smoke testing only; do not treat scores as biological evidence.")
     if threshold_source == "default":
@@ -159,12 +162,19 @@ def run_promoter_annotation(
     return {**manifest, "manifest_file": str(manifest_path)}
 
 
-def _load_manifest(path: Path | None) -> dict[str, Any]:
+def _load_manifest(path: Path | None, *, allow_missing: bool = False) -> tuple[dict[str, Any], list[str]]:
     if path is None:
-        return {}
+        return {}, []
     if not path.exists():
+        if allow_missing:
+            return {}, [
+                (
+                    f"Benchmark manifest not found at {path}; continued with explicit CLI "
+                    "threshold/window-size values."
+                )
+            ]
         raise FileNotFoundError(f"Benchmark manifest not found: {path}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8")), []
 
 
 def _resolve_threshold(explicit: float | None, manifest: dict[str, Any]) -> tuple[float, str]:

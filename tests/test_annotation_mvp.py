@@ -173,3 +173,26 @@ def test_annotation_uses_threshold_and_window_from_benchmark_manifest(tmp_path):
     assert manifest["threshold"] == 0.9
     assert manifest["threshold_source"] == "benchmark_manifest"
     assert manifest["window_size"] == 8
+
+
+def test_annotation_allows_missing_manifest_when_cli_values_are_explicit(tmp_path):
+    input_gb = _write_synthetic_genbank(tmp_path / "input.gb")
+
+    manifest = run_promoter_annotation(
+        PromoterAnnotationConfig(
+            input_file=input_gb,
+            output_file=tmp_path / "annotated.gb",
+            predictions_csv=tmp_path / "predictions.csv",
+            manifest=tmp_path / "manifest.json",
+            model_family="dummy",
+            benchmark_manifest=tmp_path / "missing_benchmark_manifest.json",
+            threshold=0.80,
+            window_size=8,
+            step_size=4,
+        )
+    )
+
+    assert manifest["threshold"] == 0.80
+    assert manifest["threshold_source"] == "cli"
+    assert manifest["window_size"] == 8
+    assert "Benchmark manifest not found" in manifest["warnings"][0]

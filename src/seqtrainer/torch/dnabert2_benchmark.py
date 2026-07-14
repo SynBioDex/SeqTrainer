@@ -518,6 +518,7 @@ def _load_huggingface_dnabert2(
         ) from exc
 
     try:
+        _allow_missing_triton_when_flash_disabled(disable_flash_attention)
         tokenizer = AutoTokenizer.from_pretrained(
             model_name,
             trust_remote_code=trust_remote_code,
@@ -615,6 +616,38 @@ def _load_huggingface_dnabert2(
             "Set model.params.allow_download=true only when the environment may download them."
         ) from exc
     return tokenizer, model
+
+
+def _allow_missing_triton_when_flash_disabled(disable_flash_attention: bool) -> None:
+    """Let DNABERT2 fall back to its non-FlashAttention path without Triton.
+
+    The DNABERT2 remote code imports ``flash_attn_triton`` inside a try/except
+    and sets ``flash_attn_qkvpacked_func = None`` when Triton is unavailable.
+    Transformers checks dynamic-module imports before executing that module,
+    however, so native Windows environments fail before DNABERT2 can use its
+    fallback. When flash attention is explicitly disabled, it is safe to allow
+    the missing Triton import and keep the remaining relative imports intact.
+    """
+    if not disable_flash_attention:
+        return
+    try:
+        import transformers.dynamic_module_utils as dynamic_module_utils
+    except Exception:
+        return
+    original = dynamic_module_utils.check_imports
+    if getattr(original, "_seqtrainer_allows_missing_triton", False):
+        return
+
+    def _check_imports_allow_missing_triton(filename: str) -> list[str]:
+        try:
+            return original(filename)
+        except ImportError as exc:
+            if "triton" not in str(exc).lower():
+                raise
+            return dynamic_module_utils.get_relative_imports(filename)
+
+    _check_imports_allow_missing_triton._seqtrainer_allows_missing_triton = True  # type: ignore[attr-defined]
+    dynamic_module_utils.check_imports = _check_imports_allow_missing_triton
 
 
 def _disable_dnabert2_flash_attention(model: Any) -> None:
