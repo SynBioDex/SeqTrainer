@@ -158,6 +158,14 @@ seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb `
 Equivalent one-line command for Windows Command Prompt:
 
 ```bat
+seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --checkpoint outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt --benchmark-manifest outputs\benchmarks\dnabert2_finetune_t4_seed42\manifest.json --output outputs\annotations\pAN1717_cyan_dnabert2_annotated.gb --predictions-csv outputs\annotations\pAN1717_cyan_dnabert2_predictions.csv --manifest outputs\annotations\pAN1717_cyan_dnabert2_manifest.json --clean-output --open-output-folder
+```
+
+`--clean-output` removes only this run's three target files before rerunning: the annotated GenBank, predictions CSV, and manifest JSON. `--open-output-folder` opens the output folder after a successful run so users can immediately view or copy/download the results.
+
+Equivalent one-line command for Windows Command Prompt without auto-opening the folder:
+
+```bat
 seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --checkpoint outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt --benchmark-manifest outputs\benchmarks\dnabert2_finetune_t4_seed42\manifest.json --step-size 300 --no-scan-both-strands --output outputs\annotations\pAN1717_cyan_dnabert2_smoke_annotated.gb --predictions-csv outputs\annotations\pAN1717_cyan_dnabert2_smoke_predictions.csv --manifest outputs\annotations\pAN1717_cyan_dnabert2_smoke_manifest.json
 ```
 

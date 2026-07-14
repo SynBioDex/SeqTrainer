@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import TypeVar
 
@@ -114,6 +117,16 @@ def _build_parser() -> argparse.ArgumentParser:
     annotate_promoters.add_argument("--manifest", type=Path)
     annotate_promoters.add_argument("--output", type=Path)
     annotate_promoters.add_argument("--preserve-existing-features", action=argparse.BooleanOptionalAction, default=True)
+    annotate_promoters.add_argument(
+        "--clean-output",
+        action="store_true",
+        help="Remove this run's existing annotation output files before writing fresh artifacts",
+    )
+    annotate_promoters.add_argument(
+        "--open-output-folder",
+        action="store_true",
+        help="Open the annotation output folder after a successful run",
+    )
 
     sparql = subparsers.add_parser("sparql", help="SPARQL helpers")
     sparql_sub = sparql.add_subparsers(dest="sparql_command", required=True)
@@ -299,6 +312,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.annotate_command == "promoters":
             from seqtrainer.annotation import PromoterAnnotationConfig, run_promoter_annotation
 
+            if args.clean_output:
+                for path in (args.output, args.predictions_csv, args.manifest):
+                    if path is not None and path.exists():
+                        path.unlink()
+
             manifest = run_promoter_annotation(
                 PromoterAnnotationConfig(
                     input_file=args.input,
@@ -321,6 +339,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"predictions_csv={manifest['predictions_csv']}")
             print(f"manifest={manifest['manifest_file']}")
             print(f"predicted_promoters_added={manifest['predicted_promoters_added']}")
+            if args.open_output_folder:
+                _open_output_folder(Path(manifest["output_file"]).parent)
             return 0
 
     if args.command == "benchmark-manifest":
@@ -332,6 +352,16 @@ def main(argv: list[str] | None = None) -> int:
 
     parser.error("Unhandled command")
     return 2
+
+
+def _open_output_folder(path: Path) -> None:
+    folder = path.resolve()
+    if sys.platform.startswith("win"):
+        os.startfile(folder)  # type: ignore[attr-defined]
+    elif sys.platform == "darwin":
+        subprocess.run(["open", str(folder)], check=False)
+    else:
+        subprocess.run(["xdg-open", str(folder)], check=False)
 
 
 def _write_benchmark_manifest(config_path: Path, output_dir_arg: Path | None, base_dir: Path) -> int:

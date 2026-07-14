@@ -83,8 +83,12 @@ seqtrainer annotate promoters pAN1717_cyan.gb \
   --benchmark-manifest outputs/benchmarks/dnabert2_finetune/manifest.json \
   --output outputs/annotations/pAN1717_cyan_dnabert2_annotated.gb \
   --predictions-csv outputs/annotations/pAN1717_cyan_dnabert2_predictions.csv \
-  --manifest outputs/annotations/pAN1717_cyan_dnabert2_manifest.json
+  --manifest outputs/annotations/pAN1717_cyan_dnabert2_manifest.json \
+  --clean-output \
+  --open-output-folder
 ```
+
+`--clean-output` removes only the three target artifacts for this run before writing fresh outputs. `--open-output-folder` opens the output directory after success so users can immediately inspect or copy/download the annotated GenBank, predictions CSV, and manifest JSON.
 
 CNN-v2 example:
 
