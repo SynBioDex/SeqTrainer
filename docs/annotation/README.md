@@ -3,6 +3,10 @@
 This is the beginner/local-system guide for running the SeqTrainer promoter
 annotation MVP and opening its output files.
 
+For the detailed roadmap, original-vs-annotated GenBank comparison, CNN notes,
+and follow-up questions, see
+[`promoter_annotation_plan.md`](promoter_annotation_plan.md).
+
 ## 1. Install The Annotation Dependency
 
 If you are using the Anaconda Python that provides `seqtrainer.exe`, run this
