@@ -33,3 +33,34 @@ try:  # optional torch extra
     )
 except ModuleNotFoundError:
     pass
+
+try:  # optional torch extra
+    from .titans_mac import (
+        DNABaseTokenizer,
+        GeneratedSequence,
+        TitansMACForCausalLM,
+        TitansMACForSequenceClassification,
+        TitansMACLMConfig,
+        compute_lm_metrics,
+        count_parameters,
+        generate_dna,
+        load_training_checkpoint,
+        save_training_checkpoint,
+    )
+
+    __all__.extend(
+        [
+            "DNABaseTokenizer",
+            "TitansMACLMConfig",
+            "TitansMACForCausalLM",
+            "TitansMACForSequenceClassification",
+            "GeneratedSequence",
+            "count_parameters",
+            "generate_dna",
+            "save_training_checkpoint",
+            "load_training_checkpoint",
+            "compute_lm_metrics",
+        ]
+    )
+except ModuleNotFoundError:
+    pass

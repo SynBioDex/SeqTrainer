@@ -38,6 +38,10 @@ torch = [
   "torch>=2.2",
   "transformers>=4.30",
 ]
+bacteria-titan = [
+  "pyarrow>=12",
+  "matplotlib>=3.7",
+]
 gnn = [
   "torch>=2.2",
   "torch-geometric>=2.4",

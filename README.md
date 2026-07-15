@@ -38,6 +38,8 @@ pip install -e '.[dev]'
 - `seqtrainer/models`: framework-neutral backbone/head registry stubs and KNN retrieval helpers
 - `seqtrainer/keras`: Keras adapters/factories (optional dependency)
 - `seqtrainer/torch`: PyTorch adapters/fine-tune helpers (optional dependency)
+- `seqtrainer/torch/titans_mac`: importable Titan MAC causal LM and analysis APIs
+- `seqtrainer/data/bacteria_titan`: reproducible genome-level bacterial datasets
 - `seqtrainer/graph`: RDF/SBOL graph conversion utilities
 - `seqtrainer/applications`: task-oriented blueprints
 - `seqtrainer/cli`: command-line entrypoints
@@ -53,6 +55,8 @@ seqtrainer build-dataset data/sbol_data/sample_design_0.xml
 ## Status
 
 This is the first architecture-focused cleanup. Some framework integrations are intentionally placeholders with TODOs to keep a stable, minimal public surface.
+
+The bacterial Titan MAC workflow is documented in [docs/bacteria_titan.md](docs/bacteria_titan.md).
 
 
 ## Tutorial notebooks
