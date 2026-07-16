@@ -35,6 +35,14 @@ class PromoterAnnotationConfig:
     merge_distance: int = 25
     min_score: float | None = None
     preserve_existing_features: bool = True
+    gold_csv: Path | None = None
+    evaluation_dir: Path | None = None
+    sbol_output: Path | None = None
+    sbol_namespace: str = "https://seqtrainer.org/designs"
+    promoter_label_mode: str = "labelled"
+    annotation_completeness: str = "unknown"
+    iou_threshold: float = 0.50
+    source_url: str | None = None
 
 
 def run_promoter_annotation(
@@ -61,6 +69,17 @@ def run_promoter_annotation(
         checkpoint=config.checkpoint,
         benchmark_manifest=config.benchmark_manifest,
     )
+
+    gold_promoters = None
+    if config.evaluation_dir is not None or config.sbol_output is not None or config.gold_csv is not None:
+        from .ground_truth import extract_ground_truth_promoters
+
+        gold_promoters = extract_ground_truth_promoters(
+            record,
+            plasmid_id=str(record.id),
+            source_url=config.source_url,
+            label_mode=config.promoter_label_mode,
+        )
 
     windows = generate_sliding_windows(
         str(record.seq),
@@ -123,6 +142,18 @@ def run_promoter_annotation(
     predictions_csv.parent.mkdir(parents=True, exist_ok=True)
     prediction_frame.to_csv(predictions_csv, index=False)
 
+    evaluation_artifacts = _write_external_evaluation(
+        record,
+        config=config,
+        windows=windows,
+        scores=scores,
+        regions=regions,
+        threshold=threshold,
+        threshold_source=threshold_source,
+        predictor=predictor,
+        gold_promoters=gold_promoters,
+    )
+
     warnings = list(manifest_warnings)
     if config.model_family == "dummy":
         warnings.append("Dummy predictor used for smoke testing only; do not treat scores as biological evidence.")
@@ -131,6 +162,7 @@ def run_promoter_annotation(
 
     manifest = {
         "input_file": str(config.input_file),
+        "input_sha256": _file_sha256(config.input_file),
         "output_file": str(output_file),
         "predictions_csv": str(predictions_csv),
         "sequence_id": record.id,
@@ -138,7 +170,10 @@ def run_promoter_annotation(
         "topology": record_topology(record),
         "model_family": config.model_family,
         "checkpoint": str(config.checkpoint) if config.checkpoint else None,
+        "checkpoint_sha256": _file_sha256(config.checkpoint) if config.checkpoint else None,
         "benchmark_manifest": str(config.benchmark_manifest) if config.benchmark_manifest else None,
+        "benchmark_manifest_sha256": _file_sha256(config.benchmark_manifest) if config.benchmark_manifest else None,
+        "source_url": config.source_url,
         "window_size": window_size,
         "step_size": step_size,
         "scan_both_strands": config.scan_both_strands,
@@ -149,17 +184,101 @@ def run_promoter_annotation(
         "windows_above_threshold": len(passing),
         "predicted_promoters_added": added,
         "existing_features_preserved": original_feature_count if config.preserve_existing_features else 0,
-        "overlaps_existing_promoters_count": int(prediction_frame["overlaps_existing_promoter"].sum()),
-        "circular_boundary_windows_scanned": int(prediction_frame["is_circular_boundary_window"].sum()) if len(prediction_frame) else 0,
+        "overlaps_existing_promoters_count": int(prediction_frame["overlaps_existing_promoter"].sum()) if "overlaps_existing_promoter" in prediction_frame else 0,
+        "circular_boundary_windows_scanned": int(prediction_frame["is_circular_boundary_window"].sum()) if "is_circular_boundary_window" in prediction_frame else 0,
         "circular_boundary_features_written": boundary_written,
         "warnings": warnings,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "git_sha": _git_sha(),
         "predictor_metadata": predictor.metadata(),
+        "annotation_completeness": config.annotation_completeness,
+        "sbol_namespace": config.sbol_namespace if config.sbol_output else None,
+        "evaluation": evaluation_artifacts,
     }
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return {**manifest, "manifest_file": str(manifest_path)}
+
+
+def _write_external_evaluation(
+    record: Any,
+    *,
+    config: PromoterAnnotationConfig,
+    windows: list[SequenceWindow],
+    scores: list[float],
+    regions: list[PromoterRegion],
+    threshold: float,
+    threshold_source: str,
+    predictor: PromoterPredictor,
+    gold_promoters: list[Any] | None,
+) -> dict[str, Any]:
+    """Write labelled-plasmid evaluation artifacts when evaluation is requested."""
+    if config.evaluation_dir is None and config.sbol_output is None and config.gold_csv is None:
+        return {}
+    from .evaluation import evaluate_merged_features, evaluate_windows
+    from .ground_truth import write_gold_promoters
+    from .provenance import model_provenance
+
+    evaluation_dir = Path(config.evaluation_dir or Path(config.predictions_csv or "outputs/annotations").parent)
+    evaluation_dir.mkdir(parents=True, exist_ok=True)
+    gold = list(gold_promoters or [])
+    gold_path = write_gold_promoters(gold, config.gold_csv or evaluation_dir / "gold_promoters.csv")
+    window_frame, window_metrics = evaluate_windows(
+        windows,
+        scores,
+        gold,
+        threshold=threshold,
+        sequence_length=len(record.seq),
+        plasmid_id=str(record.id),
+        predictor_method=config.model_family,
+        model_version=str(predictor.metadata().get("model_name", config.model_family)),
+        completeness=config.annotation_completeness,
+    )
+    merged_frame, merged_metrics = evaluate_merged_features(
+        regions,
+        gold,
+        sequence_length=len(record.seq),
+        plasmid_id=str(record.id),
+        iou_thresholds=(0.10, 0.25, config.iou_threshold),
+    )
+    window_path = evaluation_dir / "window_predictions.csv"
+    merged_path = evaluation_dir / "merged_predictions.csv"
+    matches_path = evaluation_dir / "promoter_matches.csv"
+    window_frame.to_csv(window_path, index=False)
+    merged_frame.to_csv(merged_path, index=False)
+    merged_frame.to_csv(matches_path, index=False)
+    metrics = {"window": window_metrics, "merged": merged_metrics, "annotation_completeness": config.annotation_completeness}
+    (evaluation_dir / "metrics.json").write_text(json.dumps(metrics, indent=2, default=_json_default) + "\n", encoding="utf-8")
+    pd.DataFrame([{"scope": "window", **_flat_metrics(window_metrics)}, {"scope": "merged", **_flat_metrics(merged_metrics)}]).to_csv(evaluation_dir / "metrics.csv", index=False)
+
+    sbol_artifacts = {}
+    if config.sbol_output:
+        from .sbol3_export import export_sbol3
+
+        sbol_artifacts = export_sbol3(
+            record,
+            gold_promoters=gold,
+            predicted_regions=regions,
+            output_path=config.sbol_output,
+            validation_path=evaluation_dir / "sbol_validation.json",
+            namespace=config.sbol_namespace,
+            source_url=config.source_url,
+            provenance={**model_provenance(checkpoint=config.checkpoint, benchmark_manifest=config.benchmark_manifest, model_family=config.model_family, threshold=threshold, threshold_source=threshold_source), **predictor.metadata()},
+        )
+    return {"evaluation_dir": str(evaluation_dir), "gold_csv": str(gold_path), "metrics_json": str(evaluation_dir / "metrics.json"), "sbol": sbol_artifacts}
+
+
+def _flat_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
+    flat = {}
+    for key, value in metrics.items():
+        flat[key] = json.dumps(value, sort_keys=True) if isinstance(value, (dict, list)) else value
+    return flat
+
+
+def _json_default(value: Any) -> Any:
+    if hasattr(value, "item"):
+        return value.item()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 def _load_manifest(path: Path | None, *, allow_missing: bool = False) -> tuple[dict[str, Any], list[str]]:
@@ -309,3 +428,15 @@ def _git_sha() -> str | None:
     except OSError:
         return None
     return result.stdout.strip() if result.returncode == 0 else None
+
+
+def _file_sha256(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    import hashlib
+
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
