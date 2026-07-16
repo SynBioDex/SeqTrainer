@@ -102,7 +102,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     annotate = subparsers.add_parser("annotate", help="Annotation workflows")
     annotate_sub = annotate.add_subparsers(dest="annotate_command", required=True)
-    annotate_promoters = annotate_sub.add_parser("promoters", help="Annotate predicted promoters in GenBank files")
+    annotate_promoters = annotate_sub.add_parser(
+        "promoters", aliases=["promoter"], help="Annotate predicted promoters in GenBank files"
+    )
     annotate_promoters.add_argument("input", type=Path)
     annotate_promoters.add_argument("--model-family", choices=("dnabert2", "cnn_v2", "dummy"), default="dummy")
     annotate_promoters.add_argument("--checkpoint", type=Path)
@@ -127,6 +129,26 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Open the annotation output folder after a successful run",
     )
+    annotate_promoters.add_argument("--gold-csv", type=Path)
+    annotate_promoters.add_argument("--evaluation-dir", type=Path)
+    annotate_promoters.add_argument("--sbol-output", type=Path)
+    annotate_promoters.add_argument("--sbol-namespace", default="https://seqtrainer.org/designs")
+    annotate_promoters.add_argument("--promoter-label-mode", choices=("strict", "labelled"), default="labelled")
+    annotate_promoters.add_argument("--annotation-completeness", choices=("verified_complete", "partial", "unknown"), default="unknown")
+    annotate_promoters.add_argument("--iou-threshold", type=float, default=0.50)
+
+    annotate_collection = annotate_sub.add_parser("promoter-collection", help="Evaluate a collection of labelled GenBank plasmids")
+    annotate_collection.add_argument("--manifest", type=Path, required=True)
+    annotate_collection.add_argument("--input-dir", type=Path, required=True)
+    annotate_collection.add_argument("--output-dir", type=Path, required=True)
+    annotate_collection.add_argument("--predictor", "--model-family", dest="predictor", choices=("dnabert2", "cnn_v2", "dummy"), default="dummy")
+    annotate_collection.add_argument("--model-path", "--checkpoint", dest="model_path", type=Path)
+    annotate_collection.add_argument("--benchmark-manifest", type=Path)
+    annotate_collection.add_argument("--sbol-namespace", default="https://seqtrainer.org/designs")
+    annotate_collection.add_argument("--promoter-label-mode", choices=("strict", "labelled"), default="labelled")
+    annotate_collection.add_argument("--annotation-completeness", choices=("verified_complete", "partial", "unknown"), default="unknown")
+    annotate_collection.add_argument("--write-sbol3", action="store_true")
+    annotate_collection.add_argument("--continue-on-error", action="store_true")
 
     sparql = subparsers.add_parser("sparql", help="SPARQL helpers")
     sparql_sub = sparql.add_subparsers(dest="sparql_command", required=True)
@@ -333,6 +355,13 @@ def main(argv: list[str] | None = None) -> int:
                     merge_distance=args.merge_distance,
                     min_score=args.min_score,
                     preserve_existing_features=args.preserve_existing_features,
+                    gold_csv=args.gold_csv,
+                    evaluation_dir=args.evaluation_dir,
+                    sbol_output=args.sbol_output,
+                    sbol_namespace=args.sbol_namespace,
+                    promoter_label_mode=args.promoter_label_mode,
+                    annotation_completeness=args.annotation_completeness,
+                    iou_threshold=args.iou_threshold,
                 )
             )
             print(f"output_file={manifest['output_file']}")
@@ -341,6 +370,27 @@ def main(argv: list[str] | None = None) -> int:
             print(f"predicted_promoters_added={manifest['predicted_promoters_added']}")
             if args.open_output_folder:
                 _open_output_folder(Path(manifest["output_file"]).parent)
+            return 0
+
+        if args.annotate_command == "promoter-collection":
+            from seqtrainer.annotation.collection import run_promoter_collection
+
+            result = run_promoter_collection(
+                args.manifest,
+                input_dir=args.input_dir,
+                output_dir=args.output_dir,
+                predictor=args.predictor,
+                model_path=args.model_path,
+                benchmark_manifest=args.benchmark_manifest,
+                sbol_namespace=args.sbol_namespace,
+                promoter_label_mode=args.promoter_label_mode,
+                write_sbol3=args.write_sbol3,
+                continue_on_error=args.continue_on_error,
+                annotation_completeness=args.annotation_completeness,
+            )
+            print(f"collection_manifest={args.output_dir / 'collection_manifest.json'}")
+            print(f"included_count={result['included_count']}")
+            print(f"excluded_count={result['excluded_count']}")
             return 0
 
     if args.command == "benchmark-manifest":

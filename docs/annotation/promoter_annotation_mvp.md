@@ -129,3 +129,6 @@ predicted promoters added, overlap counts, warnings, timestamp, and git SHA.
 - The MVP adds promoter-like regions by sliding windows, not by experimentally
   validating promoter activity.
 - Predicted promoters remain separate from exact library-hit annotations.
+# Labelled external evaluation
+
+The MVP now has an opt-in labelled-plasmid evaluation path. See `addgene_labeled_promoter_evaluation.md` for the Addgene article 18115 collection workflow. Existing `seqtrainer annotate promoters ...` runs remain compatible; add `--evaluation-dir` only when ground-truth extraction and evaluation artifacts are desired.
