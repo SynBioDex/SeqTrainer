@@ -14,3 +14,7 @@ external/
 __pycache__/
 *.py[cod]
 .pytest_tmp/
+
+# Locally downloaded Addgene sequences
+data/addgene_18115/raw/
+outputs/addgene_18115/
