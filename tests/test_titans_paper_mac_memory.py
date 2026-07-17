@@ -1,0 +1,128 @@
+from __future__ import annotations
+
+import io
+
+import pytest
+
+torch = pytest.importorskip("torch")
+
+from seqtrainer.torch.titans_paper_mac import FunctionalNeuralMemory, PaperMACStreamState  # noqa: E402
+
+
+def _set_tiny_parameters(memory: FunctionalNeuralMemory) -> None:
+    """Set a deterministic linear memory and identity key/value projections."""
+
+    with torch.no_grad():
+        layer = memory.memory_mlp[0]
+        layer.weight.copy_(torch.tensor([[0.2, -0.1], [0.3, 0.4]], dtype=torch.float64))
+        layer.bias.copy_(torch.tensor([0.1, -0.2], dtype=torch.float64))
+        memory.key_projection.weight.copy_(torch.eye(2, dtype=torch.float64))
+        memory.value_projection.weight.copy_(torch.eye(2, dtype=torch.float64))
+        memory.query_projection.weight.copy_(torch.eye(2, dtype=torch.float64))
+        memory.gates.projection.weight.zero_()
+        memory.gates.projection.bias.copy_(torch.logit(torch.tensor([0.1, 0.6, 0.2], dtype=torch.float64)))
+
+
+def test_fp64_one_step_matches_hand_calculated_equations() -> None:
+    torch.manual_seed(7)
+    memory = FunctionalNeuralMemory(d_model=2, memory_depth=1).double()
+    _set_tiny_parameters(memory)
+    state = memory.initial_state("stream-a")
+    key = torch.tensor([0.5, -1.0], dtype=torch.float64)
+    value = torch.tensor([-0.25, 0.75], dtype=torch.float64)
+    alpha = torch.tensor([0.1], dtype=torch.float64)
+    eta = torch.tensor([0.6], dtype=torch.float64)
+    theta = torch.tensor([0.2], dtype=torch.float64)
+
+    updated = memory.update_one(state, key, value, alpha=alpha, eta=eta, theta=theta)
+
+    weight = state.fast_weights["0.weight"]
+    bias = state.fast_weights["0.bias"]
+    prediction = weight @ key + bias
+    residual = prediction - value
+    hand_gradient = {
+        "0.weight": torch.outer(residual, key),
+        "0.bias": residual,
+    }
+    hand_surprise = {name: -theta * gradient for name, gradient in hand_gradient.items()}
+    hand_weights = {name: (1.0 - alpha) * state.fast_weights[name] + hand_surprise[name] for name in hand_gradient}
+
+    for name in hand_gradient:
+        assert torch.allclose(updated.surprise[name], hand_surprise[name], atol=1e-12, rtol=0)
+        assert torch.allclose(updated.fast_weights[name], hand_weights[name], atol=1e-12, rtol=0)
+    assert updated.segment_index == 0
+    assert state.segment_index == 0
+
+
+def test_segment_shapes_read_snapshot_and_stream_isolation() -> None:
+    torch.manual_seed(11)
+    memory = FunctionalNeuralMemory(d_model=4, memory_depth=2).double()
+    first = memory.initial_state("first")
+    second = memory.initial_state("second")
+    segment = torch.randn(32, 4, dtype=torch.float64)
+
+    expected_read = memory.retrieve(first, memory.query_projection(segment))
+    read, updated_first = memory.read_then_update(first, segment)
+
+    assert read.shape == (32, 4)
+    assert torch.equal(read, expected_read)
+    assert updated_first.segment_index == 1
+    assert second.segment_index == 0
+    for name in first.fast_weights:
+        assert torch.equal(first.fast_weights[name], second.fast_weights[name])
+        assert torch.equal(first.fast_weights[name], memory.initial_fast_weights()[name])
+        assert not torch.equal(updated_first.fast_weights[name], second.fast_weights[name])
+
+
+def test_gradients_reach_gate_parameters_through_all_32_updates() -> None:
+    torch.manual_seed(13)
+    memory = FunctionalNeuralMemory(d_model=3, memory_depth=1).double()
+    state = memory.initial_state("gradient-stream")
+    segment = torch.randn(32, 3, dtype=torch.float64, requires_grad=True)
+
+    updated = memory.update_segment(state, segment)
+    meta_loss = sum(value.square().sum() for value in updated.fast_weights.values())
+    meta_loss.backward()
+
+    gate_gradient = memory.gates.projection.weight.grad
+    assert gate_gradient is not None
+    assert torch.isfinite(gate_gradient).all()
+    assert gate_gradient.abs().sum() > 0
+    assert segment.grad is not None
+    assert torch.isfinite(segment.grad).all()
+    assert torch.all(segment.grad.abs().sum(dim=-1) > 0)
+    assert updated.segment_index == 1
+
+
+def test_state_serialization_is_lossless_and_reset_is_stream_local() -> None:
+    torch.manual_seed(17)
+    memory = FunctionalNeuralMemory(d_model=3, memory_depth=1).double()
+    first = memory.update_segment(memory.initial_state("first"), torch.randn(32, 3, dtype=torch.float64))
+    second = memory.update_segment(memory.initial_state("second"), torch.randn(32, 3, dtype=torch.float64))
+    second_before_reset = {name: value.clone() for name, value in second.fast_weights.items()}
+
+    payload = first.to_state_dict()
+    buffer = io.BytesIO()
+    torch.save(payload, buffer)
+    buffer.seek(0)
+    try:
+        loaded = torch.load(buffer, weights_only=False)
+    except TypeError:  # PyTorch before weights_only was added
+        buffer.seek(0)
+        loaded = torch.load(buffer)
+    restored = PaperMACStreamState.from_state_dict(loaded)
+
+    assert restored.stream_id == first.stream_id
+    assert restored.segment_index == first.segment_index
+    assert restored.reset_count == first.reset_count
+    for name in first.fast_weights:
+        assert restored.fast_weights[name].dtype == torch.float64
+        assert torch.equal(restored.fast_weights[name], first.fast_weights[name])
+        assert torch.equal(restored.surprise[name], first.surprise[name])
+
+    reset_first = memory.reset_state(first)
+    assert reset_first.stream_id == "first"
+    assert reset_first.segment_index == 0
+    assert reset_first.reset_count == first.reset_count + 1
+    for name in second.fast_weights:
+        assert torch.equal(second.fast_weights[name], second_before_reset[name])
