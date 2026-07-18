@@ -117,6 +117,23 @@ def run_capture(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     try:
+        _run(
+            [
+                str(python),
+                "-c",
+                (
+                    "import numpy, pandas, rdflib, requests, sbol2, sklearn, torch; "
+                    "import seqtrainer; "
+                    "from seqtrainer.torch.titans_paper_mac_stage_b.a100_pilot "
+                    "import inspect_a100; "
+                    "print('SeqTrainer dependency imports: OK'); "
+                    "print('torch=', torch.__version__, 'cuda=', torch.version.cuda); "
+                    "print(inspect_a100('cuda'))"
+                ),
+            ],
+            logs / "environment_imports.txt",
+            cwd=repository_root,
+        )
         _run(["nvidia-smi"], logs / "nvidia-smi.txt", cwd=repository_root)
         if run_tests:
             _run(

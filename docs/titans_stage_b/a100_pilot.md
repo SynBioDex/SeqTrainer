@@ -28,8 +28,8 @@ The ready-to-run version is [titans_stage_b_a100_colab.ipynb](../../notebooks/ti
    ```bash
    python -m pip install uv
    uv venv --system-site-packages .venv
+   uv pip install --python .venv/bin/python --upgrade "numpy>=1.24,<2" "pandas>=1.5" "rdflib>=6.3.2" "scikit-learn>=1.3" "requests>=2.31" "sbol2>=1.4" "pytest>=8.0" "ruff>=0.4"
    uv pip install --python .venv/bin/python --no-deps -e .
-   uv pip install --python .venv/bin/python pytest ruff
    .venv/bin/python -c "import torch; print(torch.__version__, torch.cuda.get_device_name(), torch.version.cuda)"
    ```
 
