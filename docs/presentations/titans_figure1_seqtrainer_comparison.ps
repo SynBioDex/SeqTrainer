@@ -1,0 +1,408 @@
+%!PS-Adobe-3.0
+%%Title: Titans Figures 1-2 and SeqTrainer comparison
+%%Creator: SeqTrainer documentation
+%%Pages: 15
+%%BoundingBox: 0 0 792 612
+<< /PageSize [792 612] >> setpagedevice
+
+/navy { 0.04 0.12 0.24 setrgbcolor } def
+/blue { 0.08 0.33 0.62 setrgbcolor } def
+/teal { 0.04 0.48 0.43 setrgbcolor } def
+/green { 0.10 0.48 0.31 setrgbcolor } def
+/orange { 0.85 0.39 0.05 setrgbcolor } def
+/red { 0.72 0.16 0.15 setrgbcolor } def
+/ink { 0.10 0.12 0.16 setrgbcolor } def
+/muted { 0.35 0.39 0.46 setrgbcolor } def
+/paper { 0.97 0.98 1.00 setrgbcolor } def
+/lightblue { 0.90 0.95 1.00 setrgbcolor } def
+/lightgreen { 0.91 0.98 0.94 setrgbcolor } def
+/lightorange { 1.00 0.95 0.88 setrgbcolor } def
+/white { 1 1 1 setrgbcolor } def
+
+/sans { /Helvetica findfont exch scalefont setfont } def
+/sansbold { /Helvetica-Bold findfont exch scalefont setfont } def
+/mono { /Courier findfont exch scalefont setfont } def
+
+/page {
+  paper 0 0 792 612 rectfill
+  navy 0 572 792 40 rectfill
+  white 18 sansbold 28 585 moveto (Titans Figures 1-2  x  SeqTrainer) show
+  muted 8 sans 36 22 moveto (Paper: Behrouz, Zhong, Mirrokni, arXiv:2501.00663v1) show
+  muted 8 sans 675 22 moveto (Stage A reference) show
+} def
+
+/rule { muted 0.6 setlinewidth moveto lineto stroke } def
+/box {
+  /h exch def /w exch def /y exch def /x exch def
+  gsave lightblue x y w h rectfill blue 1.2 setlinewidth x y w h rectstroke grestore
+} def
+/greenbox {
+  /h exch def /w exch def /y exch def /x exch def
+  gsave lightgreen x y w h rectfill green 1.2 setlinewidth x y w h rectstroke grestore
+} def
+/orangebox {
+  /h exch def /w exch def /y exch def /x exch def
+  gsave lightorange x y w h rectfill orange 1.2 setlinewidth x y w h rectstroke grestore
+} def
+/arrow {
+  /y2 exch def /x2 exch def /y1 exch def /x1 exch def
+  navy 1.4 setlinewidth x1 y1 moveto x2 y2 lineto stroke
+  gsave x2 y2 translate x2 x1 sub y2 y1 sub atan rotate
+    0 0 moveto -8 4 lineto -8 -4 lineto closepath fill
+  grestore
+} def
+/label { /t exch def /y exch def /x exch def ink 12 sansbold x y moveto t show } def
+/body { /t exch def /y exch def /x exch def ink 11 sans x y moveto t show } def
+/small { /t exch def /y exch def /x exch def muted 9 sans x y moveto t show } def
+/code { /t exch def /y exch def /x exch def ink 9 mono x y moveto t show } def
+/subtitle { /t exch def navy 22 sansbold 42 530 moveto t show } def
+
+% Slide 1
+page
+(How Figure 1 parallel training maps to SeqTrainer) subtitle
+ink 16 sansbold 50 466 moveto (A paper-to-code walkthrough of the neural-memory update) show
+muted 12 sans 50 435 moveto (Focus: Figure 1 and equations 11-18, not an end-to-end DNA model.) show
+50 300 300 92 box
+blue 15 sansbold 68 360 moveto (Paper) show
+ink 12 sans 68 334 moveto (Associative memory + update recurrence) show
+ink 12 sans 68 314 moveto (Figure 1 makes chunk updates GPU-friendly.) show
+440 300 300 92 greenbox
+green 15 sansbold 458 360 moveto (SeqTrainer Stage A) show
+ink 12 sans 458 334 moveto (Exact 32-step functional reference path) show
+ink 12 sans 458 314 moveto (Matmul/scan acceleration is deliberately deferred.) show
+350 346 440 346 arrow
+orange 13 sansbold 52 250 moveto (Bottom line) show
+ink 13 sans 52 224 moveto (The recurrence and its gradients are implemented; Figure 1s parallel reformulation is documented) show
+ink 13 sans 52 204 moveto (as the next optimization step, not silently substituted for the reference.) show
+showpage
+
+% Slide 2
+page
+(1. What Figure 1 is accelerating) subtitle
+ink 13 sansbold 48 485 moveto (Before Figure 1: a neural MLP stores associations by updating its own fast weights.) show
+50 310 205 120 box
+blue 13 sansbold 66 400 moveto (Per token x_t) show
+ink 11 sans 66 374 moveto (k_t = x_t W_K) show
+ink 11 sans 66 354 moveto (v_t = x_t W_V) show
+ink 11 sans 66 334 moveto (q_t = x_t W_Q) show
+295 310 205 120 orangebox
+orange 13 sansbold 311 400 moveto (Associative loss) show
+ink 11 sans 311 374 moveto (L_t = 1/2 || M(k_t) - v_t ||^2) show
+ink 11 sans 311 350 moveto (u_t = grad_M L_t) show
+540 310 205 120 greenbox
+green 13 sansbold 556 400 moveto (State transition) show
+ink 11 sans 556 374 moveto (S_t = eta_t S_(t-1) - theta_t u_t) show
+ink 11 sans 556 350 moveto (M_t = (1-alpha_t) M_(t-1) + S_t) show
+255 370 295 370 arrow
+500 370 540 370 arrow
+ink 13 sansbold 48 260 moveto (Figure 1 asks: how can the same update be evaluated in chunk-sized matrix operations?) show
+muted 11 sans 48 232 moveto (Paper Figure 1 caption: training neural memory in parallel using matmuls; Section 3.2 develops equations 16-18.) show
+showpage
+
+% Slide 3
+page
+(2. Equation 16: unrolling forgetting inside a chunk) subtitle
+ink 14 sansbold 50 478 moveto (Paper idea: replace a token-by-token weight update with a weighted sum of chunk gradients.) show
+50 312 692 112 orangebox
+orange 13 sansbold 70 392 moveto (Paper equation 16, simplified notation) show
+ink 15 mono 70 360 moveto (M_t = beta_t M_0 - sum_i theta_i (beta_t / beta_i) grad L(M_tprime; x_i)) show
+ink 11 sans 70 334 moveto (beta_i = product_j<=i (1-alpha_j), and M_tprime is the state at the start of the chunk.) show
+50 160 205 104 box
+blue 13 sansbold 66 238 moveto (Why it helps) show
+ink 11 sans 66 212 moveto (All token gradients in a chunk) show
+ink 11 sans 66 192 moveto (can be combined as tensors.) show
+295 160 205 104 greenbox
+green 13 sansbold 311 238 moveto (What is preserved) show
+ink 11 sans 311 212 moveto (Token-dependent alpha and theta) show
+ink 11 sans 311 192 moveto (still weight each contribution.) show
+540 160 205 104 orangebox
+orange 13 sansbold 556 238 moveto (SeqTrainer choice) show
+ink 11 sans 556 212 moveto (Keep the recurrence explicit) show
+ink 11 sans 556 192 moveto (for C=32 correctness first.) show
+showpage
+
+% Slide 4
+page
+(3. Equation 17: the linear-memory matmul example) subtitle
+ink 13 sansbold 50 480 moveto (For a linear memory W and one chunk X, the paper batches many outer-product gradients.) show
+50 300 692 130 box
+blue 13 sansbold 70 398 moveto (Paper equation 17) show
+ink 14 mono 70 366 moveto (sum_i weighted grad L(W_0; x_i) = Theta_b B_b (W_0 X - X) X^T) show
+ink 11 sans 70 338 moveto (Diagonal gate matrices weight rows; matrix products replace a Python loop over the b tokens.) show
+50 166 325 94 greenbox
+green 12 sansbold 66 230 moveto (Closest SeqTrainer primitives) show
+ink 10 mono 66 205 moveto (key_projection(x), value_projection(x)) show
+ink 10 mono 66 185 moveto (functional_call(memory_mlp, fast_weights)) show
+415 166 325 94 orangebox
+orange 12 sansbold 431 230 moveto (Important difference) show
+ink 10 sans 431 205 moveto (SeqTrainer supports an MLP, so gradients come from) show
+ink 10 mono 431 185 moveto (torch.autograd.grad(..., create_graph=True)) show
+muted 10 sans 50 118 moveto (The paper says the MLP case is analogous; Stage A does not claim the closed-form linear matmul is implemented for MLP weights.) show
+showpage
+
+% Slide 5
+page
+(4. Equation 18: momentum becomes an associative scan) subtitle
+ink 13 sansbold 50 480 moveto (The paper separates the momentum recurrence from weight accumulation.) show
+50 314 300 100 box
+blue 14 mono 70 366 moveto (S_t = eta_t S_(t-1) - theta_t u_t) show
+ink 11 sans 70 338 moveto (u_t is the associative-loss gradient.) show
+420 314 300 100 greenbox
+green 13 sansbold 440 378 moveto (Parallel-paper route) show
+ink 11 sans 440 352 moveto (Compute all u_t together, then use) show
+ink 11 sans 440 332 moveto (an associative scan over eta_t.) show
+50 156 300 112 orangebox
+orange 13 sansbold 70 238 moveto (SeqTrainer reference route) show
+ink 10 mono 70 210 moveto (for position in range(32):) show
+ink 10 mono 70 192 moveto (  candidate = update_one(candidate, ...)) show
+ink 10 sans 70 174 moveto (Exact order, simple to test, O(C) Python control flow.) show
+420 156 300 112 box
+blue 13 sansbold 440 238 moveto (Why keep it?) show
+ink 10 sans 440 210 moveto (It is the oracle for a future scan.) show
+ink 10 sans 440 192 moveto (The tests expose a detach, reordered update,) show
+ink 10 sans 440 174 moveto (or wrong gate application immediately.) show
+showpage
+
+% Slide 6
+page
+(5. SeqTrainer: exact recurrence-to-code map) subtitle
+50 300 320 142 greenbox
+green 13 sansbold 66 414 moveto (FunctionalNeuralMemory) show
+ink 10 mono 66 388 moveto (associative_loss: 0.5 * (M(k) - v)^2) show
+ink 10 mono 66 368 moveto (surprise_gradient: autograd.grad(...)) show
+ink 10 mono 66 348 moveto (momentum_update: eta*S - theta*grad) show
+ink 10 mono 66 328 moveto (forgetting_update: (1-alpha)*M + S) show
+410 300 330 142 box
+blue 13 sansbold 426 414 moveto (update_segment) show
+ink 10 mono 426 388 moveto (keys, values = projections(segment)) show
+ink 10 mono 426 368 moveto (gates = gates(segment)  # all 32 at once) show
+ink 10 mono 426 348 moveto (candidate = state) show
+ink 10 mono 426 328 moveto (for position in range(32): update_one(...)) show
+370 370 410 370 arrow
+50 162 690 88 orangebox
+orange 12 sansbold 68 220 moveto (Autograd contract) show
+ink 11 sans 68 194 moveto (Fast weights and surprise are replacement tensors, never a mutable slot buffer. create_graph=True preserves gradients through all 32 updates.) show
+muted 10 sans 50 120 moveto (Code: src/seqtrainer/torch/titans_paper_mac/memory.py; tests: tests/test_titans_paper_mac_memory.py) show
+showpage
+
+% Slide 7
+page
+(6. MAC integration: Figure 1 memory meets paper equations 21-25) subtitle
+50 302 160 94 box
+blue 12 sansbold 66 366 moveto (1. Read snapshot) show
+ink 10 sans 66 342 moveto (H_t = M*_(t-1)(Q_t)) show
+ink 10 sans 66 324 moveto (32 retrieval vectors) show
+250 302 220 94 greenbox
+green 12 sansbold 266 366 moveto (2. Causal core) show
+ink 10 sans 266 342 moveto ([persistent, H_t, S_t]) show
+ink 10 sans 266 324 moveto (block-causal attention) show
+510 302 230 94 orangebox
+orange 12 sansbold 526 366 moveto (3. One post-core write) show
+ink 10 sans 526 342 moveto (M_t = update(M_(t-1), y_t)) show
+ink 10 sans 526 324 moveto (y_t is core output) show
+210 350 250 350 arrow
+470 350 510 350 arrow
+50 172 690 82 greenbox
+green 12 sansbold 68 226 moveto (Important Stage A correction) show
+ink 11 sans 68 202 moveto (PaperMACBlock now calls read_segment, then integrate, then update_segment(state, sequence). It does not write raw input embeddings.) show
+muted 10 sans 50 126 moveto (Code: mac.py; proof: test_block_reads_a_full_prewrite_segment_then_commits_one_state.) show
+showpage
+
+% Slide 8
+page
+(7. Side-by-side: paper intent versus current implementation) subtitle
+ink 11 sansbold 52 478 moveto (Mechanism) show
+ink 11 sansbold 280 478 moveto (Paper / Figure 1) show
+ink 11 sansbold 548 478 moveto (SeqTrainer Stage A) show
+52 462 740 462 rule
+52 434 (Associative loss) label
+280 434 (K/V projections + squared reconstruction) body
+548 434 (Functional MLP loss; exact gradient) body
+52 394 (Forgetting + momentum) label
+280 394 (alpha, eta, theta recurrence) body
+548 394 (Token gates; sequential reference) body
+52 354 (Chunked matmuls) label
+280 354 (Eq. 16-17 tensorize gradients) body
+548 354 (Not yet implemented) body
+52 314 (Associative scan) label
+280 314 (Eq. 18 parallel momentum) body
+548 314 (Not yet implemented) body
+52 274 (MAC write) label
+280 274 (Write attention/core y_t) body
+548 274 (Implemented after causal integration) body
+52 212 (Why the gap is healthy) label
+ink 11 sans 52 188 moveto (The reference path is a test oracle. A future optimized scan/convolution must agree with it on values and gradients before replacing nothing.) show
+orange 11 sansbold 52 148 moveto (Do not read performance claims into Figure 1 coverage: this repository currently prioritizes paper-traceable correctness.) show
+showpage
+
+% Slide 9
+page
+(8. How to reproduce and extend the comparison) subtitle
+50 330 330 116 box
+blue 13 sansbold 68 416 moveto (Reproduce the reference) show
+ink 10 mono 68 390 moveto (uv sync --extra torch --extra dev) show
+ink 10 mono 68 370 moveto (uv run pytest -q) show
+ink 10 mono 68 350 moveto (uv run seqtrainer-titans-stage-a-benchmark) show
+420 330 320 116 greenbox
+green 13 sansbold 438 416 moveto (Read the audit) show
+ink 10 sans 438 390 moveto (docs/titans_stage_a/fidelity_audit.md) show
+ink 10 sans 438 370 moveto (Records what is faithful, controlled,) show
+ink 10 sans 438 350 moveto (and deliberately deferred.) show
+50 165 690 104 orangebox
+orange 13 sansbold 68 238 moveto (If implementing Figure 1 acceleration next) show
+ink 11 sans 68 212 moveto (1. Keep the sequential C=32 path.  2. Add a scan/matmul implementation behind a separate API.) show
+ink 11 sans 68 192 moveto (3. Compare states, surprise, outputs, and gradients against the reference under fixed seeds.) show
+ink 11 sans 68 172 moveto (4. Keep stream isolation and the block-causal no-future-leakage tests unchanged.) show
+muted 10 sans 50 120 moveto (Source: paper Section 3.2 / Figure 1, and SeqTrainer commit 46dd015.) show
+showpage
+
+% Slide 10
+page
+(9. Figure 2: MAC combines three different kinds of memory) subtitle
+ink 13 sansbold 50 480 moveto (The paper's MAC design uses three branches with distinct lifetimes and update rules.) show
+50 302 205 116 box
+blue 13 sansbold 66 390 moveto (1. Core / short-term) show
+ink 10 sans 66 364 moveto (Causal attention over this) show
+ink 10 sans 66 346 moveto (segments local context.) show
+ink 10 sans 66 328 moveto (It produces y_t.) show
+295 302 205 116 greenbox
+green 13 sansbold 311 390 moveto (2. Contextual / long-term) show
+ink 10 sans 311 364 moveto (A functional MLP whose fast) show
+ink 10 sans 311 346 moveto (weights summarize past streams.) show
+ink 10 sans 311 328 moveto (It retrieves H_t and is written.) show
+540 302 205 116 orangebox
+orange 13 sansbold 556 390 moveto (3. Persistent memory) show
+ink 10 sans 556 364 moveto (Learned, input-independent) show
+ink 10 sans 556 346 moveto (prefix vectors P.) show
+ink 10 sans 556 328 moveto (No stream-state replacement.) show
+ink 12 sansbold 50 250 moveto (One segment, conceptually) show
+50 186 110 42 box 175 207 250 207 arrow 265 186 130 42 greenbox 410 207 485 207 arrow 500 186 190 42 orangebox
+ink 10 sansbold 76 203 moveto (S_t input) show
+ink 10 sansbold 283 203 moveto (H_t = M*_(t-1)(S_t W_Q)) show
+ink 10 sansbold 518 203 moveto ([P, H_t, S_t] -> core -> y_t) show
+muted 10 sans 50 122 moveto (Paper: Figure 2 and equations 19, 21-25. The arrows describe data flow, not three independent models.) show
+showpage
+
+% Slide 11
+page
+(10. Core: the attention branch chooses what to combine) subtitle
+ink 13 sansbold 50 480 moveto (Paper role: limited-window short-term processing. SeqTrainer role: one inspectable causal attention core.) show
+50 312 306 118 box
+blue 12 sansbold 68 400 moveto (Paper expression) show
+ink 11 mono 68 370 moveto (Z_t = [P, H_t, S_t]) show
+ink 11 mono 68 346 moveto (Y_t = Attention(Z_t, mask)) show
+ink 10 sans 68 326 moveto (The sequence portion becomes the core result.) show
+410 312 330 118 greenbox
+green 12 sansbold 428 400 moveto (PaperMACBlock.integrate) show
+ink 10 mono 428 372 moveto (layout = cat((persistent, retrieval, segment)) ) show
+ink 10 mono 428 352 moveto (attended = self.attention(layout, layout, layout, mask)) show
+ink 10 mono 428 332 moveto (return output_norm(segment + attended[sequence])) show
+50 160 690 102 orangebox
+orange 12 sansbold 68 228 moveto (Causality contract: the mask makes position i see P plus H_1:i and S_1:i.) show
+ink 11 sans 68 202 moveto (For safety, persistent-token queries see only P. This is a Stage A interpretation stricter than Figure 2's diagram.) show
+ink 11 sans 68 180 moveto (The core is intentionally minimal: MultiheadAttention + residual + LayerNorm, not a full LM stack.) show
+muted 10 sans 50 120 moveto (Code: mac.py:147-169; mask proof: tests/test_titans_paper_mac_block.py:10-27.) show
+showpage
+
+% Slide 12
+page
+(11. Contextual long-term memory: a stream-owned functional MLP) subtitle
+ink 13 sansbold 50 480 moveto (Long-term memory is not a bank of token slots; it is an MLP evaluated with per-stream fast weights.) show
+50 300 318 132 greenbox
+green 12 sansbold 68 404 moveto (Read: fixed M_(t-1) snapshot) show
+ink 10 mono 68 378 moveto (queries = query_projection(S_t)) show
+ink 10 mono 68 358 moveto (H_t = functional_call(memory_mlp, fast_weights, queries)) show
+ink 10 sans 68 336 moveto (All 32 retrievals come from the same state.) show
+410 300 330 132 box
+blue 12 sansbold 428 404 moveto (Write: replacement M_t) show
+ink 10 mono 428 378 moveto (keys, values = projections(y_t)) show
+ink 10 mono 428 358 moveto (for position in range(32): update_one(...)) show
+ink 10 sans 428 336 moveto (The final candidate replaces stream fast weights.) show
+50 158 690 98 orangebox
+orange 12 sansbold 68 222 moveto (Critical timing distinction) show
+ink 11 sans 68 198 moveto (Reads use raw incoming S_t as queries; writes learn associations from post-core y_t. Therefore the core filters what reaches M_t.) show
+ink 11 sans 68 176 moveto (The memory state is immutable-by-replacement and keyed by stream ID; it is not an nn.Parameter updated by the optimizer.) show
+muted 10 sans 50 118 moveto (Code: memory.py:121-129, 199-236, 257-266; mac.py:180-182.) show
+showpage
+
+% Slide 13
+page
+(12. Persistent memory: trainable task prefix, not online state) subtitle
+ink 13 sansbold 50 480 moveto (Paper equation 19 prepends learned, input-independent memory to every context.) show
+50 312 315 120 orangebox
+orange 12 sansbold 68 402 moveto (Implementation) show
+ink 10 mono 68 376 moveto (self.persistent_tokens = nn.Parameter(empty(P, d))) show
+ink 10 mono 68 356 moveto (normal_(persistent_tokens, mean=0, std=.02)) show
+ink 10 mono 68 336 moveto (persistent = persistent_tokens.to(device, dtype)) show
+410 312 330 120 greenbox
+green 12 sansbold 428 402 moveto (How it participates) show
+ink 10 mono 428 376 moveto (layout = cat((persistent, retrieval, segment))) show
+ink 10 sans 428 354 moveto (The same P vectors prefix every 32-token segment.) show
+ink 10 sans 428 334 moveto (They are not stored in PaperMACStreamState.) show
+50 158 690 98 box
+blue 12 sansbold 68 222 moveto (Training versus test-time behavior) show
+ink 11 sans 68 198 moveto (During ordinary training, loss.backward() gives persistent_tokens an outer-loop gradient alongside core parameters.) show
+ink 11 sans 68 176 moveto (At test time an application does not run an optimizer step, so P remains fixed; long-term fast weights still update per segment.) show
+muted 10 sans 50 118 moveto (Code: mac.py:107-120, 156-160. Test: persistent_tokens receives a gradient in test_titans_paper_mac_block.py:91-104.) show
+showpage
+
+% Slide 14
+page
+(13. One training-time segment: ownership and gradient paths) subtitle
+ink 12 sansbold 50 480 moveto (PaperMACBlock.forward is a forward/update transition; an enclosing trainer owns the outer optimizer step.) show
+50 390 155 58 box
+blue 11 sansbold 66 424 moveto (Incoming stream state) show
+ink 10 sans 66 406 moveto (M_(t-1), surprise) show
+225 390 135 58 greenbox
+green 11 sansbold 241 424 moveto (Read) show
+ink 10 sans 241 406 moveto (H_t) show
+380 390 150 58 orangebox
+orange 11 sansbold 396 424 moveto (Core) show
+ink 10 sans 396 406 moveto ([P,H,S] -> y_t) show
+550 390 155 58 box
+blue 11 sansbold 566 424 moveto (Commit replacement) show
+ink 10 sans 566 406 moveto (M_t, surprise_t) show
+205 419 225 419 arrow 360 419 380 419 arrow 530 419 550 419 arrow
+50 244 330 98 greenbox
+green 12 sansbold 68 310 moveto (Inner loop: online, stateful) show
+ink 10 sans 68 286 moveto (M_t and surprise_t flow to the next segment for) show
+ink 10 sans 68 268 moveto (this stream. They are replacement tensors.) show
+420 244 320 98 orangebox
+orange 12 sansbold 438 310 moveto (Outer loop: ordinary training) show
+ink 10 sans 438 286 moveto (Loss through y_t and M_t reaches attention, P,) show
+ink 10 sans 438 268 moveto (MLP initialization, projections, and gates.) show
+50 126 690 74 box
+blue 11 sansbold 68 174 moveto (Evidence) show
+ink 10 sans 68 150 moveto (The block test backpropagates a loss on sequence and fast weights, proving gradients reach segment input, persistent tokens, attention, and gates.) show
+muted 9 sans 50 102 moveto (The minimal Stage A package does not define a production trainer; it correctly preserves the graph that such a trainer consumes.) show
+showpage
+
+% Slide 15
+page
+(14. Figure 2 to SeqTrainer: precise implementation status) subtitle
+ink 11 sansbold 52 478 moveto (Figure 2 branch) show
+ink 11 sansbold 292 478 moveto (Paper responsibility) show
+ink 11 sansbold 548 478 moveto (SeqTrainer Stage A implementation) show
+52 462 740 462 rule
+52 432 (Core) label
+292 432 (Short-term context processing) body
+548 432 (Causal MultiheadAttention + residual/norm) body
+52 392 (Contextual long-term memory) label
+292 392 (Memorize/retrieve historical abstractions) body
+548 392 (Functional MLP in per-stream fast state) body
+52 352 (Persistent memory) label
+292 352 (Input-independent task knowledge) body
+548 352 (nn.Parameter P x d, prepended each segment) body
+52 312 (Read/write orchestration) label
+292 312 (Retrieve, attend, update from core output) body
+548 312 (read_segment -> integrate -> update_segment) body
+52 252 (Test-time update) label
+292 252 (Long-term learns; P is fixed) body
+548 252 (Fast state updates without optimizer) body
+50 142 690 86 orangebox
+orange 12 sansbold 68 196 moveto (The important mental model) show
+ink 11 sans 68 172 moveto (P is a learned model parameter; M_t is per-stream runtime state; the core is the differentiable function that joins P, H_t, and S_t.) show
+ink 11 sans 68 150 moveto (The block never mutates M_(t-1): it returns M_t. That separation makes streaming, causal tests, and meta-gradients inspectable.) show
+muted 10 sans 50 120 moveto (Paper Figure 2 / Section 4.1; implementation: src/seqtrainer/torch/titans_paper_mac/mac.py and memory.py.) show
+showpage
+%%EOF
