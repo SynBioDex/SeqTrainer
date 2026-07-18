@@ -16,6 +16,11 @@ from .attention_benchmark import (
     run_attention_backend_evidence,
     write_attention_backend_evidence,
 )
+from .audit import (
+    build_stage_b_audit,
+    render_fidelity_performance_audit,
+    write_stage_b_audit,
+)
 from .approximate_scan import (
     ApproximateScanMemoryBackend,
     update_segment_with_stale_windows,
@@ -106,12 +111,14 @@ __all__ = [
     "TimingTelemetry",
     "affine_scan_linear_recurrence",
     "benchmark_stage_b",
+    "build_stage_b_audit",
     "compare_backends",
     "compose_affine",
     "execute_stage_b",
     "integrate_flash_attention",
     "integrate_sdpa_attention",
     "probe_flash_mask_support",
+    "render_fidelity_performance_audit",
     "run_scan_feasibility_harness",
     "run_exact_acceleration_matrix",
     "run_long_context_study",
@@ -121,6 +128,7 @@ __all__ = [
     "sequential_linear_recurrence",
     "sdpa_allowed_attention_mask",
     "write_stage_b_artifacts",
+    "write_stage_b_audit",
     "write_scan_feasibility_artifact",
     "write_exact_acceleration_matrix",
     "write_long_context_study",
