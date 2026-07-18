@@ -126,7 +126,8 @@
   "hardware_summary": {
     "a100": {
       "available": false,
-      "reason": "named Colab Pro A100 environment is unavailable in this execution"
+      "reason": "no strictly verified A100 pilot bundle is present",
+      "verification": null
     },
     "macbook": {
       "available": true,
@@ -143,7 +144,7 @@
   "requirements": [
     {
       "criterion": "Reference backend and all immutable Stage A gates pass",
-      "evidence": "Stage A gates=True; B1 reference parity=True; final suite=89 passed/7 warnings",
+      "evidence": "Stage A gates=True; B1 reference parity=True; final suite=93 passed/7 warnings",
       "passed": true
     },
     {
@@ -163,7 +164,7 @@
     },
     {
       "criterion": "MacBook and named A100 measurements are reproducible",
-      "evidence": "MacBook debug/nimble artifacts and installed rerun command exist; named A100 pilot, CUDA memory, FP16, and forced-Flash mask probe unavailable",
+      "evidence": "MacBook debug/nimble artifacts and installed rerun command exist; verified named A100 pilot, CUDA memory, FP16, and forced-Flash mask probe unavailable",
       "passed": false
     },
     {
@@ -212,7 +213,7 @@
       },
       {
         "blocker": "No robust target-hardware performance case for changing the default",
-        "unblock": "Use repeated A100 end-to-end training-step measurements to choose reference or an exact backend; approximate windows may not satisfy this blocker.",
+        "unblock": "Use the isolated A100 pilot to measure repeated end-to-end training steps and choose reference or an exact backend; approximate windows may not satisfy this blocker.",
         "why_it_blocks": "The tensor-exact functional loop regressed to 0.821x on the B3 nimble CPU run; B7 single-stream timings are not a repeated A100 training case."
       }
     ],
@@ -223,13 +224,13 @@
   },
   "stage_d_definition": "Promoter/CDS/phylum adaptation after Stage C; not implemented in Stage B.",
   "validation": {
-    "audit_command": "/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/seqtrainer-titans-stage-b-audit --test-count 89 --warning-count 7",
+    "audit_command": "/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/seqtrainer-titans-stage-b-audit --test-count 93 --warning-count 7",
     "environment": "/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer",
     "long_context_command": "/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/seqtrainer-titans-stage-b-long-context",
     "stage_a_command": "/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/python -m seqtrainer.torch.titans_paper_mac.benchmark --output-dir artifacts/titans_stage_a",
     "stage_a_gates_passed": true,
     "test_command": "/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/python -m pytest -q",
-    "test_count": 89,
+    "test_count": 93,
     "warning_count": 7
   }
 }

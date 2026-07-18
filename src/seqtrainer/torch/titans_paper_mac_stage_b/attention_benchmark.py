@@ -48,13 +48,23 @@ def _maximum_mapping_error(
     }
 
 
-def _parity_case(seed: int, dtype: torch.dtype) -> dict[str, object]:
+def _parity_case(
+    seed: int,
+    dtype: torch.dtype,
+    device: torch.device,
+) -> dict[str, object]:
     torch.manual_seed(seed)
     reference = PaperMACBlock(
         d_model=8, num_heads=2, persistent_tokens=3, memory_depth=1
-    ).to(dtype=dtype)
+    ).to(device=device, dtype=dtype)
     candidate = copy.deepcopy(reference)
-    reference_segment = torch.randn(32, 8, dtype=dtype, requires_grad=True)
+    reference_segment = torch.randn(
+        32,
+        8,
+        device=device,
+        dtype=dtype,
+        requires_grad=True,
+    )
     candidate_segment = reference_segment.detach().clone().requires_grad_(True)
     reference_output = execute_stage_b(
         reference, reference.initial_state("b6-reference"), reference_segment
@@ -109,14 +119,21 @@ def _timing(
     *,
     warmup_runs: int,
     repetitions: int,
+    device: torch.device,
 ) -> dict[str, object]:
     samples: list[float] = []
     with torch.no_grad():
         for _ in range(warmup_runs):
             function()
+        if device.type == "cuda":
+            torch.cuda.synchronize(device)
         for _ in range(repetitions):
+            if device.type == "cuda":
+                torch.cuda.synchronize(device)
             start = time.perf_counter()
             function()
+            if device.type == "cuda":
+                torch.cuda.synchronize(device)
             samples.append(time.perf_counter() - start)
     mean_seconds = sum(samples) / len(samples)
     return {
@@ -188,19 +205,23 @@ def run_attention_backend_evidence(
     seed: int = 20260735,
     warmup_runs: int = 2,
     repetitions: int = 10,
+    device: torch.device | str = torch.device("cpu"),
 ) -> dict[str, object]:
-    """Run CPU oracle/parity evidence and device-dependent capability probes."""
+    """Run oracle/parity evidence and capability probes on one explicit device."""
 
     if warmup_runs < 0 or repetitions <= 0:
         raise ValueError("warmup_runs must be nonnegative and repetitions positive")
-    fp64 = _parity_case(seed, torch.float64)
-    fp32 = _parity_case(seed, torch.float32)
+    selected_device = torch.device(device)
+    if selected_device.type == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested but is unavailable")
+    fp64 = _parity_case(seed, torch.float64, selected_device)
+    fp32 = _parity_case(seed, torch.float32, selected_device)
 
     torch.manual_seed(seed + 1)
     timing_block = PaperMACBlock(
         d_model=64, num_heads=4, persistent_tokens=4, memory_depth=1
-    ).float().eval()
-    timing_segment = torch.randn(32, 64)
+    ).to(device=selected_device, dtype=torch.float32).eval()
+    timing_segment = torch.randn(32, 64, device=selected_device)
     timing_state = timing_block.initial_state("timing")
     timing_retrieval = timing_block.memory.read_segment(timing_state, timing_segment)
     timing = {
@@ -214,6 +235,7 @@ def run_attention_backend_evidence(
             lambda: timing_block.integrate(timing_retrieval, timing_segment),
             warmup_runs=warmup_runs,
             repetitions=repetitions,
+            device=selected_device,
         ),
         "sdpa": _timing(
             lambda: integrate_sdpa_attention(
@@ -221,17 +243,23 @@ def run_attention_backend_evidence(
             ),
             warmup_runs=warmup_runs,
             repetitions=repetitions,
+            device=selected_device,
         ),
     }
 
-    mask = timing_block.attention_mask()
+    mask = timing_block.attention_mask(device=selected_device)
     allowed = sdpa_allowed_attention_mask(timing_block, device=mask.device)
     torch.manual_seed(seed + 2)
     causal_block = PaperMACBlock(
         d_model=8, num_heads=2, persistent_tokens=3, memory_depth=1
-    ).double().eval()
+    ).to(device=selected_device, dtype=torch.float64).eval()
     causal_changed_block = copy.deepcopy(causal_block)
-    causal_segment = torch.randn(32, 8, dtype=torch.float64)
+    causal_segment = torch.randn(
+        32,
+        8,
+        device=selected_device,
+        dtype=torch.float64,
+    )
     changed = causal_segment.clone()
     changed[19] += 100.0
     sdpa_config = StageBBackendConfig(attention_backend=AttentionBackend.SDPA)
@@ -253,8 +281,8 @@ def run_attention_backend_evidence(
 
     mixed_block = PaperMACBlock(
         d_model=8, num_heads=2, persistent_tokens=3, memory_depth=1
-    ).float().eval()
-    mixed_segment = torch.randn(32, 8)
+    ).to(device=selected_device, dtype=torch.float32).eval()
+    mixed_segment = torch.randn(32, 8, device=selected_device)
     return {
         "format_version": 1,
         "seed": seed,
@@ -262,9 +290,11 @@ def run_attention_backend_evidence(
             "platform": platform.platform(),
             "python": platform.python_version(),
             "torch": torch.__version__,
-            "device": "cuda" if torch.cuda.is_available() else "cpu",
+            "device": str(selected_device),
             "cuda_device": (
-                torch.cuda.get_device_name() if torch.cuda.is_available() else None
+                torch.cuda.get_device_name(selected_device)
+                if selected_device.type == "cuda"
+                else None
             ),
         },
         "mask": {
@@ -309,7 +339,8 @@ def write_attention_backend_evidence(
         "report": output / "b6_attention_backend_evidence.md",
     }
     paths["json"].write_text(
-        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n",
+        encoding="utf-8",
     )
     parity = result["parity"]
     timing = result["timing"]
@@ -334,7 +365,7 @@ def write_attention_backend_evidence(
         "",
         f"Causal future-prefix error: `{causal['prefix_maximum_error']:.3e}`.",
         "",
-        "| CPU attention path | Tokens/s |",
+        "| Attention path | Tokens/s |",
         "| --- | ---: |",
         f"| MultiheadAttention | {reference_timing['tokens_per_second']:.2f} |",
         f"| Functional SDPA | {sdpa_timing['tokens_per_second']:.2f} |",

@@ -1,5 +1,13 @@
 """Stage B adapters and evidence around the immutable paper-MAC reference."""
 
+from .a100_pilot import (
+    A100PilotUnavailableError,
+    evaluate_a100_evidence,
+    inspect_a100,
+    run_a100_pilot,
+    verify_a100_pilot_directory,
+)
+
 from .backends import (
     BackendCapability,
     BackendUnavailableError,
@@ -71,6 +79,13 @@ from .telemetry import (
     benchmark_stage_b,
     write_stage_b_artifacts,
 )
+from .training_step_benchmark import (
+    A100_TRAINING_STEP_SCALE,
+    TRAINING_VARIANTS,
+    TrainingStepScale,
+    run_training_step_matrix,
+    write_training_step_matrix,
+)
 from .stack import StageBMACStack, StageBStackOutput
 from .long_context_benchmark import (
     DEFAULT_LONG_CONTEXT_SCALES,
@@ -82,6 +97,8 @@ from .long_context_benchmark import (
 
 __all__ = [
     "APPROXIMATE_WINDOWS",
+    "A100PilotUnavailableError",
+    "A100_TRAINING_STEP_SCALE",
     "ActivationDType",
     "AffineStateMap",
     "AttentionBackend",
@@ -109,25 +126,32 @@ __all__ = [
     "StageBStackOutput",
     "TensorParity",
     "TimingTelemetry",
+    "TRAINING_VARIANTS",
+    "TrainingStepScale",
     "affine_scan_linear_recurrence",
     "benchmark_stage_b",
     "build_stage_b_audit",
     "compare_backends",
     "compose_affine",
     "execute_stage_b",
+    "evaluate_a100_evidence",
     "integrate_flash_attention",
     "integrate_sdpa_attention",
+    "inspect_a100",
     "probe_flash_mask_support",
     "render_fidelity_performance_audit",
     "run_scan_feasibility_harness",
+    "run_training_step_matrix",
     "run_exact_acceleration_matrix",
     "run_long_context_study",
     "run_convolution_comparison",
     "run_attention_backend_evidence",
     "run_approximate_scan_study",
+    "run_a100_pilot",
     "sequential_linear_recurrence",
     "sdpa_allowed_attention_mask",
     "write_stage_b_artifacts",
+    "write_training_step_matrix",
     "write_stage_b_audit",
     "write_scan_feasibility_artifact",
     "write_exact_acceleration_matrix",
@@ -137,4 +161,5 @@ __all__ = [
     "write_approximate_scan_study",
     "update_segment_with_convolutional_gates",
     "update_segment_with_stale_windows",
+    "verify_a100_pilot_directory",
 ]

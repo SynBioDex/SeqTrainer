@@ -13,17 +13,17 @@ Selected default: `reference`. READY requires every Stage B exit criterion, a re
 - **Named Colab Pro A100 evidence is absent** — Stage C is a 15 Gbp foundation-training program; CPU evidence cannot establish A100 throughput, memory headroom, FP16/BF16 behavior, or exact-mask Flash support.
   Unblock: Run B3, B6, and B7 on an attached A100 with fixed seeds, raw repetitions, CUDA peak memory, FP32 memory island, BF16/FP16 attention, and forced exact-mask Flash probe.
 - **No robust target-hardware performance case for changing the default** — The tensor-exact functional loop regressed to 0.821x on the B3 nimble CPU run; B7 single-stream timings are not a repeated A100 training case.
-  Unblock: Use repeated A100 end-to-end training-step measurements to choose reference or an exact backend; approximate windows may not satisfy this blocker.
+  Unblock: Use the isolated A100 pilot to measure repeated end-to-end training steps and choose reference or an exact backend; approximate windows may not satisfy this blocker.
 
 ## Stage B exit criteria
 
 | Criterion | Result | Evidence |
 | --- | --- | --- |
-| Reference backend and all immutable Stage A gates pass | PASS | Stage A gates=True; B1 reference parity=True; final suite=89 passed/7 warnings |
+| Reference backend and all immutable Stage A gates pass | PASS | Stage A gates=True; B1 reference parity=True; final suite=93 passed/7 warnings |
 | Declared exact backends preserve output/state/gradient semantics | PASS | B3 debug/nimble tensor-exact; B6 FP64/FP32 sequence, state, surprise, input, persistent-token, and attention-parameter gradients tensor-exact on CPU |
 | Approximate backend has explicit staleness and speed–fidelity classification | PASS | classification=experimental_approximation_not_parity_equivalent; windows=['16', '2', '32', '4', '8']; promotion=False |
 | Convolution and every available attention backend are causal | PASS | B2 gate/output prefix errors=0.0/0.0; B7 all variants=True |
-| MacBook and named A100 measurements are reproducible | FAIL | MacBook debug/nimble artifacts and installed rerun command exist; named A100 pilot, CUDA memory, FP16, and forced-Flash mask probe unavailable |
+| MacBook and named A100 measurements are reproducible | FAIL | MacBook debug/nimble artifacts and installed rerun command exist; verified named A100 pilot, CUDA memory, FP16, and forced-Flash mask probe unavailable |
 | Adaptive memory retains synthetic advantage over frozen/no-memory | PASS | Stage A adaptive >32=1.0 vs frozen=0.125/no-memory=0.25; B7 512-token recall reference=1.0 vs controls=0.0 |
 | B8 publishes an unambiguous Stage C decision | PASS | This audit computes READY only when every preceding exit criterion passes. |
 
@@ -134,12 +134,12 @@ Exact and approximate paths are intentionally separate. `exact_scan` is unavaila
 
 MacBook: available on `macOS-10.16-x86_64-i386-64bit`, `CPU x86_64`, PyTorch `2.2.2`. Measured scales: debug_d64, debug_d128, nimble.
 
-A100: **unavailable** — named Colab Pro A100 environment is unavailable in this execution
+A100: **unavailable** — no strictly verified A100 pilot bundle is present
 
-- Final tests: `/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/python -m pytest -q` → 89 passed, 7 warnings.
+- Final tests: `/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/python -m pytest -q` → 93 passed, 7 warnings.
 - Stage A gate: `/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/python -m seqtrainer.torch.titans_paper_mac.benchmark --output-dir artifacts/titans_stage_a` → `True`.
 - Long context: `/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/seqtrainer-titans-stage-b-long-context`.
-- Regenerate audit: `/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/seqtrainer-titans-stage-b-audit --test-count 89 --warning-count 7`.
+- Regenerate audit: `/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/seqtrainer-titans-stage-b-audit --test-count 93 --warning-count 7`.
 
 Seeds and raw timing protocols are stored per source artifact: B1/B3/B4 use seed 20260727 (B3 nimble 20260728); B2 20260733; B5 20260736; B6 20260735; B7 20260738. Warmups, repetitions, geometry, raw samples, state bytes, and unavailable hardware fields remain in JSON rather than being inferred here.
 

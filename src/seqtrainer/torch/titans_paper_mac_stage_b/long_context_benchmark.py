@@ -389,7 +389,11 @@ def _unavailable_variant(name: str, reason: str) -> dict[str, object]:
     return {"variant": name, "available": False, "reason": reason}
 
 
-def _causality_matrix(seed: int, variants: Sequence[str]) -> dict[str, object]:
+def _causality_matrix(
+    seed: int,
+    variants: Sequence[str],
+    device: torch.device,
+) -> dict[str, object]:
     torch.manual_seed(seed)
     template = StageBMACStack(
         1,
@@ -398,8 +402,8 @@ def _causality_matrix(seed: int, variants: Sequence[str]) -> dict[str, object]:
         persistent_tokens=2,
         memory_depth=1,
         convolution_kernel_size=3,
-    ).double().eval()
-    segment = torch.randn(32, 8, dtype=torch.float64)
+    ).to(device=device, dtype=torch.float64).eval()
+    segment = torch.randn(32, 8, device=device, dtype=torch.float64)
     changed = segment.clone()
     changed[17] += 100.0
     results: dict[str, object] = {}
@@ -465,7 +469,11 @@ def _controlled_update(
     return model.memory.update_segment(state, embeddings, valid_mask=valid_mask)
 
 
-def _long_recall_variant(name: str, delays: Sequence[int]) -> dict[str, object]:
+def _long_recall_variant(
+    name: str,
+    delays: Sequence[int],
+    device: torch.device,
+) -> dict[str, object]:
     vocabulary = DEFAULT_VOCABULARY
     accuracies: dict[str, float] = {}
     losses: dict[str, float] = {}
@@ -473,7 +481,7 @@ def _long_recall_variant(name: str, delays: Sequence[int]) -> dict[str, object]:
         correct: list[bool] = []
         delay_losses: list[float] = []
         for stream_index in range(4):
-            model = _PaperBenchmarkModel(vocabulary.size)
+            model = _PaperBenchmarkModel(vocabulary.size).to(device)
             convolutional_gates = (
                 CausalConvolutionalUpdateGates(
                     model.d_model,
@@ -483,11 +491,15 @@ def _long_recall_variant(name: str, delays: Sequence[int]) -> dict[str, object]:
                 if name == "causal_convolution"
                 else None
             )
+            if convolutional_gates is not None:
+                convolutional_gates = convolutional_gates.to(device)
             key = vocabulary.keys[stream_index]
             value = vocabulary.values[stream_index]
-            embeddings = torch.zeros(32, model.d_model)
-            valid = torch.zeros(32, dtype=torch.bool)
-            embeddings[0] = _key_value_embedding(key, value, vocabulary.size)
+            embeddings = torch.zeros(32, model.d_model, device=device)
+            valid = torch.zeros(32, device=device, dtype=torch.bool)
+            embeddings[0] = _key_value_embedding(
+                key, value, vocabulary.size
+            ).to(device)
             valid[0] = True
             state = _controlled_update(
                 name,
@@ -509,7 +521,7 @@ def _long_recall_variant(name: str, delays: Sequence[int]) -> dict[str, object]:
                     convolutional_gates,
                 )
             query = torch.zeros_like(embeddings)
-            query[0] = _query_embedding(key, vocabulary.size)
+            query[0] = _query_embedding(key, vocabulary.size).to(device)
             retrieval = (
                 torch.zeros_like(query)
                 if name == "no_memory"
@@ -517,14 +529,19 @@ def _long_recall_variant(name: str, delays: Sequence[int]) -> dict[str, object]:
             )
             logits = retrieval[0, vocabulary.size :]
             delay_losses.append(
-                float(F.cross_entropy(logits.unsqueeze(0), torch.tensor([value])))
+                float(
+                    F.cross_entropy(
+                        logits.unsqueeze(0),
+                        torch.tensor([value], device=device),
+                    )
+                )
             )
             correct.append(int(logits.argmax().item()) == value)
         context_tokens = delay_segments * 32
         accuracies[str(context_tokens)] = sum(correct) / len(correct)
         losses[str(context_tokens)] = statistics.mean(delay_losses)
 
-    model = _PaperBenchmarkModel(vocabulary.size)
+    model = _PaperBenchmarkModel(vocabulary.size).to(device)
     convolutional_gates = (
         CausalConvolutionalUpdateGates(
             model.d_model, 3, reference_gates=model.memory.gates
@@ -532,19 +549,23 @@ def _long_recall_variant(name: str, delays: Sequence[int]) -> dict[str, object]:
         if name == "causal_convolution"
         else None
     )
+    if convolutional_gates is not None:
+        convolutional_gates = convolutional_gates.to(device)
     state = model.memory.initial_state(f"overwrite-{name}")
     key = vocabulary.keys[0]
     first_value, second_value = vocabulary.values[0], vocabulary.values[1]
     for value in (first_value, second_value):
-        embeddings = torch.zeros(32, model.d_model)
-        valid = torch.zeros(32, dtype=torch.bool)
-        embeddings[0] = _key_value_embedding(key, value, vocabulary.size)
+        embeddings = torch.zeros(32, model.d_model, device=device)
+        valid = torch.zeros(32, device=device, dtype=torch.bool)
+        embeddings[0] = _key_value_embedding(key, value, vocabulary.size).to(
+            device
+        )
         valid[0] = True
         state = _controlled_update(
             name, model, state, embeddings, valid, convolutional_gates
         )
-    query = torch.zeros(32, model.d_model)
-    query[0] = _query_embedding(key, vocabulary.size)
+    query = torch.zeros(32, model.d_model, device=device)
+    query[0] = _query_embedding(key, vocabulary.size).to(device)
     retrieval = (
         torch.zeros_like(query)
         if name == "no_memory"
@@ -652,7 +673,8 @@ def run_long_context_study(
         )
 
     recall = {
-        name: _long_recall_variant(name, (2, 4, 8, 16)) for name in variants
+        name: _long_recall_variant(name, (2, 4, 8, 16), selected_device)
+        for name in variants
     }
     return {
         "format_version": 1,
@@ -701,7 +723,7 @@ def run_long_context_study(
         },
         "long_stream_scales": scale_results,
         "controlled_long_recall": recall,
-        "causality": _causality_matrix(seed + 100, variants),
+        "causality": _causality_matrix(seed + 100, variants, selected_device),
         "limitations": [
             "No genomic corpus was loaded or trained.",
             "Controlled recall isolates memory persistence and is not biology performance.",

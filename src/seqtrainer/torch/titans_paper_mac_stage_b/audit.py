@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Mapping, Sequence
 
+from .a100_pilot import verify_a100_pilot_directory
+
 
 SOURCE_FILES = {
     "stage_a": "artifacts/titans_stage_a/stage_a_benchmark.json",
@@ -57,7 +59,25 @@ def build_stage_b_audit(
     b5 = raw["b5"]
     b6 = raw["b6"]
     b7 = raw["b7"]
-    a100_available = bool(b7["hardware"]["a100_available"])
+    a100_directory = root / "artifacts/titans_stage_b/a100"
+    a100_verification: dict[str, object] | None = None
+    a100_verification_error: str | None = None
+    if a100_directory.exists():
+        try:
+            a100_verification = verify_a100_pilot_directory(a100_directory)
+        except (
+            AssertionError,
+            FileNotFoundError,
+            KeyError,
+            OSError,
+            StopIteration,
+            TypeError,
+            ValueError,
+        ) as error:
+            a100_verification_error = str(error)
+    a100_available = bool(
+        a100_verification is not None and a100_verification.get("passed")
+    )
     exact_scales = {
         item["scale"]["name"]: item for item in b3["results"]
     }
@@ -115,9 +135,9 @@ def build_stage_b_audit(
             "evidence": (
                 "MacBook debug/nimble artifacts and installed rerun command exist; "
                 + (
-                    "named A100 pilot measured"
+                    "named A100 pilot measured and strictly verified"
                     if a100_available
-                    else "named A100 pilot, CUDA memory, FP16, and forced-Flash mask probe unavailable"
+                    else "verified named A100 pilot, CUDA memory, FP16, and forced-Flash mask probe unavailable"
                 )
             ),
         },
@@ -160,7 +180,7 @@ def build_stage_b_audit(
             }
         )
     nimble_speedup = exact_scales["nimble"]["speedup"]
-    if nimble_speedup is None or float(nimble_speedup) <= 1.0:
+    if not a100_available:
         blockers.append(
             {
                 "blocker": "No robust target-hardware performance case for changing the default",
@@ -169,11 +189,19 @@ def build_stage_b_audit(
                     "nimble CPU run; B7 single-stream timings are not a repeated A100 training case."
                 ),
                 "unblock": (
-                    "Use repeated A100 end-to-end training-step measurements to choose reference or an "
-                    "exact backend; approximate windows may not satisfy this blocker."
+                    "Use the isolated A100 pilot to measure repeated end-to-end training steps and "
+                    "choose reference or an exact backend; approximate windows may not satisfy this blocker."
                 ),
             }
         )
+
+    selected_default = "reference"
+    if a100_available and a100_verification is not None:
+        selected_default = {
+            "reference_fp32": "reference",
+            "exact_fp32": "exact_accelerated",
+            "exact_sdpa_fp32": "sdpa",
+        }[str(a100_verification["selected_default"])]
 
     backends = [
         {
@@ -353,6 +381,11 @@ def build_stage_b_audit(
     for backend in backends:
         backend.update(provenance[backend["name"]])
 
+    source_artifacts = dict(SOURCE_FILES)
+    if (a100_directory / "a100_pilot_manifest.json").exists():
+        source_artifacts["a100_pilot"] = (
+            "artifacts/titans_stage_b/a100/a100_pilot_manifest.json"
+        )
     return {
         "format_version": 1,
         "audit_scope": "Titans paper-MAC Stage B synthetic fidelity/performance platform",
@@ -366,10 +399,10 @@ def build_stage_b_audit(
             "B5": "7976540",
             "B7": "f8b54a5",
         },
-        "selected_default": "reference",
+        "selected_default": selected_default,
         "requirements": requirements,
         "backends": backends,
-        "source_artifacts": SOURCE_FILES,
+        "source_artifacts": source_artifacts,
         "validation": {
             "environment": "/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer",
             "test_command": (
@@ -399,11 +432,13 @@ def build_stage_b_audit(
             },
             "a100": {
                 "available": a100_available,
-                "reason": next(
-                    item["reason"]
-                    for item in b7["long_stream_scales"]
-                    if item["scale"]["name"] == "a100_pilot"
+                "reason": (
+                    "strict A100 pilot verification passed"
+                    if a100_available
+                    else a100_verification_error
+                    or "no strictly verified A100 pilot bundle is present"
                 ),
+                "verification": a100_verification,
             },
         },
         "stage_c_gate": {

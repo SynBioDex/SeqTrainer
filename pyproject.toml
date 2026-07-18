@@ -62,6 +62,7 @@ seqtrainer-titans-stage-a-benchmark = "seqtrainer.torch.titans_paper_mac.benchma
 seqtrainer-titans-stage-b-benchmark = "seqtrainer.torch.titans_paper_mac_stage_b.benchmark:main"
 seqtrainer-titans-stage-b-long-context = "seqtrainer.torch.titans_paper_mac_stage_b.long_context_benchmark:main"
 seqtrainer-titans-stage-b-audit = "seqtrainer.torch.titans_paper_mac_stage_b.audit:main"
+seqtrainer-titans-stage-b-a100-pilot = "seqtrainer.torch.titans_paper_mac_stage_b.a100_pilot:main"
 
 [project.urls]
 Homepage = "https://github.com/SynBioDex/SeqTrainer"
