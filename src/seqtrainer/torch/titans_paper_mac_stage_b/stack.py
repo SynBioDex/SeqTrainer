@@ -12,6 +12,7 @@ from seqtrainer.torch.titans_paper_mac.state import PaperMACStreamState
 
 from .backends import StageBBackendRegistry
 from .config import StageBBackendConfig
+from .convolution import CausalConvolutionalUpdateGates
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,7 @@ class StageBMACStack(nn.Module):
         persistent_tokens: int = 4,
         memory_depth: int = 2,
         segment_length: int = 32,
+        convolution_kernel_size: int | None = None,
     ) -> None:
         super().__init__()
         if block_count <= 0:
@@ -49,6 +51,18 @@ class StageBMACStack(nn.Module):
                 segment_length=segment_length,
             )
             for _ in range(block_count)
+        )
+        self.convolutional_gates = (
+            nn.ModuleList(
+                CausalConvolutionalUpdateGates(
+                    d_model,
+                    convolution_kernel_size,
+                    reference_gates=block.memory.gates,
+                )
+                for block in self.blocks
+            )
+            if convolution_kernel_size is not None
+            else None
         )
 
     def initial_states(self, stream_id: str) -> tuple[PaperMACStreamState, ...]:
@@ -74,13 +88,17 @@ class StageBMACStack(nn.Module):
         sequence = segment_embeddings
         retrievals: list[Tensor] = []
         next_states: list[PaperMACStreamState] = []
-        for block, state in zip(self.blocks, states):
+        for index, (block, state) in enumerate(zip(self.blocks, states)):
+            convolutional_gates = (
+                None if self.convolutional_gates is None else self.convolutional_gates[index]
+            )
             output = active_registry.execute(
                 block,
                 state,
                 sequence,
                 config=config,
                 valid_mask=valid_mask,
+                convolutional_gates=convolutional_gates,
             )
             sequence = output.sequence
             retrievals.append(output.retrieval)
@@ -90,4 +108,3 @@ class StageBMACStack(nn.Module):
             retrievals=tuple(retrievals),
             states=tuple(next_states),
         )
-

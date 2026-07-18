@@ -10,7 +10,7 @@ from torch import Tensor
 from seqtrainer.torch.titans_paper_mac.mac import PaperMACBlock, PaperMACBlockOutput
 from seqtrainer.torch.titans_paper_mac.state import PaperMACStreamState
 
-from .config import ActivationDType, AttentionBackend, MemoryBackend, StageBBackendConfig
+from .config import ActivationDType, AttentionBackend, GateBackend, MemoryBackend, StageBBackendConfig
 
 
 class BackendUnavailableError(ValueError):
@@ -188,6 +188,14 @@ class StageBBackendRegistry:
         return {
             "memory": metadata,
             "attention": {"implementation": config.attention_backend.value},
+            "gates": {
+                "implementation": config.gate_backend.value,
+                "convolution_kernel_size": (
+                    config.convolution_kernel_size
+                    if config.gate_backend is GateBackend.CAUSAL_CONVOLUTION
+                    else None
+                ),
+            },
         }
 
     def execute(
@@ -198,6 +206,7 @@ class StageBBackendRegistry:
         *,
         config: StageBBackendConfig = StageBBackendConfig(),
         valid_mask: Optional[Tensor] = None,
+        convolutional_gates: object | None = None,
     ) -> PaperMACBlockOutput:
         """Run the explicit read/integrate/write transition through dispatch."""
 
@@ -206,9 +215,33 @@ class StageBBackendRegistry:
         sequence = self._attention_integrations[config.attention_backend](
             block, retrieval, segment_embeddings
         )
-        updated_state = self._memory_updates[config.memory_backend](
-            block, state, sequence, valid_mask
-        )
+        if config.gate_backend is GateBackend.CAUSAL_CONVOLUTION:
+            if config.memory_backend is not MemoryBackend.REFERENCE:
+                raise BackendUnavailableError(
+                    "B2 causal_convolution is reviewed only with the reference recurrence"
+                )
+            from .convolution import (
+                CausalConvolutionalUpdateGates,
+                update_segment_with_convolutional_gates,
+            )
+
+            if not isinstance(convolutional_gates, CausalConvolutionalUpdateGates):
+                raise BackendUnavailableError(
+                    "causal_convolution requires a CausalConvolutionalUpdateGates module"
+                )
+            if convolutional_gates.kernel_size != config.convolution_kernel_size:
+                raise ValueError("configured convolution kernel does not match the supplied module")
+            updated_state = update_segment_with_convolutional_gates(
+                block.memory,
+                convolutional_gates,
+                state,
+                sequence,
+                valid_mask=valid_mask,
+            )
+        else:
+            updated_state = self._memory_updates[config.memory_backend](
+                block, state, sequence, valid_mask
+            )
         return PaperMACBlockOutput(
             sequence=sequence,
             retrieval=retrieval,
@@ -224,6 +257,7 @@ def execute_stage_b(
     config: StageBBackendConfig = StageBBackendConfig(),
     valid_mask: Optional[Tensor] = None,
     registry: Optional[StageBBackendRegistry] = None,
+    convolutional_gates: object | None = None,
 ) -> PaperMACBlockOutput:
     """Convenience entrypoint using a fresh conservative registry."""
 
@@ -234,4 +268,5 @@ def execute_stage_b(
         segment_embeddings,
         config=config,
         valid_mask=valid_mask,
+        convolutional_gates=convolutional_gates,
     )

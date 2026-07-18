@@ -32,6 +32,13 @@ class ActivationDType(str, Enum):
     FP16 = "float16"
 
 
+class GateBackend(str, Enum):
+    """Adaptive-gate feature path, independent of memory execution backend."""
+
+    TOKEN_WISE = "token_wise"
+    CAUSAL_CONVOLUTION = "causal_convolution"
+
+
 APPROXIMATE_WINDOWS = (2, 4, 8, 16, 32)
 
 
@@ -39,20 +46,28 @@ APPROXIMATE_WINDOWS = (2, 4, 8, 16, 32)
 class StageBBackendConfig:
     """Feature flags for one Stage B execution.
 
-    At B1 only the reference memory, reference attention, and FP32 activations
-    are registered.  Naming future modes here makes artifacts stable without
-    accidentally making unfinished research paths selectable.
+    The conservative defaults remain the reference memory, reference attention,
+    token-wise gates, and FP32 activations. Naming future modes here makes
+    artifacts stable without accidentally making unfinished research paths
+    selectable.
     """
 
     memory_backend: MemoryBackend = MemoryBackend.REFERENCE
     attention_backend: AttentionBackend = AttentionBackend.MULTIHEAD_ATTENTION
     activation_dtype: ActivationDType = ActivationDType.FP32
+    gate_backend: GateBackend = GateBackend.TOKEN_WISE
+    convolution_kernel_size: int = 3
     approximate_window: Optional[int] = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "memory_backend", MemoryBackend(self.memory_backend))
         object.__setattr__(self, "attention_backend", AttentionBackend(self.attention_backend))
         object.__setattr__(self, "activation_dtype", ActivationDType(self.activation_dtype))
+        object.__setattr__(self, "gate_backend", GateBackend(self.gate_backend))
+        if self.convolution_kernel_size <= 0:
+            raise ValueError("convolution_kernel_size must be positive")
+        if self.gate_backend is GateBackend.CAUSAL_CONVOLUTION and self.convolution_kernel_size < 2:
+            raise ValueError("causal_convolution requires convolution_kernel_size >= 2")
         if self.memory_backend is MemoryBackend.APPROXIMATE_SCAN:
             if self.approximate_window not in APPROXIMATE_WINDOWS:
                 raise ValueError(
@@ -67,6 +82,7 @@ class StageBBackendConfig:
             "memory_backend": self.memory_backend.value,
             "attention_backend": self.attention_backend.value,
             "activation_dtype": self.activation_dtype.value,
+            "gate_backend": self.gate_backend.value,
+            "convolution_kernel_size": self.convolution_kernel_size,
             "approximate_window": self.approximate_window,
         }
-

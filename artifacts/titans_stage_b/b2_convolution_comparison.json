@@ -1,0 +1,107 @@
+{
+  "causality": {
+    "current_output_prefix_maximum_error": 0.0,
+    "gate_prefix_maximum_error": 0.0,
+    "passed": true
+  },
+  "classification": "repository_defined_opt_in_causal_gate_context",
+  "configuration": {
+    "d_model": 8,
+    "device": "cpu",
+    "dtype": "float64",
+    "groups": 8,
+    "kernel_size": 3,
+    "memory_depth": 1,
+    "num_heads": 2,
+    "padding": 2,
+    "persistent_tokens": 2,
+    "perturb_position": 19,
+    "placement": "left-padded depthwise temporal convolution before gate projection",
+    "seed": 20260733,
+    "segment_length": 32
+  },
+  "format_version": 1,
+  "gradients": {
+    "depthwise_weight_norm": 0.20508916380201217,
+    "input_norm": 0.2695197288022355,
+    "projection_weight_norm": 0.6301540975955143
+  },
+  "matched_comparison": {
+    "causal_convolution_gates": {
+      "alpha": {
+        "maximum": 0.520655435079975,
+        "mean": 0.4180883214801759,
+        "minimum": 0.3395632725092087
+      },
+      "eta": {
+        "maximum": 0.7176825044769118,
+        "mean": 0.5362670994798167,
+        "minimum": 0.39973546607733085
+      },
+      "theta": {
+        "maximum": 0.5701939582053052,
+        "mean": 0.4473267558147658,
+        "minimum": 0.31356945469031655
+      }
+    },
+    "final_fast_weight_maximum_difference": 0.38647968955051315,
+    "maximum_gate_difference": {
+      "alpha": 0.20330602260463865,
+      "eta": 0.3178104415889511,
+      "theta": 0.2223685651815846
+    },
+    "memory_update_norm": {
+      "causal_convolution": 3.3808165099725276,
+      "token_wise": 3.4722216333931644
+    },
+    "token_wise_gates": {
+      "alpha": {
+        "maximum": 0.6553490032568192,
+        "mean": 0.4211187087449666,
+        "minimum": 0.26400894149888093
+      },
+      "eta": {
+        "maximum": 0.8206593897279371,
+        "mean": 0.5323630999330029,
+        "minimum": 0.2671348153931373
+      },
+      "theta": {
+        "maximum": 0.6865247357746981,
+        "mean": 0.4534408988521673,
+        "minimum": 0.26236314729024696
+      }
+    }
+  },
+  "paper_exact": false,
+  "unchanged_stage_a_evidence": {
+    "gates": {
+      "adaptive_beats_controls_beyond_32": true,
+      "adaptive_lifecycle_tasks_correct": true,
+      "leakage_reference_passed": true,
+      "lifecycle_reference_passed": true,
+      "mask_reference_passed": true,
+      "passed": true
+    },
+    "source_artifact": "artifacts/titans_stage_a/stage_a_benchmark.json",
+    "variants": {
+      "adaptive": {
+        "delayed_accuracy_beyond_32": 1.0,
+        "memory_update_norm_mean": 1.847852498292923,
+        "overwrite_correctness": 1.0,
+        "reset_correctness": 1.0
+      },
+      "frozen_memory": {
+        "delayed_accuracy_beyond_32": 0.125,
+        "memory_update_norm_mean": 0.0,
+        "overwrite_correctness": 0.125,
+        "reset_correctness": 1.0
+      },
+      "no_memory": {
+        "delayed_accuracy_beyond_32": 0.25,
+        "memory_update_norm_mean": 0.0,
+        "overwrite_correctness": 0.25,
+        "reset_correctness": 1.0
+      }
+    }
+  }
+}

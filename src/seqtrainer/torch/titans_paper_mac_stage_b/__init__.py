@@ -10,8 +10,17 @@ from .config import (
     APPROXIMATE_WINDOWS,
     ActivationDType,
     AttentionBackend,
+    GateBackend,
     MemoryBackend,
     StageBBackendConfig,
+)
+from .convolution import (
+    CausalConvolutionalUpdateGates,
+    update_segment_with_convolutional_gates,
+)
+from .convolution_benchmark import (
+    run_convolution_comparison,
+    write_convolution_comparison,
 )
 from .exact_acceleration import ExactAcceleratedMemoryBackend
 from .exact_acceleration_benchmark import (
@@ -48,10 +57,12 @@ __all__ = [
     "AttentionBackend",
     "BackendCapability",
     "BackendUnavailableError",
+    "CausalConvolutionalUpdateGates",
     "DEFAULT_SCALES",
     "ExactAccelerationMatrix",
     "ExactAcceleratedMemoryBackend",
     "HardwareTelemetry",
+    "GateBackend",
     "MemoryBackend",
     "ModelGeometry",
     "ParityReport",
@@ -71,8 +82,11 @@ __all__ = [
     "execute_stage_b",
     "run_scan_feasibility_harness",
     "run_exact_acceleration_matrix",
+    "run_convolution_comparison",
     "sequential_linear_recurrence",
     "write_stage_b_artifacts",
     "write_scan_feasibility_artifact",
     "write_exact_acceleration_matrix",
+    "write_convolution_comparison",
+    "update_segment_with_convolutional_gates",
 ]
