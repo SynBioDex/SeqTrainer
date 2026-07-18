@@ -19,6 +19,8 @@ Every source artifact is SHA-256 recorded. `--verify-only` recomputes the hashes
 
 ## Colab Pro A100 procedure with uv
 
+The ready-to-run version is [titans_stage_b_a100_colab.ipynb](../../notebooks/titans_stage_b_a100_colab.ipynb). It creates one timestamped directory beneath `MyDrive/SeqTrainerA100/`, keeps the full evidence and command logs together, and prints the folder that should be shared after a successful verification. The checked-out ref must contain `c4c09f0` or a descendant; push the local branch first or use another reachable ref.
+
 1. In Colab, select **Runtime → Change runtime type → A100 GPU**. Confirm the allocation with `!nvidia-smi`; a T4, L4, V100, or CPU does not satisfy this pilot.
 2. Clone SeqTrainer and check out the exact branch/commit being evaluated.
 3. Set up an environment that reuses Colab's CUDA-enabled PyTorch:
