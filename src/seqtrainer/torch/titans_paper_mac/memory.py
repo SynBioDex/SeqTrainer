@@ -253,3 +253,14 @@ class FunctionalNeuralMemory(nn.Module):
         queries = self.query_projection(segment_embeddings)
         retrieval = self.retrieve(state, queries)
         return retrieval, self.update_segment(state, segment_embeddings, valid_mask=valid_mask)
+
+    def read_segment(self, state: PaperMACStreamState, segment_embeddings: Tensor) -> Tensor:
+        """Retrieve all 32 positions from one immutable incoming state.
+
+        This is the read-only boundary used by :class:`PaperMACBlock`.  Keeping
+        it separate from :meth:`update_segment` lets the MAC core decide which
+        causally integrated representations are useful enough to write.
+        """
+
+        self._validate_segment(segment_embeddings, valid_mask=None)
+        return self.retrieve(state, self.query_projection(segment_embeddings))

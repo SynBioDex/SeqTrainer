@@ -20,6 +20,26 @@ It is designed to be complementary to Keras and PyTorch rather than replacing th
 pip install -e .
 ```
 
+For a reproducible development environment, use [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync --extra torch --extra dev
+uv run pytest -q
+```
+
+uv uses the repository's Python 3.12 pin, creates a local `.venv`, and records
+resolved dependencies in `uv.lock`. The `torch` extra pins NumPy below 2 to
+remain compatible with the supported PyTorch runtime.
+
+Run the deterministic synthetic Titans Stage A acceptance benchmark (it is not
+a DNA or biology-performance benchmark):
+
+```bash
+uv run seqtrainer-titans-stage-a-benchmark --output-dir artifacts/titans_stage_a
+```
+
+It writes JSON results, a Markdown report, and an SVG delayed-recall plot.
+
 Optional extras:
 
 ```bash

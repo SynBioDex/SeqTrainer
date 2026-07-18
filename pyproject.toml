@@ -35,8 +35,11 @@ keras = [
   "tensorflow>=2.12",
 ]
 torch = [
-  "torch>=2.2",
+  # PyTorch 2.3+ no longer publishes Intel macOS wheels.
+  "torch>=2.2,<2.3; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+  "torch>=2.2; sys_platform != 'darwin' or platform_machine != 'x86_64'",
   "transformers>=4.30",
+  "numpy<2",
 ]
 bacteria-titan = [
   "pyarrow>=12",
@@ -55,6 +58,7 @@ dev = [
 
 [project.scripts]
 seqtrainer = "seqtrainer.cli.main:main"
+seqtrainer-titans-stage-a-benchmark = "seqtrainer.torch.titans_paper_mac.benchmark:main"
 
 [project.urls]
 Homepage = "https://github.com/SynBioDex/SeqTrainer"
