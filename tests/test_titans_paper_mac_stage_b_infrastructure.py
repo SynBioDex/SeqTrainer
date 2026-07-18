@@ -32,15 +32,21 @@ def test_reference_is_default_and_unreviewed_modes_are_rejected() -> None:
     assert registry.memory_capabilities()["reference"]["available"] is True
     assert registry.memory_capabilities()["exact_accelerated"]["available"] is True
     assert registry.memory_capabilities()["exact_scan"]["available"] is False
-    assert registry.memory_capabilities()["approximate_scan"]["available"] is False
+    assert registry.memory_capabilities()["approximate_scan"]["available"] is True
 
     registry.validate(StageBBackendConfig(memory_backend=MemoryBackend.EXACT_ACCELERATED))
-    for backend in (MemoryBackend.EXACT_SCAN, MemoryBackend.APPROXIMATE_SCAN):
+    for backend in (MemoryBackend.EXACT_SCAN,):
         kwargs = {"memory_backend": backend}
         if backend is MemoryBackend.APPROXIMATE_SCAN:
             kwargs["approximate_window"] = 4
         with pytest.raises(BackendUnavailableError):
             registry.validate(StageBBackendConfig(**kwargs))
+    registry.validate(
+        StageBBackendConfig(
+            memory_backend=MemoryBackend.APPROXIMATE_SCAN,
+            approximate_window=4,
+        )
+    )
     registry.validate(StageBBackendConfig(attention_backend=AttentionBackend.SDPA))
     with pytest.raises(BackendUnavailableError):
         registry.validate(StageBBackendConfig(activation_dtype=ActivationDType.BF16))

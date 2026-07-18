@@ -16,6 +16,14 @@ from .attention_benchmark import (
     run_attention_backend_evidence,
     write_attention_backend_evidence,
 )
+from .approximate_scan import (
+    ApproximateScanMemoryBackend,
+    update_segment_with_stale_windows,
+)
+from .approximate_scan_benchmark import (
+    run_approximate_scan_study,
+    write_approximate_scan_study,
+)
 from .config import (
     APPROXIMATE_WINDOWS,
     ActivationDType,
@@ -65,6 +73,7 @@ __all__ = [
     "ActivationDType",
     "AffineStateMap",
     "AttentionBackend",
+    "ApproximateScanMemoryBackend",
     "BackendCapability",
     "BackendUnavailableError",
     "CausalConvolutionalUpdateGates",
@@ -97,6 +106,7 @@ __all__ = [
     "run_exact_acceleration_matrix",
     "run_convolution_comparison",
     "run_attention_backend_evidence",
+    "run_approximate_scan_study",
     "sequential_linear_recurrence",
     "sdpa_allowed_attention_mask",
     "write_stage_b_artifacts",
@@ -104,5 +114,7 @@ __all__ = [
     "write_exact_acceleration_matrix",
     "write_convolution_comparison",
     "write_attention_backend_evidence",
+    "write_approximate_scan_study",
     "update_segment_with_convolutional_gates",
+    "update_segment_with_stale_windows",
 ]

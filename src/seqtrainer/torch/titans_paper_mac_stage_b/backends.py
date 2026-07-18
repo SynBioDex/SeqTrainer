@@ -96,8 +96,8 @@ class StageBBackendRegistry:
             MemoryBackend.APPROXIMATE_SCAN: BackendCapability(
                 name=MemoryBackend.APPROXIMATE_SCAN.value,
                 exactness="approximate",
-                available=False,
-                reason="unavailable until B5 defines and measures stale-window semantics",
+                available=True,
+                reason="B5 explicit stale-within-window gradient ablation",
             ),
         }
         self._attention_capabilities: dict[AttentionBackend, BackendCapability] = {
@@ -202,7 +202,11 @@ class StageBBackendRegistry:
 
     def validate(self, config: StageBBackendConfig) -> None:
         memory = self._memory_capabilities[config.memory_backend]
-        if not memory.available or config.memory_backend not in self._memory_updates:
+        has_implementation = (
+            config.memory_backend in self._memory_updates
+            or config.memory_backend is MemoryBackend.APPROXIMATE_SCAN
+        )
+        if not memory.available or not has_implementation:
             raise BackendUnavailableError(f"memory backend {memory.name!r} is unavailable: {memory.reason}")
         attention = self._attention_capabilities[config.attention_backend]
         if not attention.available or config.attention_backend not in self._attention_integrations:
@@ -232,7 +236,15 @@ class StageBBackendRegistry:
         }
 
     def runtime_metadata(self, config: StageBBackendConfig) -> dict[str, object]:
-        memory_implementation = self._memory_updates[config.memory_backend]
+        if config.memory_backend is MemoryBackend.APPROXIMATE_SCAN:
+            from .approximate_scan import ApproximateScanMemoryBackend
+
+            assert config.approximate_window is not None
+            memory_implementation = ApproximateScanMemoryBackend(
+                config.approximate_window
+            )
+        else:
+            memory_implementation = self._memory_updates[config.memory_backend]
         metadata = (
             memory_implementation.runtime_metadata()
             if hasattr(memory_implementation, "runtime_metadata")
@@ -297,6 +309,16 @@ class StageBBackendRegistry:
                 state,
                 sequence,
                 valid_mask=valid_mask,
+            )
+        elif config.memory_backend is MemoryBackend.APPROXIMATE_SCAN:
+            from .approximate_scan import ApproximateScanMemoryBackend
+
+            assert config.approximate_window is not None
+            updated_state = ApproximateScanMemoryBackend(config.approximate_window)(
+                block,
+                state,
+                sequence,
+                valid_mask,
             )
         else:
             updated_state = self._memory_updates[config.memory_backend](
