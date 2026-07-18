@@ -1,0 +1,175 @@
+{
+  "format_version": 1,
+  "gates": {
+    "adaptive_beats_controls_beyond_32": true,
+    "adaptive_lifecycle_tasks_correct": true,
+    "leakage_reference_passed": true,
+    "lifecycle_reference_passed": true,
+    "mask_reference_passed": true,
+    "passed": true
+  },
+  "protocol": {
+    "evaluation_data": "held-out deterministic fixture seed",
+    "evaluation_seed": 20260827,
+    "evaluation_tokens_per_variant": 2048,
+    "learning_rate": 0.05,
+    "memory_depth": 1,
+    "memory_implementation": "FunctionalNeuralMemory",
+    "num_streams": 8,
+    "optimizer": "AdamW",
+    "optimizer_parameters": "readout",
+    "seed": 20260727,
+    "shared_outer_parameter_count": 820,
+    "shared_total_parameter_count": 7383,
+    "synthetic_only": true,
+    "tokens_per_variant": 18432,
+    "train_epochs": 3,
+    "train_seeds": [
+      20260727,
+      20260737,
+      20260747
+    ],
+    "variants": [
+      "adaptive",
+      "frozen_memory",
+      "no_memory"
+    ]
+  },
+  "variants": {
+    "adaptive": {
+      "alpha": {
+        "count": 288,
+        "maximum": 9.999999747378752e-05,
+        "mean": 9.999999747378752e-05,
+        "minimum": 9.999999747378752e-05
+      },
+      "delayed_accuracy_by_delay": {
+        ">32": 1.0
+      },
+      "eta": {
+        "count": 288,
+        "maximum": 0.009999998845160007,
+        "mean": 0.009999998845160007,
+        "minimum": 0.009999998845160007
+      },
+      "evaluation_accuracy": 1.0,
+      "evaluation_bpb": 0.04941287544043854,
+      "evaluation_loss": 0.03425039529489974,
+      "gradient_norm": {
+        "count": 216,
+        "maximum": 1.8268754482269287,
+        "mean": 0.3777145489325954,
+        "minimum": 0.04505226016044617
+      },
+      "memory_update_norm": {
+        "count": 288,
+        "maximum": 3.149193525314331,
+        "mean": 1.847852498292923,
+        "minimum": 1.4140721559524536
+      },
+      "name": "adaptive",
+      "overwrite_correctness": 1.0,
+      "reset_correctness": 1.0,
+      "theta": {
+        "count": 288,
+        "maximum": 0.9998999834060669,
+        "mean": 0.9998999834060669,
+        "minimum": 0.9998999834060669
+      },
+      "train_accuracy": 1.0,
+      "train_bpb": 0.37150756782650696,
+      "train_eval_gap": 0.0,
+      "train_loss": 0.2575094231956259
+    },
+    "frozen_memory": {
+      "alpha": {
+        "count": 288,
+        "maximum": 9.999999747378752e-05,
+        "mean": 9.999999747378752e-05,
+        "minimum": 9.999999747378752e-05
+      },
+      "delayed_accuracy_by_delay": {
+        ">32": 0.125
+      },
+      "eta": {
+        "count": 288,
+        "maximum": 0.009999998845160007,
+        "mean": 0.009999998845160007,
+        "minimum": 0.009999998845160007
+      },
+      "evaluation_accuracy": 0.4166666666666667,
+      "evaluation_bpb": 2.1120682738150722,
+      "evaluation_loss": 1.4639741691450279,
+      "gradient_norm": {
+        "count": 216,
+        "maximum": 1.3300811052322388,
+        "mean": 0.7405827322422907,
+        "minimum": 0.08594472706317902
+      },
+      "memory_update_norm": {
+        "count": 288,
+        "maximum": 0.0,
+        "mean": 0.0,
+        "minimum": 0.0
+      },
+      "name": "frozen_memory",
+      "overwrite_correctness": 0.125,
+      "reset_correctness": 1.0,
+      "theta": {
+        "count": 288,
+        "maximum": 0.9998999834060669,
+        "mean": 0.9998999834060669,
+        "minimum": 0.9998999834060669
+      },
+      "train_accuracy": 0.35185185185185186,
+      "train_bpb": 2.4492858158559345,
+      "train_eval_gap": -0.06481481481481483,
+      "train_loss": 1.6977155576460063
+    },
+    "no_memory": {
+      "alpha": {
+        "count": 288,
+        "maximum": 9.999999747378752e-05,
+        "mean": 9.999999747378752e-05,
+        "minimum": 9.999999747378752e-05
+      },
+      "delayed_accuracy_by_delay": {
+        ">32": 0.25
+      },
+      "eta": {
+        "count": 288,
+        "maximum": 0.009999998845160007,
+        "mean": 0.009999998845160007,
+        "minimum": 0.009999998845160007
+      },
+      "evaluation_accuracy": 0.5,
+      "evaluation_bpb": 2.292287304606175,
+      "evaluation_loss": 1.5888924822211266,
+      "gradient_norm": {
+        "count": 216,
+        "maximum": 1.4801357984542847,
+        "mean": 0.9633959991408995,
+        "minimum": 0.057563748210668564
+      },
+      "memory_update_norm": {
+        "count": 288,
+        "maximum": 0.0,
+        "mean": 0.0,
+        "minimum": 0.0
+      },
+      "name": "no_memory",
+      "overwrite_correctness": 0.25,
+      "reset_correctness": 1.0,
+      "theta": {
+        "count": 288,
+        "maximum": 0.9998999834060669,
+        "mean": 0.9998999834060669,
+        "minimum": 0.9998999834060669
+      },
+      "train_accuracy": 0.4583333333333333,
+      "train_bpb": 2.1773026683523264,
+      "train_eval_gap": -0.041666666666666685,
+      "train_loss": 1.5091912057940606
+    }
+  }
+}

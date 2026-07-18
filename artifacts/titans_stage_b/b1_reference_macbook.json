@@ -1,0 +1,206 @@
+{
+  "config": {
+    "activation_dtype": "float32",
+    "approximate_window": null,
+    "attention_backend": "multihead_attention",
+    "memory_backend": "reference"
+  },
+  "geometry": {
+    "block_count": 1,
+    "d_model": 8,
+    "memory_depth": 1,
+    "num_heads": 2,
+    "parameter_count": 627,
+    "persistent_tokens": 4,
+    "segment_length": 32
+  },
+  "hardware": {
+    "cuda_allocated_bytes": null,
+    "cuda_available": false,
+    "cuda_reserved_bytes": null,
+    "device": "cpu",
+    "device_name": "CPU x86_64",
+    "dtype": "float32",
+    "machine": "x86_64",
+    "platform": "macOS-15.7.4-x86_64-i386-64bit",
+    "torch_version": "2.2.2"
+  },
+  "parity": {
+    "atol": 0.0,
+    "candidate_config": {
+      "activation_dtype": "float32",
+      "approximate_window": null,
+      "attention_backend": "multihead_attention",
+      "memory_backend": "reference"
+    },
+    "fast_weights": {
+      "0.bias": {
+        "close": true,
+        "cosine_similarity": 1.0,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "0.weight": {
+        "close": true,
+        "cosine_similarity": 1.0000000000000002,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      }
+    },
+    "passed": true,
+    "reference_config": {
+      "activation_dtype": "float32",
+      "approximate_window": null,
+      "attention_backend": "multihead_attention",
+      "memory_backend": "reference"
+    },
+    "retrieval": {
+      "close": true,
+      "cosine_similarity": 1.0000000000000002,
+      "exact": true,
+      "max_abs_error": 0.0,
+      "max_relative_error": 0.0
+    },
+    "rtol": 0.0,
+    "sequence": {
+      "close": true,
+      "cosine_similarity": 1.0000000000000002,
+      "exact": true,
+      "max_abs_error": 0.0,
+      "max_relative_error": 0.0
+    },
+    "surprise": {
+      "0.bias": {
+        "close": true,
+        "cosine_similarity": 1.0,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "0.weight": {
+        "close": true,
+        "cosine_similarity": 1.0,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      }
+    },
+    "trainable_gradients": {
+      "attention.in_proj_bias": {
+        "close": true,
+        "cosine_similarity": 1.0,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "attention.in_proj_weight": {
+        "close": true,
+        "cosine_similarity": 0.9999999999999999,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "attention.out_proj.bias": {
+        "close": true,
+        "cosine_similarity": 1.0,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "attention.out_proj.weight": {
+        "close": true,
+        "cosine_similarity": 0.9999999999999997,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "memory.gates.projection.bias": {
+        "close": true,
+        "cosine_similarity": 1.0,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "memory.gates.projection.weight": {
+        "close": true,
+        "cosine_similarity": 0.9999999999999997,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "memory.key_projection.weight": {
+        "close": true,
+        "cosine_similarity": 0.9999999999999999,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "memory.memory_mlp.0.bias": {
+        "close": true,
+        "cosine_similarity": 0.9999999999999999,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "memory.memory_mlp.0.weight": {
+        "close": true,
+        "cosine_similarity": 0.9999999999999998,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "memory.query_projection.weight": {
+        "close": true,
+        "cosine_similarity": 1.0000000000000002,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "memory.value_projection.weight": {
+        "close": true,
+        "cosine_similarity": 1.0000000000000002,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "output_norm.bias": {
+        "close": true,
+        "cosine_similarity": 1.0,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "output_norm.weight": {
+        "close": true,
+        "cosine_similarity": 1.0,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      },
+      "persistent_tokens": {
+        "close": true,
+        "cosine_similarity": 1.0000000000000002,
+        "exact": true,
+        "max_abs_error": 0.0,
+        "max_relative_error": 0.0
+      }
+    }
+  },
+  "seed": 20260727,
+  "segment_count": 1,
+  "state_payload_bytes": 576,
+  "timing": {
+    "median_wall_time_seconds": 0.09795356501126662,
+    "repetitions": 3,
+    "token_count": 32,
+    "tokens_per_second": 326.68540441911796,
+    "wall_times_seconds": [
+      0.09795356501126662,
+      0.10950458800652996,
+      0.08977944997604936
+    ],
+    "warmup_runs": 1
+  }
+}

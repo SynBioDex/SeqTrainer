@@ -1,0 +1,223 @@
+"""Feature-flagged dispatch around the unchanged Stage A MAC reference."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Callable, Optional
+
+from torch import Tensor
+
+from seqtrainer.torch.titans_paper_mac.mac import PaperMACBlock, PaperMACBlockOutput
+from seqtrainer.torch.titans_paper_mac.state import PaperMACStreamState
+
+from .config import ActivationDType, AttentionBackend, MemoryBackend, StageBBackendConfig
+
+
+class BackendUnavailableError(ValueError):
+    """Raised when configuration selects a backend without proven support."""
+
+
+MemoryUpdate = Callable[
+    [PaperMACBlock, PaperMACStreamState, Tensor, Optional[Tensor]],
+    PaperMACStreamState,
+]
+AttentionIntegration = Callable[[PaperMACBlock, Tensor, Tensor], Tensor]
+
+
+@dataclass(frozen=True)
+class BackendCapability:
+    """Audit-facing declaration for one registered implementation."""
+
+    name: str
+    exactness: str
+    available: bool
+    reason: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "exactness": self.exactness,
+            "available": self.available,
+            "reason": self.reason,
+        }
+
+
+def _reference_memory_update(
+    block: PaperMACBlock,
+    state: PaperMACStreamState,
+    sequence: Tensor,
+    valid_mask: Optional[Tensor],
+) -> PaperMACStreamState:
+    return block.memory.update_segment(state, sequence, valid_mask=valid_mask)
+
+
+def _reference_attention(block: PaperMACBlock, retrieval: Tensor, segment: Tensor) -> Tensor:
+    return block.integrate(retrieval, segment)
+
+
+class StageBBackendRegistry:
+    """Registry whose initial state exposes only reviewed B1 reference paths."""
+
+    def __init__(self) -> None:
+        self._memory_updates: dict[MemoryBackend, MemoryUpdate] = {
+            MemoryBackend.REFERENCE: _reference_memory_update,
+        }
+        self._attention_integrations: dict[AttentionBackend, AttentionIntegration] = {
+            AttentionBackend.MULTIHEAD_ATTENTION: _reference_attention,
+        }
+        self._memory_capabilities: dict[MemoryBackend, BackendCapability] = {
+            MemoryBackend.REFERENCE: BackendCapability(
+                name=MemoryBackend.REFERENCE.value,
+                exactness="fp64_oracle/fp32_reference",
+                available=True,
+                reason="unchanged Stage A FunctionalNeuralMemory.update_segment",
+            ),
+            MemoryBackend.EXACT_ACCELERATED: BackendCapability(
+                name=MemoryBackend.EXACT_ACCELERATED.value,
+                exactness="pending",
+                available=False,
+                reason="unavailable until B3 proves parity and fallback behavior",
+            ),
+            MemoryBackend.EXACT_SCAN: BackendCapability(
+                name=MemoryBackend.EXACT_SCAN.value,
+                exactness="unproven",
+                available=False,
+                reason="unavailable until B4 proves an associative nonlinear update",
+            ),
+            MemoryBackend.APPROXIMATE_SCAN: BackendCapability(
+                name=MemoryBackend.APPROXIMATE_SCAN.value,
+                exactness="approximate",
+                available=False,
+                reason="unavailable until B5 defines and measures stale-window semantics",
+            ),
+        }
+        self._attention_capabilities: dict[AttentionBackend, BackendCapability] = {
+            AttentionBackend.MULTIHEAD_ATTENTION: BackendCapability(
+                name=AttentionBackend.MULTIHEAD_ATTENTION.value,
+                exactness="reference",
+                available=True,
+                reason="unchanged Stage A torch.nn.MultiheadAttention path",
+            ),
+            AttentionBackend.SDPA: BackendCapability(
+                name=AttentionBackend.SDPA.value,
+                exactness="pending",
+                available=False,
+                reason="unavailable until B6 proves the full [P,H,S] mask edge set",
+            ),
+            AttentionBackend.FLASH: BackendCapability(
+                name=AttentionBackend.FLASH.value,
+                exactness="pending_hardware_probe",
+                available=False,
+                reason="unavailable until B6 validates mask support on CUDA/A100",
+            ),
+        }
+        self._activation_dtypes = {ActivationDType.FP32}
+
+    def register_memory(
+        self,
+        backend: MemoryBackend,
+        implementation: MemoryUpdate,
+        *,
+        exactness: str,
+        reason: str,
+    ) -> None:
+        if backend is MemoryBackend.REFERENCE:
+            raise ValueError("the reference memory backend cannot be replaced")
+        self._memory_updates[backend] = implementation
+        self._memory_capabilities[backend] = BackendCapability(
+            name=backend.value,
+            exactness=exactness,
+            available=True,
+            reason=reason,
+        )
+
+    def register_attention(
+        self,
+        backend: AttentionBackend,
+        implementation: AttentionIntegration,
+        *,
+        exactness: str,
+        reason: str,
+    ) -> None:
+        if backend is AttentionBackend.MULTIHEAD_ATTENTION:
+            raise ValueError("the reference attention backend cannot be replaced")
+        self._attention_integrations[backend] = implementation
+        self._attention_capabilities[backend] = BackendCapability(
+            name=backend.value,
+            exactness=exactness,
+            available=True,
+            reason=reason,
+        )
+
+    def enable_activation_dtype(self, dtype: ActivationDType) -> None:
+        self._activation_dtypes.add(ActivationDType(dtype))
+
+    def validate(self, config: StageBBackendConfig) -> None:
+        memory = self._memory_capabilities[config.memory_backend]
+        if not memory.available or config.memory_backend not in self._memory_updates:
+            raise BackendUnavailableError(f"memory backend {memory.name!r} is unavailable: {memory.reason}")
+        attention = self._attention_capabilities[config.attention_backend]
+        if not attention.available or config.attention_backend not in self._attention_integrations:
+            raise BackendUnavailableError(
+                f"attention backend {attention.name!r} is unavailable: {attention.reason}"
+            )
+        if config.activation_dtype not in self._activation_dtypes:
+            raise BackendUnavailableError(
+                f"activation dtype {config.activation_dtype.value!r} is unavailable until B6"
+            )
+
+    def memory_capabilities(self) -> dict[str, dict[str, object]]:
+        return {backend.value: capability.to_dict() for backend, capability in self._memory_capabilities.items()}
+
+    def attention_capabilities(self) -> dict[str, dict[str, object]]:
+        return {
+            backend.value: capability.to_dict()
+            for backend, capability in self._attention_capabilities.items()
+        }
+
+    def execute(
+        self,
+        block: PaperMACBlock,
+        state: PaperMACStreamState,
+        segment_embeddings: Tensor,
+        *,
+        config: StageBBackendConfig = StageBBackendConfig(),
+        valid_mask: Optional[Tensor] = None,
+    ) -> PaperMACBlockOutput:
+        """Run the explicit read/integrate/write transition through dispatch."""
+
+        self.validate(config)
+        retrieval = block.memory.read_segment(state, segment_embeddings)
+        sequence = self._attention_integrations[config.attention_backend](
+            block, retrieval, segment_embeddings
+        )
+        updated_state = self._memory_updates[config.memory_backend](
+            block, state, sequence, valid_mask
+        )
+        return PaperMACBlockOutput(
+            sequence=sequence,
+            retrieval=retrieval,
+            state=updated_state,
+        )
+
+
+def execute_stage_b(
+    block: PaperMACBlock,
+    state: PaperMACStreamState,
+    segment_embeddings: Tensor,
+    *,
+    config: StageBBackendConfig = StageBBackendConfig(),
+    valid_mask: Optional[Tensor] = None,
+    registry: Optional[StageBBackendRegistry] = None,
+) -> PaperMACBlockOutput:
+    """Convenience entrypoint using a fresh conservative registry."""
+
+    active_registry = StageBBackendRegistry() if registry is None else registry
+    return active_registry.execute(
+        block,
+        state,
+        segment_embeddings,
+        config=config,
+        valid_mask=valid_mask,
+    )
+
