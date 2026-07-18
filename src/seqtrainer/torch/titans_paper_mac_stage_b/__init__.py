@@ -67,6 +67,13 @@ from .telemetry import (
     write_stage_b_artifacts,
 )
 from .stack import StageBMACStack, StageBStackOutput
+from .long_context_benchmark import (
+    DEFAULT_LONG_CONTEXT_SCALES,
+    DEFAULT_LONG_CONTEXT_VARIANTS,
+    LongContextScale,
+    run_long_context_study,
+    write_long_context_study,
+)
 
 __all__ = [
     "APPROXIMATE_WINDOWS",
@@ -78,11 +85,14 @@ __all__ = [
     "BackendUnavailableError",
     "CausalConvolutionalUpdateGates",
     "DEFAULT_SCALES",
+    "DEFAULT_LONG_CONTEXT_SCALES",
+    "DEFAULT_LONG_CONTEXT_VARIANTS",
     "ExactAccelerationMatrix",
     "ExactAcceleratedMemoryBackend",
     "HardwareTelemetry",
     "GateBackend",
     "MemoryBackend",
+    "LongContextScale",
     "ModelGeometry",
     "ParityReport",
     "ScanFeasibilityResult",
@@ -104,6 +114,7 @@ __all__ = [
     "probe_flash_mask_support",
     "run_scan_feasibility_harness",
     "run_exact_acceleration_matrix",
+    "run_long_context_study",
     "run_convolution_comparison",
     "run_attention_backend_evidence",
     "run_approximate_scan_study",
@@ -112,6 +123,7 @@ __all__ = [
     "write_stage_b_artifacts",
     "write_scan_feasibility_artifact",
     "write_exact_acceleration_matrix",
+    "write_long_context_study",
     "write_convolution_comparison",
     "write_attention_backend_evidence",
     "write_approximate_scan_study",

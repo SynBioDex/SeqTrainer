@@ -18,6 +18,7 @@ from .convolution import CausalConvolutionalUpdateGates
 @dataclass(frozen=True)
 class StageBStackOutput:
     sequence: Tensor
+    block_sequences: tuple[Tensor, ...]
     retrievals: tuple[Tensor, ...]
     states: tuple[PaperMACStreamState, ...]
 
@@ -87,6 +88,7 @@ class StageBMACStack(nn.Module):
         active_registry = StageBBackendRegistry() if registry is None else registry
         sequence = segment_embeddings
         retrievals: list[Tensor] = []
+        block_sequences: list[Tensor] = []
         next_states: list[PaperMACStreamState] = []
         for index, (block, state) in enumerate(zip(self.blocks, states)):
             convolutional_gates = (
@@ -101,10 +103,12 @@ class StageBMACStack(nn.Module):
                 convolutional_gates=convolutional_gates,
             )
             sequence = output.sequence
+            block_sequences.append(output.sequence)
             retrievals.append(output.retrieval)
             next_states.append(output.state)
         return StageBStackOutput(
             sequence=sequence,
+            block_sequences=tuple(block_sequences),
             retrievals=tuple(retrievals),
             states=tuple(next_states),
         )

@@ -60,6 +60,7 @@ dev = [
 seqtrainer = "seqtrainer.cli.main:main"
 seqtrainer-titans-stage-a-benchmark = "seqtrainer.torch.titans_paper_mac.benchmark:main"
 seqtrainer-titans-stage-b-benchmark = "seqtrainer.torch.titans_paper_mac_stage_b.benchmark:main"
+seqtrainer-titans-stage-b-long-context = "seqtrainer.torch.titans_paper_mac_stage_b.long_context_benchmark:main"
 
 [project.urls]
 Homepage = "https://github.com/SynBioDex/SeqTrainer"
