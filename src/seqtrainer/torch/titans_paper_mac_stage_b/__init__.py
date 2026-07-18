@@ -14,6 +14,15 @@ from .config import (
     StageBBackendConfig,
 )
 from .parity import ParityReport, TensorParity, compare_backends
+from .scan_feasibility import (
+    AffineStateMap,
+    ScanFeasibilityResult,
+    affine_scan_linear_recurrence,
+    compose_affine,
+    run_scan_feasibility_harness,
+    sequential_linear_recurrence,
+    write_scan_feasibility_artifact,
+)
 from .telemetry import (
     HardwareTelemetry,
     ModelGeometry,
@@ -26,6 +35,7 @@ from .telemetry import (
 __all__ = [
     "APPROXIMATE_WINDOWS",
     "ActivationDType",
+    "AffineStateMap",
     "AttentionBackend",
     "BackendCapability",
     "BackendUnavailableError",
@@ -33,13 +43,19 @@ __all__ = [
     "MemoryBackend",
     "ModelGeometry",
     "ParityReport",
+    "ScanFeasibilityResult",
     "StageBBackendConfig",
     "StageBBackendRegistry",
     "StageBBenchmarkResult",
     "TensorParity",
     "TimingTelemetry",
+    "affine_scan_linear_recurrence",
     "benchmark_stage_b",
     "compare_backends",
+    "compose_affine",
     "execute_stage_b",
+    "run_scan_feasibility_harness",
+    "sequential_linear_recurrence",
     "write_stage_b_artifacts",
+    "write_scan_feasibility_artifact",
 ]
