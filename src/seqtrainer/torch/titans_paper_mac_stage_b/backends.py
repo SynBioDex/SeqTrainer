@@ -21,7 +21,7 @@ MemoryUpdate = Callable[
     [PaperMACBlock, PaperMACStreamState, Tensor, Optional[Tensor]],
     PaperMACStreamState,
 ]
-AttentionIntegration = Callable[[PaperMACBlock, Tensor, Tensor], Tensor]
+AttentionIntegration = Callable[[PaperMACBlock, Tensor, Tensor, ActivationDType], Tensor]
 
 
 @dataclass(frozen=True)
@@ -51,7 +51,16 @@ def _reference_memory_update(
     return block.memory.update_segment(state, sequence, valid_mask=valid_mask)
 
 
-def _reference_attention(block: PaperMACBlock, retrieval: Tensor, segment: Tensor) -> Tensor:
+def _reference_attention(
+    block: PaperMACBlock,
+    retrieval: Tensor,
+    segment: Tensor,
+    activation_dtype: ActivationDType,
+) -> Tensor:
+    if activation_dtype is not ActivationDType.FP32:
+        raise BackendUnavailableError(
+            "reduced precision is available only through the reviewed SDPA adapter"
+        )
     return block.integrate(retrieval, segment)
 
 
@@ -100,9 +109,9 @@ class StageBBackendRegistry:
             ),
             AttentionBackend.SDPA: BackendCapability(
                 name=AttentionBackend.SDPA.value,
-                exactness="pending",
-                available=False,
-                reason="unavailable until B6 proves the full [P,H,S] mask edge set",
+                exactness="fp64_oracle/fp32_numerical_parity",
+                available=True,
+                reason="B6 functional SDPA with the exact additive [P,H,S] mask",
             ),
             AttentionBackend.FLASH: BackendCapability(
                 name=AttentionBackend.FLASH.value,
@@ -111,10 +120,16 @@ class StageBBackendRegistry:
                 reason="unavailable until B6 validates mask support on CUDA/A100",
             ),
         }
-        self._activation_dtypes = {ActivationDType.FP32}
+        self._activation_dtypes = {
+            ActivationDType.FP32,
+            ActivationDType.BF16,
+            ActivationDType.FP16,
+        }
         from .exact_acceleration import ExactAcceleratedMemoryBackend
+        from .attention import integrate_sdpa_attention
 
         self._memory_updates[MemoryBackend.EXACT_ACCELERATED] = ExactAcceleratedMemoryBackend()
+        self._attention_integrations[AttentionBackend.SDPA] = integrate_sdpa_attention
 
     def register_memory(
         self,
@@ -155,6 +170,36 @@ class StageBBackendRegistry:
     def enable_activation_dtype(self, dtype: ActivationDType) -> None:
         self._activation_dtypes.add(ActivationDType(dtype))
 
+    def probe_and_enable_flash(
+        self,
+        block: PaperMACBlock,
+        *,
+        activation_dtype: ActivationDType = ActivationDType.FP16,
+    ) -> dict[str, object]:
+        """Register Flash only after a forced exact-mask A100 probe succeeds."""
+
+        from .attention import integrate_flash_attention, probe_flash_mask_support
+
+        result = probe_flash_mask_support(
+            block,
+            activation_dtype=activation_dtype,
+        )
+        if bool(result["available"]):
+            self.register_attention(
+                AttentionBackend.FLASH,
+                integrate_flash_attention,
+                exactness="exact_mask_mixed_precision_behavioral",
+                reason=str(result["reason"]),
+            )
+        else:
+            self._attention_capabilities[AttentionBackend.FLASH] = BackendCapability(
+                name=AttentionBackend.FLASH.value,
+                exactness="unavailable_hardware_probe",
+                available=False,
+                reason=str(result["reason"]),
+            )
+        return result
+
     def validate(self, config: StageBBackendConfig) -> None:
         memory = self._memory_capabilities[config.memory_backend]
         if not memory.available or config.memory_backend not in self._memory_updates:
@@ -167,6 +212,14 @@ class StageBBackendRegistry:
         if config.activation_dtype not in self._activation_dtypes:
             raise BackendUnavailableError(
                 f"activation dtype {config.activation_dtype.value!r} is unavailable until B6"
+            )
+        if (
+            config.activation_dtype is not ActivationDType.FP32
+            and config.attention_backend
+            not in (AttentionBackend.SDPA, AttentionBackend.FLASH)
+        ):
+            raise BackendUnavailableError(
+                "reduced precision is available only for reviewed SDPA/Flash attention"
             )
 
     def memory_capabilities(self) -> dict[str, dict[str, object]]:
@@ -187,7 +240,11 @@ class StageBBackendRegistry:
         )
         return {
             "memory": metadata,
-            "attention": {"implementation": config.attention_backend.value},
+            "attention": {
+                "implementation": config.attention_backend.value,
+                "activation_dtype": config.activation_dtype.value,
+                "memory_state_dtype": "unchanged_fp32_island_for_mixed_precision",
+            },
             "gates": {
                 "implementation": config.gate_backend.value,
                 "convolution_kernel_size": (
@@ -213,7 +270,10 @@ class StageBBackendRegistry:
         self.validate(config)
         retrieval = block.memory.read_segment(state, segment_embeddings)
         sequence = self._attention_integrations[config.attention_backend](
-            block, retrieval, segment_embeddings
+            block,
+            retrieval,
+            segment_embeddings,
+            config.activation_dtype,
         )
         if config.gate_backend is GateBackend.CAUSAL_CONVOLUTION:
             if config.memory_backend is not MemoryBackend.REFERENCE:

@@ -1,0 +1,212 @@
+{
+  "causality": {
+    "future_perturb_position": 19,
+    "passed": true,
+    "prefix_maximum_error": 0.0
+  },
+  "flash_probe": {
+    "available": false,
+    "device": "cpu",
+    "reason": "unavailable: no CUDA device attached"
+  },
+  "format_version": 1,
+  "hardware": {
+    "cuda_device": null,
+    "device": "cpu",
+    "platform": "macOS-10.16-x86_64-i386-64bit",
+    "python": "3.12.11",
+    "torch": "2.2.2"
+  },
+  "mask": {
+    "allowed_edges": 2384,
+    "blocked_edges": 2240,
+    "boolean_complement_mismatches": 0,
+    "layout": "[persistent, retrieval, sequence]",
+    "persistent_queries_restricted_to_persistent_keys": true,
+    "shape": [
+      68,
+      68
+    ]
+  },
+  "mixed_precision_behavioral": {
+    "bfloat16": {
+      "available": true,
+      "classification": "behavioral_parity_not_numerical_parity",
+      "fast_weights": {
+        "maximum_absolute_error": 0.008118987083435059,
+        "maximum_relative_error": 5.692916929169292
+      },
+      "memory_state_dtypes": [
+        "float32"
+      ],
+      "published_sequence_dtype": "float32",
+      "sequence": {
+        "maximum_absolute_error": 0.008300542831420898,
+        "maximum_relative_error": 0.14496680575249535,
+        "tensor_exact": false
+      },
+      "surprise": {
+        "maximum_absolute_error": 0.006731629371643066,
+        "maximum_relative_error": 2.5545189071470995
+      }
+    },
+    "float16": {
+      "available": false,
+      "classification": "unavailable",
+      "reason": "Stage B permits FP16 SDPA only on CUDA"
+    }
+  },
+  "parity": {
+    "fp32_numerical": {
+      "attention_gradient": {
+        "attention.in_proj_bias": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        },
+        "attention.in_proj_weight": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        },
+        "attention.out_proj.bias": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        },
+        "attention.out_proj.weight": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        }
+      },
+      "dtype": "float32",
+      "fast_weights": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0
+      },
+      "input_gradient": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "persistent_token_gradient": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "retrieval": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "sequence": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "surprise": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0
+      }
+    },
+    "fp64_oracle": {
+      "attention_gradient": {
+        "attention.in_proj_bias": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        },
+        "attention.in_proj_weight": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        },
+        "attention.out_proj.bias": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        },
+        "attention.out_proj.weight": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        }
+      },
+      "dtype": "float64",
+      "fast_weights": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0
+      },
+      "input_gradient": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "persistent_token_gradient": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "retrieval": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "sequence": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "surprise": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0
+      }
+    }
+  },
+  "seed": 20260735,
+  "timing": {
+    "geometry": {
+      "d_model": 64,
+      "num_heads": 4,
+      "persistent_tokens": 4,
+      "segment_length": 32
+    },
+    "multihead_attention": {
+      "mean_seconds": 0.003090028796577826,
+      "repetitions": 10,
+      "samples_seconds": [
+        0.003500977996736765,
+        0.0031551930005662143,
+        0.002919482998549938,
+        0.0026255460106767714,
+        0.0030670110136270523,
+        0.003043224976863712,
+        0.004199547984171659,
+        0.0028813689714297652,
+        0.0027163710328750312,
+        0.002791563980281353
+      ],
+      "tokens_per_second": 10355.890545563736,
+      "warmup_runs": 2
+    },
+    "sdpa": {
+      "mean_seconds": 0.002874863299075514,
+      "repetitions": 10,
+      "samples_seconds": [
+        0.0027378109516575933,
+        0.0028053030255250633,
+        0.0026890659937635064,
+        0.0029640590073540807,
+        0.0032266490161418915,
+        0.002956698997877538,
+        0.002801041991915554,
+        0.0030280029750429094,
+        0.0027389759779907763,
+        0.002801025053486228
+      ],
+      "tokens_per_second": 11130.964039330294,
+      "warmup_runs": 2
+    }
+  }
+}

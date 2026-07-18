@@ -41,8 +41,7 @@ def test_reference_is_default_and_unreviewed_modes_are_rejected() -> None:
             kwargs["approximate_window"] = 4
         with pytest.raises(BackendUnavailableError):
             registry.validate(StageBBackendConfig(**kwargs))
-    with pytest.raises(BackendUnavailableError):
-        registry.validate(StageBBackendConfig(attention_backend=AttentionBackend.SDPA))
+    registry.validate(StageBBackendConfig(attention_backend=AttentionBackend.SDPA))
     with pytest.raises(BackendUnavailableError):
         registry.validate(StageBBackendConfig(activation_dtype=ActivationDType.BF16))
 

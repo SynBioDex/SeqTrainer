@@ -6,6 +6,16 @@ from .backends import (
     StageBBackendRegistry,
     execute_stage_b,
 )
+from .attention import (
+    integrate_flash_attention,
+    integrate_sdpa_attention,
+    probe_flash_mask_support,
+    sdpa_allowed_attention_mask,
+)
+from .attention_benchmark import (
+    run_attention_backend_evidence,
+    write_attention_backend_evidence,
+)
 from .config import (
     APPROXIMATE_WINDOWS,
     ActivationDType,
@@ -80,13 +90,19 @@ __all__ = [
     "compare_backends",
     "compose_affine",
     "execute_stage_b",
+    "integrate_flash_attention",
+    "integrate_sdpa_attention",
+    "probe_flash_mask_support",
     "run_scan_feasibility_harness",
     "run_exact_acceleration_matrix",
     "run_convolution_comparison",
+    "run_attention_backend_evidence",
     "sequential_linear_recurrence",
+    "sdpa_allowed_attention_mask",
     "write_stage_b_artifacts",
     "write_scan_feasibility_artifact",
     "write_exact_acceleration_matrix",
     "write_convolution_comparison",
+    "write_attention_backend_evidence",
     "update_segment_with_convolutional_gates",
 ]
