@@ -31,6 +31,7 @@ class ParityReport:
     rtol: float
     sequence: TensorParity
     retrieval: TensorParity
+    input_gradient: TensorParity
     fast_weights: Mapping[str, TensorParity]
     surprise: Mapping[str, TensorParity]
     trainable_gradients: Mapping[str, TensorParity]
@@ -94,6 +95,9 @@ def _capture(
         for name, parameter in block.named_parameters()
         if parameter.grad is not None
     }
+    if candidate_segment.grad is None:
+        raise RuntimeError("parity loss did not reach the segment input")
+    gradients["__input__"] = candidate_segment.grad.detach().clone()
     return output, gradients
 
 
@@ -144,9 +148,17 @@ def compare_backends(
         name: _compare(reference_gradients[name], candidate_gradients[name], atol=atol, rtol=rtol)
         for name in reference_gradients
     }
+    input_gradient = gradients.pop("__input__")
     sequence = _compare(reference.sequence, candidate.sequence, atol=atol, rtol=rtol)
     retrieval = _compare(reference.retrieval, candidate.retrieval, atol=atol, rtol=rtol)
-    comparisons = [sequence, retrieval, *fast_weights.values(), *surprise.values(), *gradients.values()]
+    comparisons = [
+        sequence,
+        retrieval,
+        input_gradient,
+        *fast_weights.values(),
+        *surprise.values(),
+        *gradients.values(),
+    ]
     return ParityReport(
         reference_config=reference_config.to_dict(),
         candidate_config=candidate_config.to_dict(),
@@ -154,9 +166,9 @@ def compare_backends(
         rtol=rtol,
         sequence=sequence,
         retrieval=retrieval,
+        input_gradient=input_gradient,
         fast_weights=fast_weights,
         surprise=surprise,
         trainable_gradients=gradients,
         passed=all(item.close for item in comparisons),
     )
-

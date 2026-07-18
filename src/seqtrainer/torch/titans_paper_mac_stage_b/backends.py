@@ -74,9 +74,9 @@ class StageBBackendRegistry:
             ),
             MemoryBackend.EXACT_ACCELERATED: BackendCapability(
                 name=MemoryBackend.EXACT_ACCELERATED.value,
-                exactness="pending",
-                available=False,
-                reason="unavailable until B3 proves parity and fallback behavior",
+                exactness="tensor_exact_functional_loop",
+                available=True,
+                reason="B3 functional-loop refactor with evolving gradients and reference fallback",
             ),
             MemoryBackend.EXACT_SCAN: BackendCapability(
                 name=MemoryBackend.EXACT_SCAN.value,
@@ -112,6 +112,9 @@ class StageBBackendRegistry:
             ),
         }
         self._activation_dtypes = {ActivationDType.FP32}
+        from .exact_acceleration import ExactAcceleratedMemoryBackend
+
+        self._memory_updates[MemoryBackend.EXACT_ACCELERATED] = ExactAcceleratedMemoryBackend()
 
     def register_memory(
         self,
@@ -175,6 +178,18 @@ class StageBBackendRegistry:
             for backend, capability in self._attention_capabilities.items()
         }
 
+    def runtime_metadata(self, config: StageBBackendConfig) -> dict[str, object]:
+        memory_implementation = self._memory_updates[config.memory_backend]
+        metadata = (
+            memory_implementation.runtime_metadata()
+            if hasattr(memory_implementation, "runtime_metadata")
+            else {"implementation": config.memory_backend.value}
+        )
+        return {
+            "memory": metadata,
+            "attention": {"implementation": config.attention_backend.value},
+        }
+
     def execute(
         self,
         block: PaperMACBlock,
@@ -220,4 +235,3 @@ def execute_stage_b(
         config=config,
         valid_mask=valid_mask,
     )
-

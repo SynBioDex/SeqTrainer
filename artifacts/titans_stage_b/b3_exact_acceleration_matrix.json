@@ -1,0 +1,172 @@
+{
+  "host_platform": "macOS-15.7.4-x86_64-i386-64bit",
+  "results": [
+    {
+      "device": "cpu",
+      "device_name": "CPU x86_64",
+      "dtype": "float32",
+      "exact_accelerated": {
+        "available": true,
+        "backend": "exact_accelerated",
+        "median_wall_time_seconds": 0.8435525739914738,
+        "reason": "measured",
+        "runtime_metadata": {
+          "attention": {
+            "implementation": "multihead_attention"
+          },
+          "memory": {
+            "accelerated_calls": 4,
+            "fallback_calls": 0,
+            "implementation": "exact_functional_loop",
+            "last_execution": "exact_functional_loop",
+            "stale_gradients": false,
+            "token_order_preserved": true
+          }
+        },
+        "state_payload_bytes": 66560,
+        "tokens_per_second": 75.86960430595151,
+        "wall_times_seconds": [
+          0.8435525739914738
+        ]
+      },
+      "parameter_count": 67334,
+      "reference": {
+        "available": true,
+        "backend": "reference",
+        "median_wall_time_seconds": 1.0392587870010175,
+        "reason": "measured",
+        "runtime_metadata": {
+          "attention": {
+            "implementation": "multihead_attention"
+          },
+          "memory": {
+            "implementation": "reference"
+          }
+        },
+        "state_payload_bytes": 66560,
+        "tokens_per_second": 61.58235157643882,
+        "wall_times_seconds": [
+          1.0392587870010175
+        ]
+      },
+      "repetitions": 1,
+      "scale": {
+        "block_count": 2,
+        "d_model": 64,
+        "memory_depth": 1,
+        "name": "debug",
+        "num_heads": 4,
+        "persistent_tokens": 4,
+        "segment_count": 1
+      },
+      "seed": 20260727,
+      "speedup": 1.2320023897070367,
+      "tensor_exact": true,
+      "warmup_runs": 1
+    },
+    {
+      "device": "cpu",
+      "device_name": "CPU x86_64",
+      "dtype": "float32",
+      "exact_accelerated": {
+        "available": true,
+        "backend": "exact_accelerated",
+        "median_wall_time_seconds": 2.160158457001671,
+        "reason": "measured",
+        "runtime_metadata": {
+          "attention": {
+            "implementation": "multihead_attention"
+          },
+          "memory": {
+            "accelerated_calls": 8,
+            "fallback_calls": 0,
+            "implementation": "exact_functional_loop",
+            "last_execution": "exact_functional_loop",
+            "stale_gradients": false,
+            "token_order_preserved": true
+          }
+        },
+        "state_payload_bytes": 2105344,
+        "tokens_per_second": 59.25491233530419,
+        "wall_times_seconds": [
+          2.160158457001671
+        ]
+      },
+      "parameter_count": 2111500,
+      "reference": {
+        "available": true,
+        "backend": "reference",
+        "median_wall_time_seconds": 1.7726075620157644,
+        "reason": "measured",
+        "runtime_metadata": {
+          "attention": {
+            "implementation": "multihead_attention"
+          },
+          "memory": {
+            "implementation": "reference"
+          }
+        },
+        "state_payload_bytes": 2105344,
+        "tokens_per_second": 72.2100044831365,
+        "wall_times_seconds": [
+          1.7726075620157644
+        ]
+      },
+      "repetitions": 1,
+      "scale": {
+        "block_count": 4,
+        "d_model": 256,
+        "memory_depth": 1,
+        "name": "nimble",
+        "num_heads": 8,
+        "persistent_tokens": 4,
+        "segment_count": 1
+      },
+      "seed": 20260728,
+      "speedup": 0.8205914507198547,
+      "tensor_exact": true,
+      "warmup_runs": 1
+    },
+    {
+      "device": "cpu",
+      "device_name": "CPU x86_64",
+      "dtype": "float32",
+      "exact_accelerated": {
+        "available": false,
+        "backend": "exact_accelerated",
+        "median_wall_time_seconds": null,
+        "reason": "named Colab Pro A100 environment is unavailable in this execution",
+        "runtime_metadata": null,
+        "state_payload_bytes": null,
+        "tokens_per_second": null,
+        "wall_times_seconds": []
+      },
+      "parameter_count": null,
+      "reference": {
+        "available": false,
+        "backend": "reference",
+        "median_wall_time_seconds": null,
+        "reason": "named Colab Pro A100 environment is unavailable in this execution",
+        "runtime_metadata": null,
+        "state_payload_bytes": null,
+        "tokens_per_second": null,
+        "wall_times_seconds": []
+      },
+      "repetitions": 1,
+      "scale": {
+        "block_count": 8,
+        "d_model": 384,
+        "memory_depth": 1,
+        "name": "a100_pilot",
+        "num_heads": 8,
+        "persistent_tokens": 4,
+        "segment_count": 1
+      },
+      "seed": 20260727,
+      "speedup": null,
+      "tensor_exact": null,
+      "warmup_runs": 1
+    }
+  ],
+  "torch_version": "2.2.2"
+}

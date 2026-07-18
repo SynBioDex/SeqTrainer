@@ -64,6 +64,7 @@ class StageBBenchmarkResult:
     hardware: HardwareTelemetry
     timing: TimingTelemetry
     state_payload_bytes: int
+    backend_runtime: dict[str, object]
     parity: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
@@ -184,6 +185,7 @@ def benchmark_stage_b(
             token_count=token_count,
         ),
         state_payload_bytes=_state_payload_bytes(final_state),
+        backend_runtime=active_registry.runtime_metadata(config),
         parity=None if parity is None else parity.to_dict(),
     )
 

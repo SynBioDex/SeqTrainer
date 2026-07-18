@@ -30,15 +30,12 @@ def test_reference_is_default_and_unreviewed_modes_are_rejected() -> None:
     assert config.attention_backend is AttentionBackend.MULTIHEAD_ATTENTION
     assert config.activation_dtype is ActivationDType.FP32
     assert registry.memory_capabilities()["reference"]["available"] is True
-    assert registry.memory_capabilities()["exact_accelerated"]["available"] is False
+    assert registry.memory_capabilities()["exact_accelerated"]["available"] is True
     assert registry.memory_capabilities()["exact_scan"]["available"] is False
     assert registry.memory_capabilities()["approximate_scan"]["available"] is False
 
-    for backend in (
-        MemoryBackend.EXACT_ACCELERATED,
-        MemoryBackend.EXACT_SCAN,
-        MemoryBackend.APPROXIMATE_SCAN,
-    ):
+    registry.validate(StageBBackendConfig(memory_backend=MemoryBackend.EXACT_ACCELERATED))
+    for backend in (MemoryBackend.EXACT_SCAN, MemoryBackend.APPROXIMATE_SCAN):
         kwargs = {"memory_backend": backend}
         if backend is MemoryBackend.APPROXIMATE_SCAN:
             kwargs["approximate_window"] = 4
@@ -76,6 +73,7 @@ def test_parity_report_includes_output_state_surprise_and_trainable_gradients() 
 
     assert report.passed
     assert report.sequence.exact and report.retrieval.exact
+    assert report.input_gradient.exact
     assert report.fast_weights and all(item.exact for item in report.fast_weights.values())
     assert report.surprise and all(item.exact for item in report.surprise.values())
     assert report.trainable_gradients
