@@ -58,3 +58,7 @@ The ready-to-run version is [titans_stage_b_a100_colab.ipynb](../../notebooks/ti
    ```
 
 The audit remains `NO_GO` when the directory is absent, incomplete, modified after capture, or fails any semantic check. A successful pilot removes the hardware/performance blockers but does not authorize Stage C unless every other audit criterion also passes.
+
+## Failure diagnostics
+
+Each attempt gets its own Drive folder even if it fails. The launcher writes the failing subprocess output to `<run>/logs/<step>.txt`, records the path in `<run>/FAILED.txt`, prints the last 120 log lines, and the notebook's final cell can print those tails again. For an older failed notebook run, execute that final cell manually; it finds the newest folder with `logs/` below `MyDrive/SeqTrainerA100/`.

@@ -18,23 +18,46 @@ import sys
 from typing import Sequence
 
 
+class CaptureCommandError(RuntimeError):
+    """A failed child process whose complete output is saved in Drive."""
+
+    def __init__(self, command: Sequence[str], log_path: Path, returncode: int):
+        super().__init__(
+            f"command failed with exit code {returncode}: {' '.join(command)}; see {log_path}"
+        )
+        self.command = tuple(command)
+        self.log_path = log_path
+        self.returncode = returncode
+        self.output_directory: Path | None = None
+
+
+def _tail(path: Path, *, lines: int = 120) -> str:
+    """Return a bounded tail so Colab displays the actionable part of a log."""
+
+    content = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    return "\n".join(content[-lines:])
+
+
 def _run(command: Sequence[str], log_path: Path, *, cwd: Path) -> None:
     """Run one command, preserving its complete output in the Drive folder."""
 
-    completed = subprocess.run(
-        command,
-        cwd=cwd,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        check=False,
-    )
-    log_path.write_text(completed.stdout, encoding="utf-8")
-    if completed.returncode:
-        raise RuntimeError(
-            f"command failed with exit code {completed.returncode}: {' '.join(command)}; "
-            f"see {log_path}"
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=cwd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
         )
+        output = completed.stdout
+        returncode = completed.returncode
+    except OSError as error:
+        output = f"could not start {' '.join(command)}: {error}\n"
+        returncode = 127
+    log_path.write_text(output, encoding="utf-8")
+    if returncode:
+        raise CaptureCommandError(command, log_path, returncode)
 
 
 def _output_path(drive_root: Path, run_id: str | None) -> Path:
@@ -93,57 +116,67 @@ def run_capture(
     (output / "capture_metadata.json").write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-    _run(["nvidia-smi"], logs / "nvidia-smi.txt", cwd=repository_root)
-    if run_tests:
+    try:
+        _run(["nvidia-smi"], logs / "nvidia-smi.txt", cwd=repository_root)
+        if run_tests:
+            _run(
+                [
+                    str(python),
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "tests/test_titans_paper_mac_stage_b_a100_pilot.py",
+                    "tests/test_titans_paper_mac_stage_b_training_step.py",
+                ],
+                logs / "contract_tests.txt",
+                cwd=repository_root,
+            )
         _run(
             [
                 str(python),
                 "-m",
-                "pytest",
-                "-q",
-                "tests/test_titans_paper_mac_stage_b_a100_pilot.py",
-                "tests/test_titans_paper_mac_stage_b_training_step.py",
+                "seqtrainer.torch.titans_paper_mac_stage_b.a100_pilot",
+                "--preflight-only",
             ],
-            logs / "contract_tests.txt",
+            logs / "a100_preflight.txt",
             cwd=repository_root,
         )
-    _run(
-        [
-            str(python),
-            "-m",
-            "seqtrainer.torch.titans_paper_mac_stage_b.a100_pilot",
-            "--preflight-only",
-        ],
-        logs / "a100_preflight.txt",
-        cwd=repository_root,
-    )
-    _run(
-        [
-            str(python),
-            "-m",
-            "seqtrainer.torch.titans_paper_mac_stage_b.a100_pilot",
-            "--output-dir",
-            str(evidence),
-            "--warmup-runs",
-            str(warmup_runs),
-            "--repetitions",
-            str(repetitions),
-        ],
-        logs / "a100_capture.txt",
-        cwd=repository_root,
-    )
-    _run(
-        [
-            str(python),
-            "-m",
-            "seqtrainer.torch.titans_paper_mac_stage_b.a100_pilot",
-            "--output-dir",
-            str(evidence),
-            "--verify-only",
-        ],
-        logs / "a100_verify.txt",
-        cwd=repository_root,
-    )
+        _run(
+            [
+                str(python),
+                "-m",
+                "seqtrainer.torch.titans_paper_mac_stage_b.a100_pilot",
+                "--output-dir",
+                str(evidence),
+                "--warmup-runs",
+                str(warmup_runs),
+                "--repetitions",
+                str(repetitions),
+            ],
+            logs / "a100_capture.txt",
+            cwd=repository_root,
+        )
+        _run(
+            [
+                str(python),
+                "-m",
+                "seqtrainer.torch.titans_paper_mac_stage_b.a100_pilot",
+                "--output-dir",
+                str(evidence),
+                "--verify-only",
+            ],
+            logs / "a100_verify.txt",
+            cwd=repository_root,
+        )
+    except CaptureCommandError as error:
+        error.output_directory = output
+        (output / "FAILED.txt").write_text(
+            f"Stage B A100 capture failed.\n\n{error}\n\n"
+            f"Failed log: {error.log_path}\n"
+            "Open the log above or rerun the final notebook cell to print its tail.\n",
+            encoding="utf-8",
+        )
+        raise
     (output / "README.txt").write_text(
         "This directory is the complete Stage B named-A100 handoff. Share the "
         "directory containing a100/ and logs/; do not share only the manifest.\n"
@@ -181,6 +214,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_id=args.run_id,
             run_tests=not args.skip_contract_tests,
         )
+    except CaptureCommandError as error:
+        print(f"Stage B A100 capture failed: {error}")
+        assert error.output_directory is not None
+        print(f"Drive debug folder: {error.output_directory}")
+        print(f"\n--- tail: {error.log_path.name} ---")
+        print(_tail(error.log_path))
+        return 1
     except (FileExistsError, RuntimeError, ValueError) as error:
         print(f"Stage B A100 capture failed: {error}")
         return 1
