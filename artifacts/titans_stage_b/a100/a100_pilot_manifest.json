@@ -1,0 +1,64 @@
+{
+  "artifact_sha256": {
+    "a100_preflight.json": "ab9d978937ad7f265dc6582e432841f4f1dfb82e8306d3c4ac8c5234b1ff066e",
+    "a100_training_step_matrix.json": "c8cfb6201b4696657a0c430ad872f6a7a8696674b031bd29dd7116879388f8a3",
+    "b3_exact_acceleration_matrix.json": "635b785dacf06c2ed508a1283d70f8459ba048267e515fae5397f8dcb4c39d44",
+    "b6_attention_backend_evidence.json": "d93ee68662127d4a9c84ac9c1c81cc62f1ebdc4fd066042db18f320556022645",
+    "b7_long_context_study.json": "b5749bd2559047f4dc3600b4412af6a14df7ce2ddba47f53471da210589d2b9a"
+  },
+  "created_utc": "2026-07-19T02:50:24.099789+00:00",
+  "format_version": 1,
+  "git_commit": "68262e4e4c8e6207c208fc5e7e7b31baa2ab191f",
+  "verification": {
+    "checks": [
+      {
+        "criterion": "Named A100 preflight",
+        "evidence": "NVIDIA A100-SXM4-40GB",
+        "passed": true
+      },
+      {
+        "criterion": "Repeated tensor-exact B3 run",
+        "evidence": "{'scale': {'name': 'a100_pilot', 'block_count': 8, 'd_model': 384, 'num_heads': 8, 'persistent_tokens': 4, 'memory_depth': 1, 'segment_count': 1}, 'device': 'cuda', 'device_name': 'NVIDIA A100-SXM4-40GB', 'dtype': 'float32', 'seed': 20260727, 'warmup_runs': 1, 'repetitions': 3, 'parameter_count': 9480216, 'tensor_exact': True, 'reference': {'backend': 'reference', 'available': True, 'reason': 'measured', 'wall_times_seconds': (0.29320558300000243, 0.3634484429999816, 0.30649965699998916), 'median_wall_time_seconds': 0.30649965699998916, 'tokens_per_second': 835.2374763016751, 'state_payload_bytes': 9461760, 'runtime_metadata': {'memory': {'implementation': 'reference'}, 'attention': {'implementation': 'multihead_attention', 'activation_dtype': 'float32', 'memory_state_dtype': 'unchanged_fp32_island_for_mixed_precision'}, 'gates': {'implementation': 'token_wise', 'convolution_kernel_size': None}}}, 'exact_accelerated': {'backend': 'exact_accelerated', 'available': True, 'reason': 'measured', 'wall_times_seconds': (0.3009932150000054, 0.3796968260000142, 0.302568100000002), 'median_wall_time_seconds': 0.302568100000002, 'tokens_per_second': 846.090516482069, 'state_payload_bytes': 9461760, 'runtime_metadata': {'memory': {'implementation': 'exact_functional_loop', 'last_execution': 'exact_functional_loop', 'accelerated_calls': 32, 'fallback_calls': 0, 'stale_gradients': False, 'token_order_preserved': True}, 'attention': {'implementation': 'multihead_attention', 'activation_dtype': 'float32', 'memory_state_dtype': 'unchanged_fp32_island_for_mixed_precision'}, 'gates': {'implementation': 'token_wise', 'convolution_kernel_size': None}}}, 'speedup': 1.0129939573933509}",
+        "passed": true
+      },
+      {
+        "criterion": "Attention parity, exact mask, and causality",
+        "evidence": "fp64=True; fp32=True; mask={'layout': '[persistent, retrieval, sequence]', 'shape': [68, 68], 'allowed_edges': 2384, 'blocked_edges': 2240, 'boolean_complement_mismatches': 0, 'persistent_queries_restricted_to_persistent_keys': True}; causality={'future_perturb_position': 19, 'prefix_maximum_error': 0.0, 'passed': True}",
+        "passed": true
+      },
+      {
+        "criterion": "BF16/FP16 preserve the FP32 memory island",
+        "evidence": "{'bfloat16': {'available': True, 'classification': 'behavioral_parity_not_numerical_parity', 'sequence': {'maximum_absolute_error': 0.008179545402526855, 'maximum_relative_error': 0.07752143320145265, 'tensor_exact': False}, 'fast_weights': {'maximum_absolute_error': 0.1973867416381836, 'maximum_relative_error': 0.055659053380617704}, 'surprise': {'maximum_absolute_error': 0.15624237060546875, 'maximum_relative_error': 0.9220684603967494}, 'published_sequence_dtype': 'float32', 'memory_state_dtypes': ['float32']}, 'float16': {'available': True, 'classification': 'behavioral_parity_not_numerical_parity', 'sequence': {'maximum_absolute_error': 0.0010881423950195312, 'maximum_relative_error': 0.02699389410484741, 'tensor_exact': False}, 'fast_weights': {'maximum_absolute_error': 0.023639678955078125, 'maximum_relative_error': 0.022390435671346378}, 'surprise': {'maximum_absolute_error': 0.015446662902832031, 'maximum_relative_error': 0.22188460275859842}, 'published_sequence_dtype': 'float32', 'memory_state_dtypes': ['float32']}}",
+        "passed": true
+      },
+      {
+        "criterion": "Forced exact-mask Flash probe attempted",
+        "evidence": "{'available': False, 'reason': 'forced Flash SDP rejected the exact mask: No available kernel. Aborting execution.', 'device': 'NVIDIA A100-SXM4-40GB', 'activation_dtype': 'float16'}",
+        "passed": true
+      },
+      {
+        "criterion": "A100 long-stream matrix is finite and causal",
+        "evidence": "{'platform': 'Linux-6.6.122+-x86_64-with-glibc2.35', 'machine': 'x86_64', 'torch': '2.11.0+cu128', 'device': 'cuda', 'device_name': 'NVIDIA A100-SXM4-40GB', 'cuda_available': True, 'a100_available': True}",
+        "passed": true
+      },
+      {
+        "criterion": "Adaptive memory beats controls at 512 tokens",
+        "evidence": "adaptive=1.0; controls=0.0",
+        "passed": true
+      },
+      {
+        "criterion": "Repeated outer-training steps cross the written state",
+        "evidence": "{'reference_fp32': 60.64823772231346, 'exact_fp32': 63.54327849198436, 'exact_sdpa_fp32': 65.06968947475528}",
+        "passed": true
+      },
+      {
+        "criterion": "Target-hardware default uses a 5% exact-backend threshold",
+        "evidence": "reference=60.648; fastest=exact_sdpa_fp32:65.070; selected=exact_sdpa_fp32",
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "selected_default": "exact_sdpa_fp32",
+    "selection_rule": "Select the fastest tensor-exact FP32 backend only at >=1.05x reference throughput; otherwise retain reference_fp32. Approximate variants are ineligible."
+  }
+}

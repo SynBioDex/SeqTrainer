@@ -78,6 +78,16 @@ def build_stage_b_audit(
     a100_available = bool(
         a100_verification is not None and a100_verification.get("passed")
     )
+    a100_sources: dict[str, object] = {}
+    if a100_available:
+        for name, filename in (
+            ("exact", "b3_exact_acceleration_matrix.json"),
+            ("attention", "b6_attention_backend_evidence.json"),
+            ("training", "a100_training_step_matrix.json"),
+        ):
+            a100_sources[name] = json.loads(
+                (a100_directory / filename).read_text(encoding="utf-8")
+            )
     exact_scales = {
         item["scale"]["name"]: item for item in b3["results"]
     }
@@ -200,8 +210,24 @@ def build_stage_b_audit(
         selected_default = {
             "reference_fp32": "reference",
             "exact_fp32": "exact_accelerated",
-            "exact_sdpa_fp32": "sdpa",
+            "exact_sdpa_fp32": "exact_accelerated+sdpa",
         }[str(a100_verification["selected_default"])]
+
+    a100_training_variants: dict[str, Mapping[str, object]] = {}
+    a100_exact_scale: Mapping[str, object] | None = None
+    if a100_available:
+        a100_training = a100_sources["training"]
+        assert isinstance(a100_training, Mapping)
+        a100_training_variants = {
+            str(item["variant"]): item for item in a100_training["variants"]
+        }
+        a100_exact = a100_sources["exact"]
+        assert isinstance(a100_exact, Mapping)
+        a100_exact_scale = next(
+            item
+            for item in a100_exact["results"]
+            if item["scale"]["name"] == "a100_pilot"
+        )
 
     backends = [
         {
@@ -211,13 +237,26 @@ def build_stage_b_audit(
             "paper_mapping": "Equations 11–15 and read-once/integrate/write-once MAC; authoritative [P,H,S] mask",
             "causal_result": "PASS: immutable Stage A and B7 future-perturbation tests",
             "parity": "B1 reference-to-reference output/retrieval/state/surprise/trainable-gradient error 0",
-            "hardware_precision": "Intel MacBook CPU; FP64 oracle and FP32 execution; A100 unavailable",
+            "hardware_precision": (
+                "Intel MacBook CPU plus named NVIDIA A100-SXM4-40GB; FP64 oracle and FP32 execution"
+                if a100_available
+                else "Intel MacBook CPU; FP64 oracle and FP32 execution; A100 unavailable"
+            ),
             "geometry_timing": (
                 f"B1 1x d=8: {b1['timing']['tokens_per_second']:.2f} tok/s, 1 warmup/3 reps; "
                 f"B7 nimble 4x d=256: {_scale_variant(b7, 'nimble', 'reference')['tokens_per_second']:.2f} tok/s"
+                + (
+                    f"; A100 two-segment training {a100_training_variants['reference_fp32']['tokens_per_second']:.2f} tok/s, 3 reps"
+                    if a100_available
+                    else ""
+                )
             ),
-            "default": True,
-            "limitations": "No target A100 training-step performance or memory-capacity evidence.",
+            "default": False,
+            "limitations": (
+                "A100 evidence is a small synthetic two-segment pilot, not a 2,048-token capacity result."
+                if a100_available
+                else "No target A100 training-step performance or memory-capacity evidence."
+            ),
         },
         {
             "name": "exact_accelerated",
@@ -226,13 +265,27 @@ def build_stage_b_audit(
             "paper_mapping": "Same nonlinear evolving-gradient recurrence; execution refactor only",
             "causal_result": "PASS: attention/read-write path unchanged; B7 prefix test",
             "parity": "B3 FP32 debug/nimble tensor-exact; B7 context drift 0",
-            "hardware_precision": "Intel MacBook CPU FP32; A100 unavailable",
+            "hardware_precision": (
+                "Intel MacBook CPU FP32 plus named NVIDIA A100-SXM4-40GB FP32"
+                if a100_available
+                else "Intel MacBook CPU FP32; A100 unavailable"
+            ),
             "geometry_timing": (
                 f"B3 debug speedup {exact_scales['debug']['speedup']:.3f}x; "
                 f"nimble {exact_scales['nimble']['speedup']:.3f}x; 1 warmup/1 rep"
+                + (
+                    f"; A100 B3 {a100_exact_scale['speedup']:.3f}x and two-segment training "
+                    f"{a100_training_variants['exact_fp32']['tokens_per_second']:.2f} tok/s, 3 reps"
+                    if a100_available and a100_exact_scale is not None
+                    else ""
+                )
             ),
             "default": False,
-            "limitations": "Not consistently faster; no A100 result.",
+            "limitations": (
+                "Only modestly faster alone on the A100 pilot; the combined exact-memory plus SDPA configuration won the default gate."
+                if a100_available
+                else "Not consistently faster; no A100 result."
+            ),
         },
         {
             "name": "exact_scan",
@@ -298,25 +351,74 @@ def build_stage_b_audit(
                 f"FP64 tensor-exact={b6_fp64['sequence']['tensor_exact']}; "
                 f"FP32 tensor-exact={b6_fp32['sequence']['tensor_exact']}; BF16 behavioral only"
             ),
-            "hardware_precision": "CPU FP64/FP32/BF16; CPU FP16 unavailable; A100/Flash unavailable",
+            "hardware_precision": (
+                "CPU FP64/FP32/BF16 plus A100 FP32/BF16/FP16; published output and memory state remain FP32"
+                if a100_available
+                else "CPU FP64/FP32/BF16; CPU FP16 unavailable; A100/Flash unavailable"
+            ),
             "geometry_timing": (
                 f"B6 d=64 MHA {b6['timing']['multihead_attention']['tokens_per_second']:.2f} vs "
                 f"SDPA {b6['timing']['sdpa']['tokens_per_second']:.2f} tok/s, 2 warmups/10 reps"
             ),
             "default": False,
-            "limitations": "No A100 BF16/FP16 or forced-Flash exact-mask evidence.",
+            "limitations": (
+                "A100 Flash rejected the exact additive mask; differentiable training uses the portable math-SDPA kernel."
+                if a100_available
+                else "No A100 BF16/FP16 or forced-Flash exact-mask evidence."
+            ),
+        },
+        {
+            "name": "exact_accelerated+sdpa",
+            "exactness_class": "tensor-exact FP32 combined execution backend",
+            "feature_flags": "memory=exact_accelerated; attention=sdpa; activation=float32",
+            "paper_mapping": "Execution substitutions only; nonlinear evolving-gradient recurrence and exact [P,H,S] mask are unchanged",
+            "causal_result": "PASS: B3 exact recurrence plus B6 exact-mask and future-prefix evidence",
+            "parity": "B3 output/state tensor exact; B6 FP64/FP32 output, state, surprise, input, persistent-token, and attention-gradient parity",
+            "hardware_precision": (
+                "Named NVIDIA A100-SXM4-40GB FP32 with FP32 neural-memory state"
+                if a100_available
+                else "Candidate combination; no named-A100 training evidence"
+            ),
+            "geometry_timing": (
+                f"A100 two-segment outer training {a100_training_variants['exact_sdpa_fp32']['tokens_per_second']:.2f} tok/s "
+                f"vs {a100_training_variants['reference_fp32']['tokens_per_second']:.2f} reference, 1 warmup/3 reps"
+                if a100_available
+                else "Unavailable until the named-A100 pilot is imported and verified"
+            ),
+            "default": False,
+            "limitations": (
+                "Selected from a small synthetic A100 pilot; Stage C must remeasure representative batching, context, and gradient horizon. Flash remains disabled."
+                if a100_available
+                else "No target-hardware promotion evidence."
+            ),
         },
         {
             "name": "flash",
-            "exactness_class": "unavailable pending forced exact-mask A100 probe",
+            "exactness_class": (
+                "unavailable: forced exact-mask A100 probe rejected the kernel"
+                if a100_available
+                else "unavailable pending forced exact-mask A100 probe"
+            ),
             "feature_flags": "attention=flash only after probe_and_enable_flash succeeds",
             "paper_mapping": "Kernel substitution only; mask may never be weakened",
-            "causal_result": "Not selectable on current host",
-            "parity": "No behavioral/parity result because no CUDA/A100 device is attached",
-            "hardware_precision": "Required A100 FP16/BF16 evidence absent",
-            "geometry_timing": "Unavailable",
+            "causal_result": "Not selectable; the exact mask was never weakened",
+            "parity": (
+                "Forced A100 attempt rejected the exact mask before execution"
+                if a100_available
+                else "No behavioral/parity result because no CUDA/A100 device is attached"
+            ),
+            "hardware_precision": (
+                "Named NVIDIA A100-SXM4-40GB FP16 probe"
+                if a100_available
+                else "Required A100 FP16/BF16 evidence absent"
+            ),
+            "geometry_timing": "Unavailable; capability rejection is the result",
             "default": False,
-            "limitations": str(b6["flash_probe"]["reason"]),
+            "limitations": (
+                str(a100_sources["attention"]["flash_probe"]["reason"])
+                if a100_available
+                else str(b6["flash_probe"]["reason"])
+            ),
         },
         {
             "name": "frozen_memory / no_memory controls",
@@ -333,7 +435,11 @@ def build_stage_b_audit(
     ]
     provenance = {
         "reference": {
-            "artifact": SOURCE_FILES["b1"],
+            "artifact": (
+                f"{SOURCE_FILES['b1']}; artifacts/titans_stage_b/a100/a100_training_step_matrix.json"
+                if a100_available
+                else SOURCE_FILES["b1"]
+            ),
             "seed_timing": "seed 20260727; 1 warmup/3 repetitions at B1; B7 fixed stream seed 20260738",
             "command": (
                 "/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/python -m "
@@ -343,7 +449,12 @@ def build_stage_b_audit(
             ),
         },
         "exact_accelerated": {
-            "artifact": SOURCE_FILES["b3"],
+            "artifact": (
+                f"{SOURCE_FILES['b3']}; artifacts/titans_stage_b/a100/b3_exact_acceleration_matrix.json; "
+                "artifacts/titans_stage_b/a100/a100_training_step_matrix.json"
+                if a100_available
+                else SOURCE_FILES["b3"]
+            ),
             "seed_timing": "seeds 20260727/20260728; 1 warmup/1 repetition per B3 scale",
             "command": "Python API: run_exact_acceleration_matrix(); write_exact_acceleration_matrix()",
         },
@@ -363,14 +474,42 @@ def build_stage_b_audit(
             "command": "Python API: run_convolution_comparison(); write_convolution_comparison()",
         },
         "sdpa": {
-            "artifact": SOURCE_FILES["b6"],
-            "seed_timing": "seed 20260735; 2 warmups/10 repetitions for CPU attention timing",
+            "artifact": (
+                f"{SOURCE_FILES['b6']}; artifacts/titans_stage_b/a100/b6_attention_backend_evidence.json"
+                if a100_available
+                else SOURCE_FILES["b6"]
+            ),
+            "seed_timing": (
+                "seed 20260735; 2 warmups/10 repetitions for CPU and A100 attention timing"
+                if a100_available
+                else "seed 20260735; 2 warmups/10 repetitions for CPU attention timing"
+            ),
             "command": "Python API: run_attention_backend_evidence(); write_attention_backend_evidence()",
         },
+        "exact_accelerated+sdpa": {
+            "artifact": "artifacts/titans_stage_b/a100/a100_pilot_manifest.json",
+            "seed_timing": "A100 seeds 20260727/20260735/20260738/20260740; 1 warmup/3 outer-training repetitions",
+            "command": (
+                "seqtrainer-titans-stage-b-a100-pilot --output-dir "
+                "artifacts/titans_stage_b/a100 --warmup-runs 1 --repetitions 3"
+            ),
+        },
         "flash": {
-            "artifact": SOURCE_FILES["b6"],
-            "seed_timing": "B6 exact-mask hardware probe; unavailable without named A100",
-            "command": "Python API on A100: StageBBackendRegistry().probe_and_enable_flash(block)",
+            "artifact": (
+                "artifacts/titans_stage_b/a100/b6_attention_backend_evidence.json"
+                if a100_available
+                else SOURCE_FILES["b6"]
+            ),
+            "seed_timing": (
+                "seed 20260735; named-A100 forced exact-mask FP16 Flash probe"
+                if a100_available
+                else "B6 exact-mask hardware probe; unavailable without named A100"
+            ),
+            "command": (
+                "seqtrainer-titans-stage-b-a100-pilot --output-dir artifacts/titans_stage_b/a100"
+                if a100_available
+                else "Python API on A100: StageBBackendRegistry().probe_and_enable_flash(block)"
+            ),
         },
         "frozen_memory / no_memory controls": {
             "artifact": SOURCE_FILES["b7"],
@@ -380,6 +519,7 @@ def build_stage_b_audit(
     }
     for backend in backends:
         backend.update(provenance[backend["name"]])
+        backend["default"] = backend["name"] == selected_default
 
     source_artifacts = dict(SOURCE_FILES)
     if (a100_directory / "a100_pilot_manifest.json").exists():
@@ -398,6 +538,7 @@ def build_stage_b_audit(
             "B6": "715e1a7",
             "B5": "7976540",
             "B7": "f8b54a5",
+            "B8_A100": "68262e4",
         },
         "selected_default": selected_default,
         "requirements": requirements,
@@ -563,7 +704,11 @@ def render_fidelity_performance_audit(audit: Mapping[str, object]) -> str:
             "",
             f"**{decision['decision']}: Stage C may {'begin' if decision['ready'] else 'not begin'}.**",
             "",
-            "Stage B implementation and CPU evidence are complete, but a completed audit is not the same as a passed Stage C gate. Re-run this audit after the named A100 blockers are resolved; do not substitute approximate-scan speed for exactness or synthetic recall for genomic evidence.",
+            (
+                "Stage B is formally closed with immutable Stage A regressions, exact/approximate backend separation, and a checksum-verified named-A100 handoff. Stage C may begin under its own data, model-integration, capacity, and biological-evaluation gates; this synthetic result is not a genomic quality claim."
+                if decision["ready"]
+                else "Stage B implementation and CPU evidence are complete, but a completed audit is not the same as a passed Stage C gate. Re-run this audit after the named A100 blockers are resolved; do not substitute approximate-scan speed for exactness or synthetic recall for genomic evidence."
+            ),
             "",
         )
     )

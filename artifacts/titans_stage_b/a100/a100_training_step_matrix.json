@@ -1,0 +1,354 @@
+{
+  "classification": "two_segment_outer_training_step",
+  "format_version": 1,
+  "hardware": {
+    "cuda_available": true,
+    "device": "cuda",
+    "device_name": "NVIDIA A100-SXM4-40GB",
+    "machine": "x86_64",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.35",
+    "torch": "2.11.0+cu128"
+  },
+  "parameter_count": 9480216,
+  "protocol": {
+    "learning_rate": 0.0001,
+    "loss": "MSE on segment-two sequence after reading segment-one memory write",
+    "optimizer": "AdamW",
+    "repetitions": 3,
+    "segment_length": 32,
+    "segments": 2,
+    "stable_gate_initialization": {
+      "alpha": 0.0001,
+      "eta": 0.01,
+      "projection_weight_multiplier": 0.01,
+      "theta": 0.001
+    },
+    "warmup_runs": 1
+  },
+  "scale": {
+    "block_count": 8,
+    "d_model": 384,
+    "memory_depth": 1,
+    "name": "a100_pilot",
+    "num_heads": 8,
+    "persistent_tokens": 4
+  },
+  "seed": 20260740,
+  "variants": [
+    {
+      "all_gradients_finite": true,
+      "available": true,
+      "classification": "exact_fp32",
+      "config": {
+        "activation_dtype": "float32",
+        "approximate_window": null,
+        "attention_backend": "multihead_attention",
+        "convolution_kernel_size": 3,
+        "gate_backend": "token_wise",
+        "memory_backend": "reference"
+      },
+      "cuda_peak_allocated_bytes": 1640768512,
+      "cuda_peak_reserved_bytes": 1977614336,
+      "gradient_metrics": [
+        {
+          "finite": true,
+          "global_norm": 0.21343958377838135,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 415.92645263671875,
+          "written_state_tensors": 16
+        },
+        {
+          "finite": true,
+          "global_norm": 0.21191991865634918,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 415.94964599609375,
+          "written_state_tensors": 16
+        },
+        {
+          "finite": true,
+          "global_norm": 0.21145099401474,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 416.0016174316406,
+          "written_state_tensors": 16
+        }
+      ],
+      "input_tokens_per_step": 64,
+      "losses": [
+        2.0258560180664062,
+        1.997222900390625,
+        1.9686858654022217
+      ],
+      "median_step_seconds": 1.0552656170000034,
+      "memory_state_dtypes": [
+        "float32"
+      ],
+      "output_and_state_finite": true,
+      "published_sequence_dtype": "float32",
+      "reason": "measured",
+      "repetitions": 3,
+      "samples_seconds": [
+        1.0552656170000034,
+        1.0419582480000145,
+        1.1261212239999736
+      ],
+      "tokens_per_second": 60.64823772231346,
+      "variant": "reference_fp32",
+      "warmup_runs": 1
+    },
+    {
+      "all_gradients_finite": true,
+      "available": true,
+      "classification": "exact_fp32",
+      "config": {
+        "activation_dtype": "float32",
+        "approximate_window": null,
+        "attention_backend": "multihead_attention",
+        "convolution_kernel_size": 3,
+        "gate_backend": "token_wise",
+        "memory_backend": "exact_accelerated"
+      },
+      "cuda_peak_allocated_bytes": 1641346048,
+      "cuda_peak_reserved_bytes": 1998585856,
+      "gradient_metrics": [
+        {
+          "finite": true,
+          "global_norm": 0.21343958377838135,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 415.92645263671875,
+          "written_state_tensors": 16
+        },
+        {
+          "finite": true,
+          "global_norm": 0.21191991865634918,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 415.94964599609375,
+          "written_state_tensors": 16
+        },
+        {
+          "finite": true,
+          "global_norm": 0.21145099401474,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 416.0016174316406,
+          "written_state_tensors": 16
+        }
+      ],
+      "input_tokens_per_step": 64,
+      "losses": [
+        2.0258560180664062,
+        1.997222900390625,
+        1.9686858654022217
+      ],
+      "median_step_seconds": 1.0071875659999705,
+      "memory_state_dtypes": [
+        "float32"
+      ],
+      "output_and_state_finite": true,
+      "published_sequence_dtype": "float32",
+      "reason": "measured",
+      "repetitions": 3,
+      "samples_seconds": [
+        1.0071875659999705,
+        1.0129672300000152,
+        0.9855481359999771
+      ],
+      "tokens_per_second": 63.54327849198436,
+      "variant": "exact_fp32",
+      "warmup_runs": 1
+    },
+    {
+      "all_gradients_finite": true,
+      "available": true,
+      "classification": "exact_fp32",
+      "config": {
+        "activation_dtype": "float32",
+        "approximate_window": null,
+        "attention_backend": "sdpa",
+        "convolution_kernel_size": 3,
+        "gate_backend": "token_wise",
+        "memory_backend": "exact_accelerated"
+      },
+      "cuda_peak_allocated_bytes": 1641346048,
+      "cuda_peak_reserved_bytes": 1977614336,
+      "gradient_metrics": [
+        {
+          "finite": true,
+          "global_norm": 0.21343958377838135,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 415.92645263671875,
+          "written_state_tensors": 16
+        },
+        {
+          "finite": true,
+          "global_norm": 0.21191991865634918,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 415.94964599609375,
+          "written_state_tensors": 16
+        },
+        {
+          "finite": true,
+          "global_norm": 0.21145099401474,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 416.0016174316406,
+          "written_state_tensors": 16
+        }
+      ],
+      "input_tokens_per_step": 64,
+      "losses": [
+        2.0258560180664062,
+        1.997222900390625,
+        1.9686858654022217
+      ],
+      "median_step_seconds": 0.9835608639999691,
+      "memory_state_dtypes": [
+        "float32"
+      ],
+      "output_and_state_finite": true,
+      "published_sequence_dtype": "float32",
+      "reason": "measured",
+      "repetitions": 3,
+      "samples_seconds": [
+        0.9835608639999691,
+        1.014893313000016,
+        0.9719744489999584
+      ],
+      "tokens_per_second": 65.06968947475528,
+      "variant": "exact_sdpa_fp32",
+      "warmup_runs": 1
+    },
+    {
+      "all_gradients_finite": true,
+      "available": true,
+      "classification": "mixed_precision_behavioral",
+      "config": {
+        "activation_dtype": "bfloat16",
+        "approximate_window": null,
+        "attention_backend": "sdpa",
+        "convolution_kernel_size": 3,
+        "gate_backend": "token_wise",
+        "memory_backend": "exact_accelerated"
+      },
+      "cuda_peak_allocated_bytes": 1655469056,
+      "cuda_peak_reserved_bytes": 2015363072,
+      "gradient_metrics": [
+        {
+          "finite": true,
+          "global_norm": 0.21341674029827118,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 415.7418212890625,
+          "written_state_tensors": 16
+        },
+        {
+          "finite": true,
+          "global_norm": 0.21195240318775177,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 415.8037109375,
+          "written_state_tensors": 16
+        },
+        {
+          "finite": true,
+          "global_norm": 0.2115315943956375,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 415.7659606933594,
+          "written_state_tensors": 16
+        }
+      ],
+      "input_tokens_per_step": 64,
+      "losses": [
+        2.0260472297668457,
+        1.9977062940597534,
+        1.9692468643188477
+      ],
+      "median_step_seconds": 1.0204312449999975,
+      "memory_state_dtypes": [
+        "float32"
+      ],
+      "output_and_state_finite": true,
+      "published_sequence_dtype": "float32",
+      "reason": "measured",
+      "repetitions": 3,
+      "samples_seconds": [
+        1.0204312449999975,
+        1.0476472560000047,
+        1.0005611569999928
+      ],
+      "tokens_per_second": 62.718581299419306,
+      "variant": "exact_sdpa_bfloat16",
+      "warmup_runs": 1
+    },
+    {
+      "all_gradients_finite": true,
+      "available": true,
+      "classification": "mixed_precision_behavioral",
+      "config": {
+        "activation_dtype": "float16",
+        "approximate_window": null,
+        "attention_backend": "sdpa",
+        "convolution_kernel_size": 3,
+        "gate_backend": "token_wise",
+        "memory_backend": "exact_accelerated"
+      },
+      "cuda_peak_allocated_bytes": 1654957056,
+      "cuda_peak_reserved_bytes": 1994391552,
+      "gradient_metrics": [
+        {
+          "finite": true,
+          "global_norm": 0.21343661844730377,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 415.93212890625,
+          "written_state_tensors": 16
+        },
+        {
+          "finite": true,
+          "global_norm": 0.2119590938091278,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 415.9584655761719,
+          "written_state_tensors": 16
+        },
+        {
+          "finite": true,
+          "global_norm": 0.21153411269187927,
+          "parameter_tensors": 112,
+          "written_state_gradient_finite": true,
+          "written_state_gradient_norm": 416.00982666015625,
+          "written_state_tensors": 16
+        }
+      ],
+      "input_tokens_per_step": 64,
+      "losses": [
+        2.02586030960083,
+        1.9976527690887451,
+        1.9694318771362305
+      ],
+      "median_step_seconds": 1.0463401929999918,
+      "memory_state_dtypes": [
+        "float32"
+      ],
+      "output_and_state_finite": true,
+      "published_sequence_dtype": "float32",
+      "reason": "measured",
+      "repetitions": 3,
+      "samples_seconds": [
+        1.0314035300000342,
+        1.0463401929999918,
+        1.0641600430000153
+      ],
+      "tokens_per_second": 61.16557542963515,
+      "variant": "exact_sdpa_float16",
+      "warmup_runs": 1
+    }
+  ]
+}
