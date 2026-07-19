@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
@@ -77,6 +78,21 @@ def _synchronize(device: torch.device) -> None:
         torch.cuda.synchronize(device)
 
 
+def _portable_cpu_attention_context(device: torch.device):
+    """Avoid CPU Flash-SDPA backward gaps in recent PyTorch releases.
+
+    This applies only to the tiny CPU contract path. CUDA pilot measurements
+    retain their selected backend and are not forced through the math kernel.
+    ``torch.nn.attention`` was introduced after the oldest supported PyTorch
+    version, so older environments simply retain their native CPU behavior.
+    """
+
+    attention = getattr(torch.nn, "attention", None)
+    if device.type == "cpu" and attention is not None:
+        return attention.sdpa_kernel([attention.SDPBackend.MATH])
+    return nullcontext()
+
+
 def _state_dtypes(output: StageBStackOutput) -> list[str]:
     return sorted(
         {
@@ -121,20 +137,22 @@ def _step(
 ) -> tuple[float, dict[str, float | int | bool], StageBStackOutput]:
     optimizer.zero_grad(set_to_none=True)
     states = stack.initial_states(stream_id)
-    first = stack(states, segments[0], config=config)
-    written_state_tensors = [
-        value
-        for state in first.states
-        for value in state.fast_weights.values()
-    ]
-    for value in written_state_tensors:
-        value.retain_grad()
-    second = stack(first.states, segments[1], config=config)
-    # The loss is on segment two, whose retrieval reads the differentiable
-    # state written by segment one. Backward therefore traverses the memory
-    # update rather than measuring only the same-segment causal core.
-    loss = F.mse_loss(second.sequence, target)
-    loss.backward()
+    device = next(stack.parameters()).device
+    with _portable_cpu_attention_context(device):
+        first = stack(states, segments[0], config=config)
+        written_state_tensors = [
+            value
+            for state in first.states
+            for value in state.fast_weights.values()
+        ]
+        for value in written_state_tensors:
+            value.retain_grad()
+        second = stack(first.states, segments[1], config=config)
+        # The loss is on segment two, whose retrieval reads the differentiable
+        # state written by segment one. Backward therefore traverses the memory
+        # update rather than measuring only the same-segment causal core.
+        loss = F.mse_loss(second.sequence, target)
+        loss.backward()
     gradients = _gradient_metrics(stack)
     written_state_gradients = [
         value.grad.detach().float().reshape(-1)
