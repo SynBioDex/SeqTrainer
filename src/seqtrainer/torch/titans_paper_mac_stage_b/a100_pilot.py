@@ -131,6 +131,22 @@ def _check(
     checks.append({"criterion": criterion, "passed": bool(passed), "evidence": evidence})
 
 
+def _parity_within(metric: object, tolerance: float) -> bool:
+    """Recursively validate scalar and per-parameter parity metrics."""
+
+    if not isinstance(metric, Mapping):
+        return False
+    if "maximum_absolute_error" in metric:
+        try:
+            error = float(metric["maximum_absolute_error"])
+        except (TypeError, ValueError):
+            return False
+        return bool(metric.get("tensor_exact")) or error <= tolerance
+    return bool(metric) and all(
+        _parity_within(value, tolerance) for value in metric.values()
+    )
+
+
 def evaluate_a100_evidence(
     preflight: Mapping[str, object],
     exact: Mapping[str, object],
@@ -178,15 +194,8 @@ def evaluate_a100_evidence(
         "persistent_token_gradient",
         "attention_gradient",
     )
-    fp64_ok = all(
-        bool(fp64.get(key, {}).get("tensor_exact"))
-        or float(fp64.get(key, {}).get("maximum_absolute_error", float("inf"))) <= 1e-10
-        for key in parity_keys
-    )
-    fp32_ok = all(
-        float(fp32.get(key, {}).get("maximum_absolute_error", float("inf"))) <= 1e-4
-        for key in parity_keys
-    )
+    fp64_ok = all(_parity_within(fp64.get(key), 1e-10) for key in parity_keys)
+    fp32_ok = all(_parity_within(fp32.get(key), 1e-4) for key in parity_keys)
     mask = attention.get("mask", {})
     causality = attention.get("causality", {})
     _check(

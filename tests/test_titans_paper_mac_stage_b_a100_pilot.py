@@ -13,8 +13,8 @@ from seqtrainer.torch.titans_paper_mac_stage_b.a100_pilot import (
 )
 
 
-def _parity(error: float = 0.0) -> dict[str, dict[str, float | bool]]:
-    return {
+def _parity(error: float = 0.0) -> dict[str, object]:
+    parity: dict[str, object] = {
         name: {"maximum_absolute_error": error, "tensor_exact": error == 0.0}
         for name in (
             "sequence",
@@ -23,9 +23,13 @@ def _parity(error: float = 0.0) -> dict[str, dict[str, float | bool]]:
             "surprise",
             "input_gradient",
             "persistent_token_gradient",
-            "attention_gradient",
         )
     }
+    parity["attention_gradient"] = {
+        name: {"maximum_absolute_error": error, "tensor_exact": error == 0.0}
+        for name in ("in_proj_weight", "in_proj_bias", "out_proj.weight", "out_proj.bias")
+    }
+    return parity
 
 
 def _valid_evidence():
