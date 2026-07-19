@@ -53,6 +53,21 @@ def run_promoter_annotation(
     """Annotate likely promoter regions in a GenBank plasmid record."""
     record = read_genbank(config.input_file)
     original_feature_count = len(record.features)
+
+    # Capture deposited labels before optionally removing source features from
+    # the output record. Evaluation must describe the input annotations even
+    # when the caller requests a prediction-only GenBank file.
+    gold_promoters = None
+    if config.evaluation_dir is not None or config.sbol_output is not None or config.gold_csv is not None:
+        from .ground_truth import extract_ground_truth_promoters
+
+        gold_promoters = extract_ground_truth_promoters(
+            record,
+            plasmid_id=str(record.id),
+            source_url=config.source_url,
+            label_mode=config.promoter_label_mode,
+        )
+
     if not config.preserve_existing_features:
         record.features = []
 
@@ -69,17 +84,6 @@ def run_promoter_annotation(
         checkpoint=config.checkpoint,
         benchmark_manifest=config.benchmark_manifest,
     )
-
-    gold_promoters = None
-    if config.evaluation_dir is not None or config.sbol_output is not None or config.gold_csv is not None:
-        from .ground_truth import extract_ground_truth_promoters
-
-        gold_promoters = extract_ground_truth_promoters(
-            record,
-            plasmid_id=str(record.id),
-            source_url=config.source_url,
-            label_mode=config.promoter_label_mode,
-        )
 
     windows = generate_sliding_windows(
         str(record.seq),

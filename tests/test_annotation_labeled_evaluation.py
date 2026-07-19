@@ -86,6 +86,30 @@ def test_labelled_evaluation_writes_ground_truth_and_metrics(tmp_path: Path):
     assert pd.read_csv(evaluation_dir / "gold_promoters.csv").shape[0] == 4
 
 
+def test_evaluation_captures_gold_before_source_features_are_removed(tmp_path: Path):
+    from Bio import SeqIO
+
+    input_path = tmp_path / "input.gb"
+    SeqIO.write(_record(), input_path, "genbank")
+    evaluation_dir = tmp_path / "evaluation"
+    run_promoter_annotation(
+        PromoterAnnotationConfig(
+            input_file=input_path,
+            output_file=tmp_path / "prediction_only.gb",
+            predictions_csv=tmp_path / "predictions.csv",
+            manifest=tmp_path / "annotation_manifest.json",
+            model_family="dummy",
+            threshold=0.8,
+            window_size=8,
+            step_size=4,
+            preserve_existing_features=False,
+            evaluation_dir=evaluation_dir,
+            annotation_completeness="verified_complete",
+        )
+    )
+    assert pd.read_csv(evaluation_dir / "gold_promoters.csv").shape[0] == 4
+
+
 def test_window_centre_labels_same_strand():
     record = _record()
     gold = extract_ground_truth_promoters(record)
