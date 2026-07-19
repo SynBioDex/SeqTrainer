@@ -78,18 +78,25 @@ def _synchronize(device: torch.device) -> None:
         torch.cuda.synchronize(device)
 
 
-def _portable_cpu_attention_context(device: torch.device):
-    """Avoid CPU Flash-SDPA backward gaps in recent PyTorch releases.
+def _portable_differentiable_attention_context(device: torch.device):
+    """Select a differentiable SDPA kernel for a full training step.
 
-    This applies only to the tiny CPU contract path. CUDA pilot measurements
-    retain their selected backend and are not forced through the math kernel.
-    ``torch.nn.attention`` was introduced after the oldest supported PyTorch
-    version, so older environments simply retain their native CPU behavior.
+    PyTorch can select Flash or efficient SDPA kernels whose backward is not
+    implemented on some CPU and CUDA builds.  This benchmark measures complete
+    forward/backward/optimizer steps, so it must use the portable math kernel
+    whenever the modern SDPA backend selector is available.  This is separate
+    from the B3 and B6 forward-performance measurements.
     """
 
     attention = getattr(torch.nn, "attention", None)
-    if device.type == "cpu" and attention is not None:
+    if attention is not None:
         return attention.sdpa_kernel([attention.SDPBackend.MATH])
+    if device.type == "cuda":
+        return torch.backends.cuda.sdp_kernel(
+            enable_flash=False,
+            enable_math=True,
+            enable_mem_efficient=False,
+        )
     return nullcontext()
 
 
@@ -138,7 +145,7 @@ def _step(
     optimizer.zero_grad(set_to_none=True)
     states = stack.initial_states(stream_id)
     device = next(stack.parameters()).device
-    with _portable_cpu_attention_context(device):
+    with _portable_differentiable_attention_context(device):
         first = stack(states, segments[0], config=config)
         written_state_tensors = [
             value
