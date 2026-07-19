@@ -6,6 +6,7 @@ import copy
 import json
 import platform
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Callable, Mapping
 
@@ -48,6 +49,28 @@ def _maximum_mapping_error(
     }
 
 
+def _parity_sdpa_context(device: torch.device):
+    """Select math SDPA for the differentiable parity oracle only.
+
+    Recent PyTorch CUDA builds can select an efficient attention kernel whose
+    backward implementation is unavailable for the reference
+    ``MultiheadAttention`` path.  The B6 oracle needs comparable gradients,
+    rather than a performance kernel, so make that one calculation portable.
+    Timings and capability probes deliberately remain outside this context.
+    """
+
+    attention = getattr(torch.nn, "attention", None)
+    if attention is not None:
+        return attention.sdpa_kernel([attention.SDPBackend.MATH])
+    if device.type == "cuda":
+        return torch.backends.cuda.sdp_kernel(
+            enable_flash=False,
+            enable_math=True,
+            enable_mem_efficient=False,
+        )
+    return nullcontext()
+
+
 def _parity_case(
     seed: int,
     dtype: torch.dtype,
@@ -66,23 +89,26 @@ def _parity_case(
         requires_grad=True,
     )
     candidate_segment = reference_segment.detach().clone().requires_grad_(True)
-    reference_output = execute_stage_b(
-        reference, reference.initial_state("b6-reference"), reference_segment
-    )
-    candidate_output = execute_stage_b(
-        candidate,
-        candidate.initial_state("b6-sdpa"),
-        candidate_segment,
-        config=StageBBackendConfig(attention_backend=AttentionBackend.SDPA),
-    )
-    reference_loss = reference_output.sequence.square().mean() + sum(
-        value.square().mean() for value in reference_output.state.fast_weights.values()
-    )
-    candidate_loss = candidate_output.sequence.square().mean() + sum(
-        value.square().mean() for value in candidate_output.state.fast_weights.values()
-    )
-    reference_loss.backward()
-    candidate_loss.backward()
+    with _parity_sdpa_context(device):
+        reference_output = execute_stage_b(
+            reference, reference.initial_state("b6-reference"), reference_segment
+        )
+        candidate_output = execute_stage_b(
+            candidate,
+            candidate.initial_state("b6-sdpa"),
+            candidate_segment,
+            config=StageBBackendConfig(attention_backend=AttentionBackend.SDPA),
+        )
+        reference_loss = reference_output.sequence.square().mean() + sum(
+            value.square().mean()
+            for value in reference_output.state.fast_weights.values()
+        )
+        candidate_loss = candidate_output.sequence.square().mean() + sum(
+            value.square().mean()
+            for value in candidate_output.state.fast_weights.values()
+        )
+        reference_loss.backward()
+        candidate_loss.backward()
     reference_parameters = dict(reference.named_parameters())
     candidate_parameters = dict(candidate.named_parameters())
     return {
