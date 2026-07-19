@@ -61,4 +61,4 @@ The audit remains `NO_GO` when the directory is absent, incomplete, modified aft
 
 ## Failure diagnostics
 
-Each attempt gets its own Drive folder even if it fails. The launcher writes the failing subprocess output to `<run>/logs/<step>.txt`, records the path in `<run>/FAILED.txt`, prints the last 120 log lines, and the notebook's final cell can print those tails again. For an older failed notebook run, execute that final cell manually; it finds the newest folder with `logs/` below `MyDrive/SeqTrainerA100/`.
+Each attempt gets its own Drive folder even if it fails. The launcher writes the failing subprocess output to `<run>/logs/<step>.txt`, records the path in `<run>/FAILED.txt`, prints the last 120 log lines, and the notebook's final cell can print those tails again. If the CPU two-segment training contract test fails, it automatically writes per-variant `available` and `reason` fields to `<run>/logs/training_step_diagnostic.txt`. For an older failed notebook run, execute that final cell manually; it finds the newest folder with `logs/` below `MyDrive/SeqTrainerA100/`.

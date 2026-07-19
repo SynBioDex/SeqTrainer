@@ -18,6 +18,31 @@ import sys
 from typing import Sequence
 
 
+TRAINING_STEP_DIAGNOSTIC = """
+import json
+from seqtrainer.torch.titans_paper_mac_stage_b import (
+    TrainingStepScale,
+    run_training_step_matrix,
+)
+
+result = run_training_step_matrix(
+    scale=TrainingStepScale(
+        "colab-contract-diagnostic",
+        block_count=1,
+        d_model=4,
+        num_heads=2,
+        persistent_tokens=2,
+    ),
+    variants=("reference_fp32", "exact_fp32", "exact_sdpa_fp32"),
+    seed=733,
+    warmup_runs=0,
+    repetitions=1,
+    device="cpu",
+)
+print(json.dumps(result["variants"], indent=2, sort_keys=True, default=str))
+"""
+
+
 class CaptureCommandError(RuntimeError):
     """A failed child process whose complete output is saved in Drive."""
 
@@ -58,6 +83,26 @@ def _run(command: Sequence[str], log_path: Path, *, cwd: Path) -> None:
     log_path.write_text(output, encoding="utf-8")
     if returncode:
         raise CaptureCommandError(command, log_path, returncode)
+
+
+def _write_training_step_diagnostic(
+    python: Path,
+    log_path: Path,
+    *,
+    cwd: Path,
+) -> None:
+    """Capture variant-level failure reasons without masking a failed test run."""
+
+    try:
+        _run(
+            [str(python), "-c", TRAINING_STEP_DIAGNOSTIC],
+            log_path,
+            cwd=cwd,
+        )
+    except CaptureCommandError:
+        # A traceback in the diagnostic log is itself the information needed
+        # to debug an import or framework-level incompatibility.
+        return
 
 
 def _output_path(drive_root: Path, run_id: str | None) -> Path:
@@ -136,18 +181,26 @@ def run_capture(
         )
         _run(["nvidia-smi"], logs / "nvidia-smi.txt", cwd=repository_root)
         if run_tests:
-            _run(
-                [
-                    str(python),
-                    "-m",
-                    "pytest",
-                    "-q",
-                    "tests/test_titans_paper_mac_stage_b_a100_pilot.py",
-                    "tests/test_titans_paper_mac_stage_b_training_step.py",
-                ],
-                logs / "contract_tests.txt",
-                cwd=repository_root,
-            )
+            try:
+                _run(
+                    [
+                        str(python),
+                        "-m",
+                        "pytest",
+                        "-q",
+                        "tests/test_titans_paper_mac_stage_b_a100_pilot.py",
+                        "tests/test_titans_paper_mac_stage_b_training_step.py",
+                    ],
+                    logs / "contract_tests.txt",
+                    cwd=repository_root,
+                )
+            except CaptureCommandError:
+                _write_training_step_diagnostic(
+                    python,
+                    logs / "training_step_diagnostic.txt",
+                    cwd=repository_root,
+                )
+                raise
         _run(
             [
                 str(python),

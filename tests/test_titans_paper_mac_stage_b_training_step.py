@@ -41,7 +41,10 @@ def test_two_segment_training_step_exercises_exact_cpu_paths_and_writes_artifact
         "exact_sdpa_fp32",
     }
     for variant in result["variants"]:
-        assert variant["available"] is True
+        assert variant["available"] is True, (
+            f"{variant['variant']} was unavailable: "
+            f"{variant.get('reason', 'no reason recorded')}"
+        )
         assert variant["output_and_state_finite"] is True
         assert variant["all_gradients_finite"] is True
         assert variant["gradient_metrics"][0]["written_state_gradient_norm"] > 0
