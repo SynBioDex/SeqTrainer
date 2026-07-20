@@ -1,0 +1,376 @@
+"""Ordered-stream scheduling and truncated-gradient Stage C training."""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+import random
+import time
+from typing import Callable, Mapping, Sequence
+
+import torch
+from torch import Tensor
+
+from seqtrainer.data.bacteria_titan.stage_c_streams import StreamSegment
+
+from .config import MemoryMode
+from .metrics import compute_stage_c_metrics
+from .model import BlockStates, StageCPaperMACForCausalLM, detach_stream_states
+
+
+@dataclass(frozen=True)
+class TrainingStepRecord:
+    optimizer_step: int
+    segment_steps: int
+    segments: int
+    valid_tokens: int
+    valid_bases: int
+    loss_per_token: float
+    bits_per_base: float
+    token_accuracy: float
+    top_2_accuracy: float
+    retrieval_norm: float
+    memory_update_norm: float
+    surprise_norm: float
+    state_drift_norm: float
+    alpha_mean: float
+    alpha_std: float
+    eta_mean: float
+    eta_std: float
+    theta_mean: float
+    theta_std: float
+    gradient_norm: float
+    written_state_gradient_norm: float
+    elapsed_seconds: float
+    bases_per_second: float
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+class StreamBatchScheduler:
+    """Deterministically interleave streams without reordering their segments."""
+
+    FORMAT_VERSION = 1
+
+    def __init__(
+        self,
+        streams: Mapping[str, Sequence[StreamSegment]],
+        *,
+        batch_size: int,
+        seed: int = 17,
+        shuffle: bool = True,
+    ) -> None:
+        if batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        self.streams = {stream_id: tuple(segments) for stream_id, segments in streams.items()}
+        if not self.streams or any(not segments for segments in self.streams.values()):
+            raise ValueError("scheduler requires non-empty streams")
+        for stream_id, segments in self.streams.items():
+            if any(segment.stream_id != stream_id for segment in segments):
+                raise ValueError("segment ownership does not match scheduler stream key")
+            if [segment.segment_index for segment in segments] != list(range(len(segments))):
+                raise ValueError("segments must be contiguous and ordered within each stream")
+            if not segments[0].start_of_stream or not segments[-1].end_of_stream:
+                raise ValueError("every scheduled stream requires explicit start/end markers")
+        self.batch_size = batch_size
+        self.seed = seed
+        self.shuffle = shuffle
+        self.order = sorted(self.streams)
+        if shuffle:
+            random.Random(seed).shuffle(self.order)
+        self.next_stream_cursor = 0
+        self.active: list[tuple[str, int] | None] = [None] * batch_size
+        self.segments_yielded = 0
+        for slot in range(batch_size):
+            self._fill(slot)
+
+    def _fill(self, slot: int) -> None:
+        self.active[slot] = None
+        if self.next_stream_cursor < len(self.order):
+            self.active[slot] = (self.order[self.next_stream_cursor], 0)
+            self.next_stream_cursor += 1
+
+    @property
+    def exhausted(self) -> bool:
+        return all(item is None for item in self.active)
+
+    def next_batch(self) -> tuple[StreamSegment, ...]:
+        if self.exhausted:
+            raise StopIteration
+        batch: list[StreamSegment] = []
+        for slot, item in enumerate(self.active):
+            if item is None:
+                continue
+            stream_id, index = item
+            segment = self.streams[stream_id][index]
+            batch.append(segment)
+            self.segments_yielded += 1
+            if index + 1 == len(self.streams[stream_id]):
+                self._fill(slot)
+            else:
+                self.active[slot] = (stream_id, index + 1)
+        return tuple(batch)
+
+    def to_state_dict(self) -> dict[str, object]:
+        return {
+            "format_version": self.FORMAT_VERSION,
+            "batch_size": self.batch_size,
+            "seed": self.seed,
+            "shuffle": self.shuffle,
+            "order": list(self.order),
+            "next_stream_cursor": self.next_stream_cursor,
+            "active": [list(item) if item is not None else None for item in self.active],
+            "segments_yielded": self.segments_yielded,
+        }
+
+    def load_state_dict(self, payload: Mapping[str, object]) -> None:
+        if payload.get("format_version") != self.FORMAT_VERSION:
+            raise ValueError("unsupported Stage C scheduler state version")
+        if int(payload.get("batch_size", -1)) != self.batch_size:
+            raise ValueError("scheduler batch size changed across resume")
+        order = payload.get("order")
+        active = payload.get("active")
+        if not isinstance(order, list) or set(map(str, order)) != set(self.streams):
+            raise ValueError("scheduler stream set changed across resume")
+        if not isinstance(active, list) or len(active) != self.batch_size:
+            raise ValueError("scheduler active-row payload is invalid")
+        self.order = [str(value) for value in order]
+        self.next_stream_cursor = int(payload.get("next_stream_cursor", 0))
+        restored: list[tuple[str, int] | None] = []
+        for item in active:
+            if item is None:
+                restored.append(None)
+            elif isinstance(item, list) and len(item) == 2:
+                stream_id, index = str(item[0]), int(item[1])
+                if stream_id not in self.streams or not 0 <= index < len(self.streams[stream_id]):
+                    raise ValueError("scheduler active stream cursor is invalid")
+                restored.append((stream_id, index))
+            else:
+                raise ValueError("scheduler active-row entry is invalid")
+        self.active = restored
+        self.segments_yielded = int(payload.get("segments_yielded", 0))
+
+
+class StageCTrainer:
+    """Train the Stage C LM while separating state persistence from gradients."""
+
+    def __init__(
+        self,
+        model: StageCPaperMACForCausalLM,
+        optimizer: torch.optim.Optimizer,
+        *,
+        device: torch.device | str = "cpu",
+        gradient_clip_norm: float = 1.0,
+    ) -> None:
+        self.model = model
+        self.optimizer = optimizer
+        self.device = torch.device(device)
+        self.gradient_clip_norm = gradient_clip_norm
+        self.stream_states: dict[str, BlockStates] = {}
+        self.optimizer_step = 0
+        self.processed_segments = 0
+        self.processed_tokens = 0
+        self.processed_bases = 0
+        self.history: list[TrainingStepRecord] = []
+        self.model.to(self.device)
+
+    @staticmethod
+    def _batch_tensors(batch: Sequence[StreamSegment], device: torch.device) -> dict[str, Tensor]:
+        return {
+            "input_ids": torch.tensor([item.input_ids for item in batch], dtype=torch.long, device=device),
+            "labels": torch.tensor([item.labels for item in batch], dtype=torch.long, device=device),
+            "valid_mask": torch.tensor([item.valid_mask for item in batch], dtype=torch.bool, device=device),
+            "loss_mask": torch.tensor([item.loss_mask for item in batch], dtype=torch.bool, device=device),
+            "represented_base_counts": torch.tensor(
+                [item.represented_base_counts for item in batch], dtype=torch.long, device=device
+            ),
+        }
+
+    def _states_for(self, batch: Sequence[StreamSegment]) -> tuple[BlockStates, ...]:
+        states: list[BlockStates] = []
+        for segment in batch:
+            if segment.start_of_stream:
+                if segment.stream_id in self.stream_states:
+                    raise RuntimeError("a replacement stream inherited an existing state")
+                self.stream_states[segment.stream_id] = self.model.initial_states(segment.stream_id)
+            if segment.stream_id not in self.stream_states:
+                raise RuntimeError("continuing stream has no functional state")
+            states.append(self.stream_states[segment.stream_id])
+        return tuple(states)
+
+    def _commit_states(self, batch: Sequence[StreamSegment], states: Sequence[BlockStates]) -> None:
+        for segment, state in zip(batch, states):
+            if segment.end_of_stream:
+                self.stream_states.pop(segment.stream_id, None)
+            else:
+                self.stream_states[segment.stream_id] = state
+
+    def _detach_active_states(self) -> None:
+        self.stream_states = {
+            stream_id: detach_stream_states(states)
+            for stream_id, states in self.stream_states.items()
+        }
+
+    def train(
+        self,
+        scheduler: StreamBatchScheduler,
+        *,
+        max_valid_bases: int | None = None,
+        max_optimizer_steps: int | None = None,
+        memory_mode: MemoryMode | str | None = None,
+        on_step: Callable[[TrainingStepRecord], None] | None = None,
+    ) -> tuple[TrainingStepRecord, ...]:
+        """Train to an explicit valid-base or optimizer-step budget."""
+
+        if max_valid_bases is not None and max_valid_bases <= 0:
+            raise ValueError("max_valid_bases must be positive")
+        if max_optimizer_steps is not None and max_optimizer_steps <= 0:
+            raise ValueError("max_optimizer_steps must be positive")
+        horizon = self.model.config.gradient_horizon
+        self.model.train()
+        self.optimizer.zero_grad(set_to_none=True)
+        started = time.perf_counter()
+        accumulation_losses: list[Tensor] = []
+        accumulation_outputs: list[tuple[Tensor, Tensor, Tensor, Tensor]] = []
+        accumulation_segments = 0
+        accumulation_examples = 0
+        accumulation_tokens = 0
+        accumulation_bases = 0
+        retrieval_norm = 0.0
+        update_norm = 0.0
+        surprise_norm = 0.0
+        state_drift_norm = 0.0
+        gate_statistics = {
+            key: 0.0
+            for name in ("alpha", "eta", "theta")
+            for key in (f"{name}_mean", f"{name}_std")
+        }
+        written_state_tensors: list[Tensor] = []
+
+        def finish_step() -> None:
+            nonlocal accumulation_losses, accumulation_outputs, accumulation_segments, accumulation_examples
+            nonlocal accumulation_tokens, accumulation_bases, retrieval_norm, update_norm, started
+            nonlocal surprise_norm, state_drift_norm, gate_statistics
+            nonlocal written_state_tensors
+            if not accumulation_losses:
+                return
+            loss_sum = torch.stack(accumulation_losses).sum()
+            (loss_sum / max(accumulation_tokens, 1)).backward()
+            gradient_norm_tensor = torch.nn.utils.clip_grad_norm_(
+                self.model.parameters(), self.gradient_clip_norm
+            )
+            written_squares = [
+                tensor.grad.detach().square().sum()
+                for tensor in written_state_tensors
+                if tensor.grad is not None
+            ]
+            written_gradient_norm = (
+                float(torch.stack(written_squares).sum().sqrt().cpu())
+                if written_squares
+                else 0.0
+            )
+            self.optimizer.step()
+            self.optimizer.zero_grad(set_to_none=True)
+            self.optimizer_step += 1
+            self._detach_active_states()
+            logits = torch.cat([item[0] for item in accumulation_outputs], dim=0)
+            labels = torch.cat([item[1] for item in accumulation_outputs], dim=0)
+            masks = torch.cat([item[2] for item in accumulation_outputs], dim=0)
+            base_counts = torch.cat([item[3] for item in accumulation_outputs], dim=0)
+            metrics = compute_stage_c_metrics(logits, labels, masks, base_counts)
+            elapsed = time.perf_counter() - started
+            record = TrainingStepRecord(
+                optimizer_step=self.optimizer_step,
+                segment_steps=accumulation_segments,
+                segments=accumulation_examples,
+                valid_tokens=accumulation_tokens,
+                valid_bases=accumulation_bases,
+                loss_per_token=metrics.loss_per_token,
+                bits_per_base=metrics.bits_per_base,
+                token_accuracy=metrics.token_accuracy,
+                top_2_accuracy=metrics.top_2_accuracy,
+                retrieval_norm=retrieval_norm,
+                memory_update_norm=update_norm,
+                surprise_norm=surprise_norm,
+                state_drift_norm=state_drift_norm,
+                alpha_mean=gate_statistics["alpha_mean"] / accumulation_segments,
+                alpha_std=gate_statistics["alpha_std"] / accumulation_segments,
+                eta_mean=gate_statistics["eta_mean"] / accumulation_segments,
+                eta_std=gate_statistics["eta_std"] / accumulation_segments,
+                theta_mean=gate_statistics["theta_mean"] / accumulation_segments,
+                theta_std=gate_statistics["theta_std"] / accumulation_segments,
+                gradient_norm=float(gradient_norm_tensor.detach().cpu()),
+                written_state_gradient_norm=written_gradient_norm,
+                elapsed_seconds=elapsed,
+                bases_per_second=accumulation_bases / elapsed if elapsed else 0.0,
+            )
+            self.history.append(record)
+            if on_step is not None:
+                on_step(record)
+            accumulation_losses = []
+            accumulation_outputs = []
+            accumulation_segments = 0
+            accumulation_examples = 0
+            accumulation_tokens = 0
+            accumulation_bases = 0
+            retrieval_norm = 0.0
+            update_norm = 0.0
+            surprise_norm = 0.0
+            state_drift_norm = 0.0
+            gate_statistics = {key: 0.0 for key in gate_statistics}
+            written_state_tensors = []
+            started = time.perf_counter()
+
+        while not scheduler.exhausted:
+            if max_optimizer_steps is not None and self.optimizer_step >= max_optimizer_steps:
+                break
+            if max_valid_bases is not None and self.processed_bases >= max_valid_bases:
+                break
+            batch = scheduler.next_batch()
+            tensors = self._batch_tensors(batch, self.device)
+            states = self._states_for(batch)
+            output = self.model.forward_segment(states, memory_mode=memory_mode, **tensors)
+            assert output.loss_sum is not None
+            self._commit_states(batch, output.states)
+            accumulation_losses.append(output.loss_sum)
+            accumulation_outputs.append(
+                (
+                    output.logits.detach(),
+                    tensors["labels"].detach(),
+                    tensors["loss_mask"].detach(),
+                    tensors["represented_base_counts"].detach(),
+                )
+            )
+            accumulation_segments += 1
+            accumulation_examples += len(batch)
+            accumulation_tokens += output.valid_tokens
+            accumulation_bases += output.valid_bases
+            retrieval_norm += output.retrieval_norm
+            update_norm += output.memory_update_norm
+            surprise_norm += output.surprise_norm
+            state_drift_norm += output.state_drift_norm
+            for key in gate_statistics:
+                gate_statistics[key] += output.gate_statistics[key]
+            if accumulation_segments < horizon:
+                for row_states in output.states:
+                    for state in row_states:
+                        for value in state.fast_weights.values():
+                            if value.requires_grad:
+                                value.retain_grad()
+                                written_state_tensors.append(value)
+            self.processed_segments += len(batch)
+            self.processed_tokens += output.valid_tokens
+            self.processed_bases += output.valid_bases
+            if accumulation_segments == horizon:
+                finish_step()
+        finish_step()
+        return tuple(self.history)
+
+    def state_metadata(self) -> dict[str, object]:
+        return {
+            "optimizer_step": self.optimizer_step,
+            "processed_segments": self.processed_segments,
+            "processed_tokens": self.processed_tokens,
+            "processed_bases": self.processed_bases,
+            "history": [record.to_dict() for record in self.history],
+        }

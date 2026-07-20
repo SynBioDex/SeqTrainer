@@ -45,6 +45,10 @@ bacteria-titan = [
   "pyarrow>=12",
   "matplotlib>=3.7",
 ]
+evo2-tokenizer = [
+  # Evo 2 constructs vortex.model.tokenizer.CharLevelTokenizer(512).
+  "vtx>=1.1.0; python_version >= '3.10'",
+]
 gnn = [
   "torch>=2.2",
   "torch-geometric>=2.4",
@@ -63,6 +67,13 @@ seqtrainer-titans-stage-b-benchmark = "seqtrainer.torch.titans_paper_mac_stage_b
 seqtrainer-titans-stage-b-long-context = "seqtrainer.torch.titans_paper_mac_stage_b.long_context_benchmark:main"
 seqtrainer-titans-stage-b-audit = "seqtrainer.torch.titans_paper_mac_stage_b.audit:main"
 seqtrainer-titans-stage-b-a100-pilot = "seqtrainer.torch.titans_paper_mac_stage_b.a100_pilot:main"
+seqtrainer-titans-stage-c-tokenizers = "seqtrainer.torch.titans_paper_mac_stage_c.cli:tokenizer_study_main"
+seqtrainer-titans-stage-c-cpu-pilot = "seqtrainer.torch.titans_paper_mac_stage_c.cli:cpu_pilot_main"
+seqtrainer-titans-stage-c-hardware-preflight = "seqtrainer.torch.titans_paper_mac_stage_c.cli:hardware_preflight_main"
+seqtrainer-titans-stage-c-train = "seqtrainer.torch.titans_paper_mac_stage_c.train_cli:main"
+seqtrainer-titans-stage-c-capacity = "seqtrainer.torch.titans_paper_mac_stage_c.capacity_cli:main"
+seqtrainer-titans-stage-c-evaluate = "seqtrainer.torch.titans_paper_mac_stage_c.evaluate_cli:main"
+seqtrainer-titans-stage-c-colab-run = "seqtrainer.torch.titans_paper_mac_stage_c.colab_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/SynBioDex/SeqTrainer"

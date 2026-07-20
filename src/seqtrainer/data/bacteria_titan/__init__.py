@@ -13,6 +13,23 @@ from .manifests import (
 from .sampling import DEFAULT_SCOPE_FRACTIONS, classify_scope, prepare_candidates, sample_accessions
 from .splits import DEFAULT_SPLIT_FRACTIONS, assert_no_accession_leakage, split_accessions
 from .stats import accession_stats, token_shard_stats
+from .stage_c_streams import (
+    STAGE_C_SPLIT_FRACTIONS,
+    LazyTokenStream,
+    StreamSegment,
+    TokenStreamDataset,
+    TokenStreamIndex,
+    assign_hybrid_clade_groups,
+    assert_no_clade_leakage,
+    build_stream_segments,
+    cluster_ani_pairs,
+    iter_stage_c_fasta_records,
+    load_stream_dataset,
+    materialize_stream_dataset,
+    materialize_token_stream_dataset,
+    run_skani_triangle,
+    split_clade_groups,
+)
 from .token_shards import TokenShardDataset, regenerate_fasta_shards, tokenize_fasta_shards
 
 __all__ = [
@@ -20,6 +37,8 @@ __all__ = [
     "GTDB_R220_TAXONOMY_URL",
     "DEFAULT_SCOPE_FRACTIONS",
     "DEFAULT_SPLIT_FRACTIONS",
+    "STAGE_C_SPLIT_FRACTIONS",
+    "LazyTokenStream",
     "download_gtdb_r220",
     "download_ncbi_batches",
     "read_gtdb_metadata",
@@ -31,6 +50,19 @@ __all__ = [
     "regenerate_fasta_shards",
     "tokenize_fasta_shards",
     "TokenShardDataset",
+    "StreamSegment",
+    "TokenStreamDataset",
+    "TokenStreamIndex",
+    "assign_hybrid_clade_groups",
+    "assert_no_clade_leakage",
+    "build_stream_segments",
+    "cluster_ani_pairs",
+    "iter_stage_c_fasta_records",
+    "load_stream_dataset",
+    "materialize_stream_dataset",
+    "materialize_token_stream_dataset",
+    "run_skani_triangle",
+    "split_clade_groups",
     "accession_stats",
     "token_shard_stats",
     "validate_accession_manifest",
