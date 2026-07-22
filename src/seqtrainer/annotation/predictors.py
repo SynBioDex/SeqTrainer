@@ -81,7 +81,9 @@ class DNABERT2PromoterPredictor:
             ) from exc
 
         self._torch = torch
-        self._manifest = json.loads(self.benchmark_manifest.read_text(encoding="utf-8"))
+        # Accept both plain UTF-8 and the BOM produced by Windows PowerShell
+        # when users copy a benchmark manifest from local or Drive storage.
+        self._manifest = json.loads(self.benchmark_manifest.read_text(encoding="utf-8-sig"))
         self._model_name = str(_manifest_get(self._manifest, ("model", "name"), "zhihan1996/DNABERT-2-117M"))
         self._model_params = dict(_manifest_get(self._manifest, ("model", "params"), {}))
         self._preprocessing = dict(_manifest_get(self._manifest, ("preprocessing", "params"), {}))

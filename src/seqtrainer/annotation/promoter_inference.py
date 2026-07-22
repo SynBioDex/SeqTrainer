@@ -339,7 +339,9 @@ def _load_manifest(path: Path | None, *, allow_missing: bool = False) -> tuple[d
                 )
             ]
         raise FileNotFoundError(f"Benchmark manifest not found: {path}")
-    return json.loads(path.read_text(encoding="utf-8")), []
+    # ``utf-8-sig`` accepts standard UTF-8 and the BOM emitted by Windows
+    # PowerShell, which makes copied benchmark manifests portable.
+    return json.loads(path.read_text(encoding="utf-8-sig")), []
 
 
 def _resolve_threshold(explicit: float | None, manifest: dict[str, Any]) -> tuple[float, str]:

@@ -13,6 +13,10 @@ from .write_features import PromoterRegion
 
 
 _ROLE_MAP = {
+    # SBOLCanvas assumes every child ComponentDefinition has at least one role
+    # while constructing a visual glyph. Use the Sequence Ontology's generic
+    # sequence-feature role for GenBank features that do not map more narrowly.
+    "sequence_feature": "http://identifiers.org/so/SO:0000110",
     "promoter": "http://identifiers.org/so/SO:0000167",
     "cds": "http://identifiers.org/so/SO:0000316",
     "rbs": "http://identifiers.org/so/SO:0000552",
@@ -191,7 +195,7 @@ def _role_for_feature(feature_type: str, label: str) -> str | None:
         return _ROLE_MAP[feature_type]
     if "promoter" in label.lower():
         return _ROLE_MAP["promoter"]
-    return None
+    return _ROLE_MAP["sequence_feature"]
 
 
 def _feature_label(feature: Any) -> str:

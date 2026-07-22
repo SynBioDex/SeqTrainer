@@ -16,6 +16,22 @@ source, deposited, and predicted feature, which allows SBOLCanvas to draw
 feature glyphs on the plasmid backbone. The SBOL3 `.nt` file remains the
 canonical data-exchange output.
 
+### SBOLCanvas workflow
+
+Upload the SBOL2 `.rdf` file through `File -> Import` in SBOLCanvas. Do not
+upload the SBOL3 `.nt` file: it is a different serialization intended for
+machine exchange.
+
+SBOLCanvas expects every visual child component to have a Sequence Ontology
+role. SeqTrainer therefore uses the generic `SO:0000110` (`sequence_feature`)
+role when a source GenBank feature has no narrower mapping. This preserves the
+source feature rather than dropping it solely for graphical compatibility.
+
+Canvas may warn that individual components do not have sequences. Those
+warnings are non-blocking because the parent plasmid component has the full
+sequence and all child features have explicit coordinate ranges. Per-feature
+subsequences are intentionally not created yet.
+
 Every export is validated before writing and read back into a fresh `sbol3.Document`. Validation diagnostics are saved in `sbol_validation.json`; an invalid document fails the command rather than being presented as SBOL3-compliant.
 
 ## Command-line usage

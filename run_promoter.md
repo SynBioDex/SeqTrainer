@@ -277,6 +277,17 @@ annotated.nt is SBOL3 N-Triples for SBOL-aware data exchange.
 annotated.rdf is SBOL2 RDF/XML with linked components and sequence annotations
 for tools such as SBOLCanvas.
 
+For SBOLCanvas, import the `.rdf` file through `File -> Import`; do not upload
+the SBOL3 `.nt` file. SeqTrainer assigns the generic Sequence Ontology
+`sequence_feature` role to GenBank features that have no narrower role, so
+untyped source features remain compatible with Canvas glyph rendering.
+
+Canvas can report warnings such as `Component ... does not have a sequence`.
+These are non-blocking: the complete plasmid sequence and each feature's
+coordinate range are present, so the design map and predicted promoter
+locations remain usable. Writing each feature's individual DNA subsequence is
+a future enhancement, not required for annotation or Canvas import.
+
 Open the output folder:
 
 ~~~powershell

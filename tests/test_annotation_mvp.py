@@ -175,6 +175,30 @@ def test_annotation_uses_threshold_and_window_from_benchmark_manifest(tmp_path):
     assert manifest["window_size"] == 8
 
 
+def test_annotation_accepts_windows_utf8_bom_benchmark_manifest(tmp_path):
+    input_gb = _write_synthetic_genbank(tmp_path / "input.gb")
+    benchmark_manifest = tmp_path / "benchmark_manifest.json"
+    benchmark_manifest.write_text(
+        '{"evaluation": {"selected_threshold": 0.9}, "preprocessing": {"sequence_length": 8}}',
+        encoding="utf-8-sig",
+    )
+
+    manifest = run_promoter_annotation(
+        PromoterAnnotationConfig(
+            input_file=input_gb,
+            output_file=tmp_path / "annotated.gb",
+            predictions_csv=tmp_path / "predictions.csv",
+            manifest=tmp_path / "manifest.json",
+            model_family="dummy",
+            benchmark_manifest=benchmark_manifest,
+            step_size=4,
+        )
+    )
+
+    assert manifest["threshold"] == 0.9
+    assert manifest["window_size"] == 8
+
+
 def test_annotation_resolves_model_bundle_paths(tmp_path):
     input_gb = _write_synthetic_genbank(tmp_path / "input.gb")
     bundle = tmp_path / "model_bundle"

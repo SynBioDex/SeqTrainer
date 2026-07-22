@@ -156,6 +156,49 @@ def test_annotation_cli_writes_validated_sbol3_output(tmp_path: Path):
     assert all(annotation.component in component_ids for annotation in parent.sequenceAnnotations)
 
 
+def test_sbol2_export_assigns_canvas_safe_role_to_untyped_features(tmp_path: Path):
+    """SBOLCanvas requires each rendered child definition to have a role."""
+    from Bio import SeqIO
+    from Bio.SeqFeature import FeatureLocation, SeqFeature
+    import sbol2
+
+    record = _record()
+    record.features.append(
+        SeqFeature(
+            FeatureLocation(20, 23, strand=1),
+            type="misc_feature",
+            qualifiers={"label": ["untyped_source_feature"]},
+        )
+    )
+    input_path = tmp_path / "input.gb"
+    sbol2_path = tmp_path / "annotated.rdf"
+    SeqIO.write(record, input_path, "genbank")
+
+    run_promoter_annotation(
+        PromoterAnnotationConfig(
+            input_file=input_path,
+            output_file=tmp_path / "annotated.gb",
+            predictions_csv=tmp_path / "predictions.csv",
+            manifest=tmp_path / "manifest.json",
+            model_family="dummy",
+            threshold=0.8,
+            window_size=8,
+            step_size=4,
+            sbol2_output=sbol2_path,
+        )
+    )
+
+    document = sbol2.Document()
+    document.read(str(sbol2_path))
+    parent = next(
+        obj
+        for obj in document
+        if isinstance(obj, sbol2.ComponentDefinition) and obj.displayId == "labelled_plasmid"
+    )
+    definitions = [document.getComponentDefinition(component.definition) for component in parent.components]
+    assert all(definition.roles for definition in definitions)
+
+
 def test_evaluation_captures_gold_before_source_features_are_removed(tmp_path: Path):
     from Bio import SeqIO
 
