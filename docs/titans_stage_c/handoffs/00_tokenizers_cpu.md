@@ -11,10 +11,13 @@ step and equal-raw-base regimes. Place leakage-safe train and validation FASTAs
 on Drive before starting.
 
 Edit only the tagged configuration cell: reviewed commit, Drive root, FASTA
-paths, and run name. The commit must be a pushed immutable SHA. CPU runtime is
-expected; this gate should consume no GPU compute units. The notebook installs
-the small official `vtx` package so the Evo 2 `CharLevelTokenizer(512)` adapter
-is parity-verified without downloading Evo 2 model weights.
+paths, and run name. The commit must be a pushed immutable SHA. Before running,
+add the shared `bacteria_titan_v1_ecoli_related_15gbp` folder to My Drive as a
+shortcut; the notebook reads its compressed FASTA shard directories directly
+and does not copy the 15 Gbp corpus. CPU runtime is expected; this gate should
+consume no GPU compute units. The notebook installs the small official `vtx`
+package so the Evo 2 `CharLevelTokenizer(512)` adapter is parity-verified
+without downloading Evo 2 model weights.
 
 ## Success, recovery, and return
 
