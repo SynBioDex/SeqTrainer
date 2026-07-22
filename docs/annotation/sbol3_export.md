@@ -26,6 +26,10 @@ SBOLCanvas expects every visual child component to have a Sequence Ontology
 role. SeqTrainer therefore uses the generic `SO:0000110` (`sequence_feature`)
 role when a source GenBank feature has no narrower mapping. This preserves the
 source feature rather than dropping it solely for graphical compatibility.
+After the SBOL2 document is written and read back, SeqTrainer verifies that no
+rendered child component is roleless. A failed compatibility check stops the
+run locally with the offending component IDs instead of leaving Canvas to show
+an uninformative import error.
 
 Canvas may warn that individual components do not have sequences. Those
 warnings are non-blocking because the parent plasmid component has the full

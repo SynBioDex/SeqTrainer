@@ -96,6 +96,8 @@ def test_labelled_evaluation_writes_ground_truth_and_metrics(tmp_path: Path):
 
 
 def test_annotation_cli_writes_validated_sbol3_output(tmp_path: Path):
+    import json
+
     from Bio import SeqIO
     import sbol3
 
@@ -154,6 +156,10 @@ def test_annotation_cli_writes_validated_sbol3_output(tmp_path: Path):
     assert len(parent.sequenceAnnotations) >= 1
     component_ids = {component.identity for component in parent.components}
     assert all(annotation.component in component_ids for annotation in parent.sequenceAnnotations)
+    annotation_manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    sbol2_metadata = annotation_manifest["evaluation"]["sbol"]["sbol2"]
+    assert sbol2_metadata["canvas_compatible"] is True
+    assert sbol2_metadata["canvas_roleless_child_component_count"] == 0
 
 
 def test_sbol2_export_assigns_canvas_safe_role_to_untyped_features(tmp_path: Path):

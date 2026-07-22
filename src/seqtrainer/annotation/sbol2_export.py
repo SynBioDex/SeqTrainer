@@ -132,15 +132,43 @@ def export_sbol2(
     doc.write(str(out))
     round_trip = sbol2.Document()
     round_trip.read(str(out))
+    canvas_check = _validate_canvas_compatibility(round_trip)
     return {
         "path": str(out),
         "format": "SBOL2 RDF/XML",
         "round_trip_objects": len(round_trip),
+        **canvas_check,
         "source_feature_count": source_count,
         "gold_promoter_count": gold_count,
         "predicted_promoter_count": predicted_count,
         "python": platform.python_version(),
         "seqtrainer_python": sys.version,
+    }
+
+
+def _validate_canvas_compatibility(document: Any) -> dict[str, Any]:
+    """Fail locally when an SBOL2 export can trigger Canvas's roleless-glyph bug."""
+    import sbol2
+
+    roleless: list[str] = []
+    for parent in document:
+        if not isinstance(parent, sbol2.ComponentDefinition):
+            continue
+        for component in parent.components:
+            definition = document.getComponentDefinition(component.definition)
+            if definition is None or not definition.roles:
+                roleless.append(component.displayId)
+
+    if roleless:
+        examples = ", ".join(roleless[:5])
+        raise ValueError(
+            "SBOL2 Canvas compatibility check failed: every rendered child "
+            "ComponentDefinition must have at least one Sequence Ontology role. "
+            f"Roleless components: {examples}"
+        )
+    return {
+        "canvas_compatible": True,
+        "canvas_roleless_child_component_count": 0,
     }
 
 
@@ -151,7 +179,7 @@ def _add_feature(
     feature_id: str,
     label: str,
     locations: list[dict[str, Any]],
-    role: str | None,
+    role: str,
     description: str,
     metadata: dict[str, Any],
 ) -> None:
@@ -161,8 +189,7 @@ def _add_feature(
     definition.name = label
     metadata_text = "; ".join(f"{key}={value}" for key, value in metadata.items() if value is not None)
     definition.description = f"{description} {metadata_text}".strip()
-    if role:
-        definition.addRole(role)
+    definition.addRole(role)
     doc.add(definition)
 
     component = sbol2.Component(feature_id, definition=definition.identity)
@@ -190,7 +217,7 @@ def _interval_locations(start: int, end: int, strand: str | int | None, wraps: b
     return [{"start": left + 1, "end": right, "orientation": orientation} for left, right in intervals]
 
 
-def _role_for_feature(feature_type: str, label: str) -> str | None:
+def _role_for_feature(feature_type: str, label: str) -> str:
     if feature_type in _ROLE_MAP:
         return _ROLE_MAP[feature_type]
     if "promoter" in label.lower():
