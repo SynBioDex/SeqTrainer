@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,7 @@ class PromoterAnnotationConfig:
     predictions_csv: Path | None = None
     manifest: Path | None = None
     model_family: str = "dummy"
+    model_bundle: Path | None = None
     checkpoint: Path | None = None
     benchmark_manifest: Path | None = None
     threshold: float | None = None
@@ -38,6 +40,8 @@ class PromoterAnnotationConfig:
     gold_csv: Path | None = None
     evaluation_dir: Path | None = None
     sbol_output: Path | None = None
+    sbol2_output: Path | None = None
+    clean_output: bool = False
     sbol_namespace: str = "https://seqtrainer.org/designs"
     promoter_label_mode: str = "labelled"
     annotation_completeness: str = "unknown"
@@ -51,14 +55,28 @@ def run_promoter_annotation(
     predictor: PromoterPredictor | None = None,
 ) -> dict[str, Any]:
     """Annotate likely promoter regions in a GenBank plasmid record."""
+    checkpoint, benchmark_manifest = _resolve_model_bundle(
+        config.model_bundle,
+        checkpoint=config.checkpoint,
+        benchmark_manifest=config.benchmark_manifest,
+    )
+    if checkpoint != config.checkpoint or benchmark_manifest != config.benchmark_manifest:
+        config = replace(
+            config,
+            checkpoint=checkpoint,
+            benchmark_manifest=benchmark_manifest,
+        )
     record = read_genbank(config.input_file)
+    output_file, predictions_csv, manifest_path = _resolve_outputs(config)
+    if config.clean_output:
+        _clean_annotation_outputs(config, output_file, predictions_csv, manifest_path)
     original_feature_count = len(record.features)
 
     # Capture deposited labels before optionally removing source features from
     # the output record. Evaluation must describe the input annotations even
     # when the caller requests a prediction-only GenBank file.
     gold_promoters = None
-    if config.evaluation_dir is not None or config.sbol_output is not None or config.gold_csv is not None:
+    if config.evaluation_dir is not None or config.sbol_output is not None or config.sbol2_output is not None or config.gold_csv is not None:
         from .ground_truth import extract_ground_truth_promoters
 
         gold_promoters = extract_ground_truth_promoters(
@@ -140,7 +158,6 @@ def run_promoter_annotation(
         step_size=step_size,
     )
 
-    output_file, predictions_csv, manifest_path = _resolve_outputs(config)
     write_genbank(record, output_file)
     prediction_frame = pd.DataFrame(rows)
     predictions_csv.parent.mkdir(parents=True, exist_ok=True)
@@ -173,6 +190,7 @@ def run_promoter_annotation(
         "sequence_length": len(record.seq),
         "topology": record_topology(record),
         "model_family": config.model_family,
+        "model_bundle": str(config.model_bundle) if config.model_bundle else None,
         "checkpoint": str(config.checkpoint) if config.checkpoint else None,
         "checkpoint_sha256": _file_sha256(config.checkpoint) if config.checkpoint else None,
         "benchmark_manifest": str(config.benchmark_manifest) if config.benchmark_manifest else None,
@@ -217,7 +235,7 @@ def _write_external_evaluation(
     gold_promoters: list[Any] | None,
 ) -> dict[str, Any]:
     """Write labelled-plasmid evaluation artifacts when evaluation is requested."""
-    if config.evaluation_dir is None and config.sbol_output is None and config.gold_csv is None:
+    if config.evaluation_dir is None and config.sbol_output is None and config.sbol2_output is None and config.gold_csv is None:
         return {}
     from .evaluation import evaluate_merged_features, evaluate_windows
     from .ground_truth import write_gold_promoters
@@ -256,6 +274,18 @@ def _write_external_evaluation(
     pd.DataFrame([{"scope": "window", **_flat_metrics(window_metrics)}, {"scope": "merged", **_flat_metrics(merged_metrics)}]).to_csv(evaluation_dir / "metrics.csv", index=False)
 
     sbol_artifacts = {}
+    provenance = {}
+    if config.sbol_output or config.sbol2_output:
+        provenance = {
+            **model_provenance(
+                checkpoint=config.checkpoint,
+                benchmark_manifest=config.benchmark_manifest,
+                model_family=config.model_family,
+                threshold=threshold,
+                threshold_source=threshold_source,
+            ),
+            **predictor.metadata(),
+        }
     if config.sbol_output:
         from .sbol3_export import export_sbol3
 
@@ -267,7 +297,19 @@ def _write_external_evaluation(
             validation_path=evaluation_dir / "sbol_validation.json",
             namespace=config.sbol_namespace,
             source_url=config.source_url,
-            provenance={**model_provenance(checkpoint=config.checkpoint, benchmark_manifest=config.benchmark_manifest, model_family=config.model_family, threshold=threshold, threshold_source=threshold_source), **predictor.metadata()},
+            provenance=provenance,
+        )
+    if config.sbol2_output:
+        from .sbol2_export import export_sbol2
+
+        sbol_artifacts["sbol2"] = export_sbol2(
+            record,
+            gold_promoters=gold,
+            predicted_regions=regions,
+            output_path=config.sbol2_output,
+            namespace=config.sbol_namespace,
+            source_url=config.source_url,
+            provenance=provenance,
         )
     return {"evaluation_dir": str(evaluation_dir), "gold_csv": str(gold_path), "metrics_json": str(evaluation_dir / "metrics.json"), "sbol": sbol_artifacts}
 
@@ -334,6 +376,80 @@ def _resolve_outputs(config: PromoterAnnotationConfig) -> tuple[Path, Path, Path
     predictions_csv = config.predictions_csv or out_dir / f"{stem}_{config.model_family}_predictions.csv"
     manifest = config.manifest or out_dir / f"{stem}_{config.model_family}_manifest.json"
     return output_file, predictions_csv, manifest
+
+
+def _clean_annotation_outputs(
+    config: PromoterAnnotationConfig,
+    output_file: Path,
+    predictions_csv: Path,
+    manifest_path: Path,
+) -> None:
+    """Remove artifacts from the explicitly requested annotation run.
+
+    An explicit evaluation directory is treated as a disposable run folder and
+    cleared completely. Primary outputs and optional SBOL files are removed
+    individually so cleanup cannot erase neighboring experiments.
+    """
+    paths = [output_file, predictions_csv, manifest_path, config.sbol_output, config.sbol2_output, config.gold_csv]
+    for path in paths:
+        if path is not None and path.is_file():
+            path.unlink()
+
+    if config.evaluation_dir is None:
+        return
+    evaluation_dir = Path(config.evaluation_dir)
+    if not evaluation_dir.exists():
+        return
+    resolved = evaluation_dir.resolve()
+    if resolved == Path(resolved.anchor) or resolved == Path.cwd().resolve():
+        raise ValueError(f"Refusing to clean unsafe evaluation directory: {evaluation_dir}")
+    shutil.rmtree(evaluation_dir)
+
+
+def _resolve_model_bundle(
+    bundle: Path | None,
+    *,
+    checkpoint: Path | None,
+    benchmark_manifest: Path | None,
+) -> tuple[Path | None, Path | None]:
+    """Resolve a trained checkpoint and matching benchmark manifest from one folder."""
+    if bundle is None:
+        return checkpoint, benchmark_manifest
+
+    bundle = Path(bundle).expanduser()
+    if not bundle.is_dir():
+        raise FileNotFoundError(f"Model bundle directory not found: {bundle}")
+
+    checkpoint_candidates = (
+        bundle / "checkpoints" / "best_model.pt",
+        bundle / "checkpoints" / "best.pt",
+        bundle / "best_model.pt",
+        bundle / "best.pt",
+        bundle / "model.pt",
+    )
+    manifest_candidates = (
+        bundle / "manifest.json",
+        bundle / "benchmark_manifest.json",
+    )
+
+    resolved_checkpoint = checkpoint or next(
+        (path for path in checkpoint_candidates if path.is_file()),
+        None,
+    )
+    resolved_manifest = benchmark_manifest or next(
+        (path for path in manifest_candidates if path.is_file()),
+        None,
+    )
+    missing = []
+    if resolved_checkpoint is None:
+        missing.append("checkpoint (expected checkpoints/best_model.pt or best.pt)")
+    if resolved_manifest is None:
+        missing.append("manifest.json")
+    if missing:
+        raise FileNotFoundError(
+            f"Model bundle {bundle} is incomplete; missing " + ", ".join(missing)
+        )
+    return resolved_checkpoint, resolved_manifest
 
 
 def _merge_passing_windows(

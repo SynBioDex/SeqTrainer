@@ -164,7 +164,11 @@ def _feature_label(feature: Any) -> str:
 
 
 def _safe_id(value: str) -> str:
-    return "".join(char if char.isalnum() or char in "-_" else "_" for char in value) or "plasmid"
+    clean = "".join(char if char.isalnum() or char == "_" else "_" for char in value)
+    clean = clean.strip("_") or "plasmid"
+    if not clean[0].isalpha():
+        clean = f"plasmid_{clean}"
+    return clean
 
 
 def _validation_json(report: Any) -> dict[str, Any]:

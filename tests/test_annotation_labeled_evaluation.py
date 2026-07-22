@@ -7,6 +7,7 @@ from seqtrainer.annotation.collection import run_promoter_collection
 from seqtrainer.annotation.coordinate_conversion import sbol_orientation, sbol_ranges_for_location
 from seqtrainer.annotation.ground_truth import extract_ground_truth_promoters
 from seqtrainer.annotation.windows import generate_sliding_windows
+from seqtrainer.annotation.sbol3_export import _safe_id
 
 
 def _record():
@@ -54,6 +55,12 @@ def test_coordinate_conversion_is_one_based_and_bounded():
     assert sbol_orientation(-1).endswith("#reverseComplement")
 
 
+def test_sbol_safe_id_handles_empty_and_punctuation_only_record_ids():
+    assert _safe_id(".") == "plasmid"
+    assert _safe_id("123") == "plasmid_123"
+    assert _safe_id("pAN1717") == "pAN1717"
+
+
 def test_labelled_evaluation_writes_ground_truth_and_metrics(tmp_path: Path):
     from Bio import SeqIO
 
@@ -72,6 +79,7 @@ def test_labelled_evaluation_writes_ground_truth_and_metrics(tmp_path: Path):
             step_size=4,
             evaluation_dir=evaluation_dir,
             sbol_output=tmp_path / "annotated.nt",
+            sbol2_output=tmp_path / "annotated.rdf",
             annotation_completeness="verified_complete",
         )
     )
@@ -82,8 +90,70 @@ def test_labelled_evaluation_writes_ground_truth_and_metrics(tmp_path: Path):
     assert (evaluation_dir / "metrics.json").exists()
     assert (evaluation_dir / "metrics.csv").exists()
     assert (tmp_path / "annotated.nt").exists()
+    assert (tmp_path / "annotated.rdf").exists()
     assert manifest["evaluation"]["gold_csv"]
     assert pd.read_csv(evaluation_dir / "gold_promoters.csv").shape[0] == 4
+
+
+def test_annotation_cli_writes_validated_sbol3_output(tmp_path: Path):
+    from Bio import SeqIO
+    import sbol3
+
+    input_path = tmp_path / "input.gb"
+    SeqIO.write(_record(), input_path, "genbank")
+    output_path = tmp_path / "annotated.gb"
+    sbol_path = tmp_path / "annotated.nt"
+    sbol2_path = tmp_path / "annotated.rdf"
+
+    from seqtrainer.cli.main import main
+
+    exit_code = main(
+        [
+            "annotate",
+            "promoters",
+            str(input_path),
+            "--model-family",
+            "dummy",
+            "--threshold",
+            "0.8",
+            "--window-size",
+            "8",
+            "--step-size",
+            "4",
+            "--output",
+            str(output_path),
+            "--predictions-csv",
+            str(tmp_path / "predictions.csv"),
+            "--manifest",
+            str(tmp_path / "manifest.json"),
+            "--sbol-output",
+            str(sbol_path),
+            "--sbol2-output",
+            str(sbol2_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert sbol_path.exists()
+    assert sbol2_path.exists()
+    document = sbol3.Document()
+    document.read(str(sbol_path))
+    assert any(isinstance(obj, sbol3.Component) for obj in document.objects)
+    assert any(isinstance(obj, sbol3.Sequence) for obj in document.objects)
+
+    import sbol2
+
+    legacy_document = sbol2.Document()
+    legacy_document.read(str(sbol2_path))
+    parent = next(
+        obj
+        for obj in legacy_document
+        if isinstance(obj, sbol2.ComponentDefinition) and obj.displayId == "labelled_plasmid"
+    )
+    assert len(parent.components) >= 1
+    assert len(parent.sequenceAnnotations) >= 1
+    component_ids = {component.identity for component in parent.components}
+    assert all(annotation.component in component_ids for annotation in parent.sequenceAnnotations)
 
 
 def test_evaluation_captures_gold_before_source_features_are_removed(tmp_path: Path):
@@ -108,6 +178,34 @@ def test_evaluation_captures_gold_before_source_features_are_removed(tmp_path: P
         )
     )
     assert pd.read_csv(evaluation_dir / "gold_promoters.csv").shape[0] == 4
+
+
+def test_clean_output_removes_previous_evaluation_artifacts(tmp_path: Path):
+    from Bio import SeqIO
+
+    input_path = tmp_path / "input.gb"
+    SeqIO.write(_record(), input_path, "genbank")
+    evaluation_dir = tmp_path / "evaluation"
+    evaluation_dir.mkdir()
+    (evaluation_dir / "stale_plot.png").write_bytes(b"old")
+
+    run_promoter_annotation(
+        PromoterAnnotationConfig(
+            input_file=input_path,
+            output_file=tmp_path / "annotated.gb",
+            predictions_csv=tmp_path / "predictions.csv",
+            manifest=tmp_path / "manifest.json",
+            model_family="dummy",
+            threshold=0.8,
+            window_size=8,
+            step_size=4,
+            evaluation_dir=evaluation_dir,
+            clean_output=True,
+        )
+    )
+
+    assert not (evaluation_dir / "stale_plot.png").exists()
+    assert (evaluation_dir / "metrics.json").exists()
 
 
 def test_window_centre_labels_same_strand():

@@ -11,13 +11,14 @@ seqtrainer annotate promoter data/addgene_18115/raw/pAN1717.gb `
   --benchmark-manifest outputs/benchmarks/dnabert2_finetune_t4_seed42/manifest.json `
   --evaluation-dir outputs/addgene_18115/plasmids/pAN1717 `
   --sbol-output outputs/addgene_18115/plasmids/pAN1717/annotated.nt `
+  --sbol2-output outputs/addgene_18115/plasmids/pAN1717/annotated_sbol2.rdf `
   --annotation-completeness partial `
   --promoter-label-mode strict
 ```
 
 PowerShell uses a backtick for continuation. On Windows Command Prompt, use one line or replace the backticks with `^`.
 
-The run preserves the input GenBank features and writes an annotated GenBank file, `predictions.csv`, `gold_promoters.csv`, `window_predictions.csv`, `merged_predictions.csv`, `promoter_matches.csv`, `metrics.csv`, `metrics.json`, `annotation_manifest.json`, `sbol_validation.json`, and optional SBOL3 `annotated.nt`.
+The run preserves the input GenBank features and writes an annotated GenBank file, `predictions.csv`, `gold_promoters.csv`, `window_predictions.csv`, `merged_predictions.csv`, `promoter_matches.csv`, `metrics.csv`, `metrics.json`, `annotation_manifest.json`, `sbol_validation.json`, optional SBOL3 `annotated.nt`, and SBOL2 RDF/XML `annotated_sbol2.rdf` for SBOLCanvas. Add `--clean-output` to clear the named evaluation folder and replace old primary outputs before a repeat run.
 
 ## Collection
 

@@ -107,6 +107,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     annotate_promoters.add_argument("input", type=Path)
     annotate_promoters.add_argument("--model-family", choices=("dnabert2", "cnn_v2", "dummy"), default="dummy")
+    annotate_promoters.add_argument(
+        "--model-bundle",
+        type=Path,
+        help="Folder containing a trained checkpoint and matching benchmark manifest",
+    )
     annotate_promoters.add_argument("--checkpoint", type=Path)
     annotate_promoters.add_argument("--benchmark-manifest", type=Path)
     annotate_promoters.add_argument("--threshold", type=float)
@@ -132,6 +137,11 @@ def _build_parser() -> argparse.ArgumentParser:
     annotate_promoters.add_argument("--gold-csv", type=Path)
     annotate_promoters.add_argument("--evaluation-dir", type=Path)
     annotate_promoters.add_argument("--sbol-output", type=Path)
+    annotate_promoters.add_argument(
+        "--sbol2-output",
+        type=Path,
+        help="Write SBOL2 RDF/XML with Canvas-renderable feature components",
+    )
     annotate_promoters.add_argument("--sbol-namespace", default="https://seqtrainer.org/designs")
     annotate_promoters.add_argument("--promoter-label-mode", choices=("strict", "labelled"), default="labelled")
     annotate_promoters.add_argument("--annotation-completeness", choices=("verified_complete", "partial", "unknown"), default="unknown")
@@ -334,11 +344,6 @@ def main(argv: list[str] | None = None) -> int:
         if args.annotate_command == "promoters":
             from seqtrainer.annotation import PromoterAnnotationConfig, run_promoter_annotation
 
-            if args.clean_output:
-                for path in (args.output, args.predictions_csv, args.manifest):
-                    if path is not None and path.exists():
-                        path.unlink()
-
             manifest = run_promoter_annotation(
                 PromoterAnnotationConfig(
                     input_file=args.input,
@@ -346,6 +351,7 @@ def main(argv: list[str] | None = None) -> int:
                     predictions_csv=args.predictions_csv,
                     manifest=args.manifest,
                     model_family=args.model_family,
+                    model_bundle=args.model_bundle,
                     checkpoint=args.checkpoint,
                     benchmark_manifest=args.benchmark_manifest,
                     threshold=args.threshold,
@@ -358,6 +364,8 @@ def main(argv: list[str] | None = None) -> int:
                     gold_csv=args.gold_csv,
                     evaluation_dir=args.evaluation_dir,
                     sbol_output=args.sbol_output,
+                    sbol2_output=args.sbol2_output,
+                    clean_output=args.clean_output,
                     sbol_namespace=args.sbol_namespace,
                     promoter_label_mode=args.promoter_label_mode,
                     annotation_completeness=args.annotation_completeness,

@@ -175,6 +175,36 @@ def test_annotation_uses_threshold_and_window_from_benchmark_manifest(tmp_path):
     assert manifest["window_size"] == 8
 
 
+def test_annotation_resolves_model_bundle_paths(tmp_path):
+    input_gb = _write_synthetic_genbank(tmp_path / "input.gb")
+    bundle = tmp_path / "model_bundle"
+    (bundle / "checkpoints").mkdir(parents=True)
+    checkpoint = bundle / "checkpoints" / "best_model.pt"
+    checkpoint.write_bytes(b"checkpoint")
+    benchmark_manifest = bundle / "manifest.json"
+    benchmark_manifest.write_text(
+        '{"evaluation": {"selected_threshold": 0.91}, "preprocessing": {"sequence_length": 8}}',
+        encoding="utf-8",
+    )
+
+    manifest = run_promoter_annotation(
+        PromoterAnnotationConfig(
+            input_file=input_gb,
+            output_file=tmp_path / "annotated.gb",
+            predictions_csv=tmp_path / "predictions.csv",
+            manifest=tmp_path / "annotation_manifest.json",
+            model_family="dummy",
+            model_bundle=bundle,
+            step_size=4,
+        )
+    )
+
+    assert manifest["checkpoint"] == str(checkpoint)
+    assert manifest["benchmark_manifest"] == str(benchmark_manifest)
+    assert manifest["model_bundle"] == str(bundle)
+    assert manifest["threshold"] == 0.91
+
+
 def test_annotation_allows_missing_manifest_when_cli_values_are_explicit(tmp_path):
     input_gb = _write_synthetic_genbank(tmp_path / "input.gb")
 

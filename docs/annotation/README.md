@@ -53,6 +53,28 @@ outputs\annotations\pAN1717_cyan_dummy_predictions.csv
 outputs\annotations\pAN1717_cyan_dummy_manifest.json
 ```
 
+For repeat runs, add `--clean-output`. It removes the explicitly named primary
+outputs and clears the explicitly named `--evaluation-dir` before inference,
+so stale metrics, plots, validation reports, and prediction tables are not
+mixed with the new run. Cleanup is opt-in and does not touch neighboring run
+folders.
+
+### Automatic model bundle loading
+
+For DNABERT2, keep the trained checkpoint and matching benchmark manifest in
+one folder. The folder may contain `manifest.json` and either
+`checkpoints/best_model.pt` or `checkpoints/best.pt`. This avoids copying or
+typing two paths for every annotation run:
+
+```powershell
+seqtrainer annotate promoters C:\\Users\\Sgoff\\Downloads\\pAN1717_cyan.gb --model-family dnabert2 --model-bundle models\\dnabert2_finetune_t4_seed42 --output outputs\\annotations\\pAN1717_dnabert2\\annotated.gb --predictions-csv outputs\\annotations\\pAN1717_dnabert2\\predictions.csv --manifest outputs\\annotations\\pAN1717_dnabert2\\manifest.json --sbol-output outputs\\annotations\\pAN1717_dnabert2\\annotated.nt --sbol2-output outputs\\annotations\\pAN1717_dnabert2\\annotated.rdf --clean-output --open-output-folder
+```
+
+The bundle is only a convenience for locating files. The checkpoint still
+supplies the trained model weights, and `manifest.json` still supplies the
+validation-selected threshold and preprocessing settings. Both files must
+come from the same benchmark run.
+
 ## 3. Open The Output Files Locally
 
 Open the output folder in File Explorer:
