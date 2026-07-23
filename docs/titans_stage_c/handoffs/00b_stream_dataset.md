@@ -13,6 +13,10 @@ the Stage C Drive workspace. The 95% screen is deliberately below the 99% split
 clustering boundary so near-threshold pairs are retained. The resulting table
 must retain `Ref_file`, `Query_file`, and `ANI` columns.
 
+The notebook runs Stage C commands in `/content/seqtrainer-stage-c-venv`, a
+virtual environment with its own pinned NumPy/Pandas/PyArrow ABI. This avoids
+replacing compiled packages inside Colab's already-running notebook kernel.
+
 Edit only the tagged configuration cell. `GIT_REF` must be a pushed immutable
 commit. The notebook loads `tokenizer_selection.json` and refuses a tokenizer
 name or checksum mismatch, so it cannot silently retrain or substitute BPE.

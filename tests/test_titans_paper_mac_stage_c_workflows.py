@@ -154,7 +154,7 @@ def test_all_colab_notebooks_are_thin_pinned_logged_handoffs() -> None:
         assert len(payload["cells"]) <= 5
 
 
-def test_stream_dataset_notebook_reinstalls_the_colab_numeric_abi_stack() -> None:
+def test_stream_dataset_notebook_uses_an_isolated_colab_numeric_abi_stack() -> None:
     root = Path(__file__).parents[1]
     notebook = json.loads(
         (root / "notebooks" / "titans_stage_c" / "00b_stage_c_stream_dataset.ipynb").read_text(
@@ -163,7 +163,11 @@ def test_stream_dataset_notebook_reinstalls_the_colab_numeric_abi_stack() -> Non
     )
     source = "\n".join("".join(cell.get("source", [])) for cell in notebook["cells"])
 
+    assert "--system-site-packages" in source
+    assert "stage_c_python" in source
+    assert "stage_c_runner" in source
     assert "--force-reinstall" in source
     assert "numpy==1.26.4" in source
     assert "pandas==2.2.2" in source
     assert "pyarrow==18.1.0" in source
+    assert "[sys.executable,'-m','pip'" not in source
