@@ -11,7 +11,11 @@ import zipfile
 
 import pandas as pd
 
-from seqtrainer.data.bacteria_titan import read_table, run_skani_triangle
+from seqtrainer.data.bacteria_titan import (
+    normalize_stage_c_source_manifest,
+    read_table,
+    run_skani_triangle,
+)
 
 
 FASTA_SUFFIXES = (".fna", ".fa", ".fasta")
@@ -78,7 +82,7 @@ def main() -> None:
     zip_dir = args.source_root / "raw" / "ncbi_dataset_zips"
     if not manifest_path.exists() or not zip_dir.is_dir():
         raise FileNotFoundError("source root must contain the accession manifest and NCBI ZIP directory")
-    manifest = read_table(manifest_path)
+    manifest = normalize_stage_c_source_manifest(read_table(manifest_path))
     accessions = set(
         manifest.loc[manifest["scope"].eq("ecoli_species"), "accession"].astype(str)
     )

@@ -28,6 +28,7 @@ from .stage_c_streams import (
     load_stream_dataset,
     materialize_stream_dataset,
     materialize_token_stream_dataset,
+    normalize_stage_c_source_manifest,
     run_skani_triangle,
     split_clade_groups,
 )
@@ -63,6 +64,7 @@ __all__ = [
     "load_stream_dataset",
     "materialize_stream_dataset",
     "materialize_token_stream_dataset",
+    "normalize_stage_c_source_manifest",
     "run_skani_triangle",
     "split_clade_groups",
     "accession_stats",

@@ -16,6 +16,7 @@ from seqtrainer.data.bacteria_titan import (
     load_stream_dataset,
     materialize_token_stream_dataset,
     materialize_stream_dataset,
+    normalize_stage_c_source_manifest,
     run_skani_triangle,
     split_clade_groups,
     TokenStreamDataset,
@@ -154,6 +155,24 @@ def test_skani_pairs_form_deterministic_ani99_groups_and_hybrid_contract() -> No
     grouped = assign_hybrid_clade_groups(manifest, membership)
     assert grouped.loc[0, "clade_group"].startswith("ani99:")
     assert grouped.loc[2, "clade_group"] == "gtdb_species:Escherichia albertii"
+
+
+def test_stage_c_source_manifest_normalizes_gtdb_schema_to_fasta_accessions() -> None:
+    source = pd.DataFrame(
+        {
+            "accession": ["RS_GCF_000001.1", "RS_GCF_000002.1"],
+            "assembly_accession": ["GCF_000001.1", "GCF_000002.1"],
+            "ecoli_related_scope": ["ecoli_species", "escherichia_genus"],
+            "gtdb_genome_representative": ["RS_GCF_000001.1", "RS_GCF_000003.1"],
+            "genome_size": [5_000_000, 4_800_000],
+        }
+    )
+
+    normalized = normalize_stage_c_source_manifest(source)
+
+    assert normalized["accession"].tolist() == ["GCF_000001.1", "GCF_000002.1"]
+    assert normalized["source_accession"].tolist() == source["accession"].tolist()
+    assert normalized["scope"].tolist() == ["ecoli_species", "escherichia_genus"]
 
 
 def test_skani_triangle_uses_sparse_list_input_and_screen_below_boundary(

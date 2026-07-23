@@ -15,6 +15,7 @@ from seqtrainer.data.bacteria_titan import (
     cluster_ani_pairs,
     iter_stage_c_fasta_records,
     materialize_token_stream_dataset,
+    normalize_stage_c_source_manifest,
     read_table,
     regenerate_fasta_shards,
     split_clade_groups,
@@ -84,7 +85,7 @@ def main() -> None:
         except KeyError as error:
             raise ValueError("tokenizer selection names an unsupported tokenizer") from error
     source_manifest_path = args.source_root / "manifests" / "accession_manifest.parquet"
-    accessions = read_table(source_manifest_path)
+    accessions = normalize_stage_c_source_manifest(read_table(source_manifest_path))
     ecoli = accessions.loc[accessions["scope"].eq("ecoli_species"), "accession"].astype(str)
     pairs = pd.read_csv(args.ani_pairs, sep="\t")
     membership = cluster_ani_pairs(ecoli, pairs, threshold=99.0)

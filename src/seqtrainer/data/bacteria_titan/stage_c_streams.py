@@ -48,6 +48,40 @@ def _accession_from_path(value: object) -> str:
     return match.group(0)
 
 
+def normalize_stage_c_source_manifest(accessions: pd.DataFrame) -> pd.DataFrame:
+    """Adapt supported source-manifest schemas to the Stage C data contract.
+
+    The shared E. coli source dataset is produced from GTDB metadata.  It
+    identifies its NCBI assembly as ``assembly_accession`` and labels the
+    sampling tier ``ecoli_related_scope``.  Stage C FASTA shards and Skani use
+    the assembly accession in their paths, so it must be the canonical ID used
+    for clustering, splitting, and shard regeneration.
+    """
+
+    frame = accessions.copy()
+    accession_column = "assembly_accession" if "assembly_accession" in frame else "accession"
+    if accession_column not in frame:
+        raise ValueError("source manifest requires accession or assembly_accession")
+    if "accession" in frame and accession_column != "accession":
+        frame["source_accession"] = frame["accession"]
+    canonical = frame[accession_column].map(_accession_from_path)
+    if canonical.duplicated().any():
+        duplicates = canonical.loc[canonical.duplicated(keep=False)].unique()[:5]
+        raise ValueError(f"source manifest has duplicate assembly accessions: {duplicates.tolist()}")
+    frame["accession"] = canonical
+
+    if "scope" not in frame:
+        if "ecoli_related_scope" not in frame:
+            raise ValueError(
+                "source manifest requires scope or ecoli_related_scope for Stage C stratification"
+            )
+        frame["scope"] = frame["ecoli_related_scope"]
+    frame["scope"] = frame["scope"].astype("string").str.strip()
+    if frame["scope"].isna().any() or frame["scope"].eq("").any():
+        raise ValueError("source manifest has missing Stage C scope values")
+    return frame
+
+
 def cluster_ani_pairs(
     accessions: Iterable[str],
     pairs: pd.DataFrame,
