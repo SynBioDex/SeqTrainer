@@ -14,10 +14,11 @@ clustering boundary so near-threshold pairs are retained. The resulting table
 must retain `Ref_file`, `Query_file`, and `ANI` columns.
 
 The notebook uses `virtualenv` to run Stage C commands in
-`/content/seqtrainer-stage-c-venv`, with its own pinned NumPy/Pandas/PyArrow
-ABI. This avoids replacing compiled packages inside Colab's already-running
-notebook kernel, and does not depend on Colab shipping the optional standard
-library `venv` component.
+`/content/seqtrainer-stage-c-colab-base-v1` while inheriting Colab's coherent
+NumPy/Pandas/PyArrow/Torch binary stack. It deliberately does not reinstall a
+subset of those packages: changing one compiled package independently is what
+causes NumPy ABI errors. `runs/c2_stream_dataset/logs/bootstrap.log` records
+the exact Python and package versions before Stage C work begins.
 
 Edit only the tagged configuration cell. `GIT_REF` must be a pushed immutable
 commit. The notebook loads `tokenizer_selection.json` and refuses a tokenizer
