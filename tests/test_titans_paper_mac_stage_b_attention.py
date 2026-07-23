@@ -106,6 +106,23 @@ def test_sdpa_mask_is_exact_boolean_complement_for_every_edge() -> None:
             assert bool(allowed[query, key]) is (not bool(blocked[query, key]))
 
 
+def test_cpu_sdpa_math_path_has_a_differentiable_backward_path() -> None:
+    """Guard against PyTorch selecting a CPU Flash kernel without backward."""
+
+    block = PaperMACBlock(
+        d_model=4, num_heads=2, persistent_tokens=2, memory_depth=1
+    ).float()
+    retrieval = torch.randn(32, 4)
+    segment = torch.randn(32, 4, requires_grad=True)
+
+    output = integrate_sdpa_attention(block, retrieval, segment)
+    output.square().mean().backward()
+
+    assert segment.grad is not None and torch.isfinite(segment.grad).all()
+    assert block.attention.in_proj_weight.grad is not None
+    assert torch.isfinite(block.attention.in_proj_weight.grad).all()
+
+
 @pytest.mark.parametrize("changed_position", [1, 7, 16, 31])
 def test_sdpa_future_perturbation_cannot_change_earlier_outputs(changed_position) -> None:
     torch.manual_seed(509 + changed_position)

@@ -121,16 +121,24 @@ def integrate_sdpa_attention(
     additive_mask = torch.zeros_like(allowed, dtype=compute_dtype).masked_fill(
         ~allowed, float("-inf")
     )
-    context = _forced_flash_context() if force_flash else nullcontext()
-    with context:
-        attended = F.scaled_dot_product_attention(
-            query,
-            key,
-            value,
-            attn_mask=additive_mask.unsqueeze(0).unsqueeze(0),
-            dropout_p=0.0,
-            is_causal=False,
-        )
+    if layout.device.type == "cpu" and not force_flash:
+        # Current Colab builds can select CPU Flash SDPA even though its
+        # backward is unimplemented. The basal gate is intentionally small,
+        # so use the exact scaled dot-product definition directly instead.
+        scores = torch.matmul(query, key.transpose(-2, -1)) / (head_dim**0.5)
+        weights = torch.softmax(scores + additive_mask.unsqueeze(0).unsqueeze(0), dim=-1)
+        attended = torch.matmul(weights, value)
+    else:
+        context = _forced_flash_context() if force_flash else nullcontext()
+        with context:
+            attended = F.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                attn_mask=additive_mask.unsqueeze(0).unsqueeze(0),
+                dropout_p=0.0,
+                is_causal=False,
+            )
     merged = attended.transpose(1, 2).contiguous().view(batch, length, embed_dim)
     projected = F.linear(
         merged,
