@@ -52,6 +52,14 @@ class AdaptiveUpdateGates(nn.Module):
         if d_model <= 0:
             raise ValueError("d_model must be positive")
         self.projection = nn.Linear(d_model, 3)
+        # The local update is applied 32 times before a state is committed.
+        # Starting every gate near 0.5 makes that recurrence explode before
+        # outer-loop gradient clipping can intervene. Keep the gates learnable,
+        # but begin with rapid forgetting and conservative momentum/updates.
+        with torch.no_grad():
+            self.projection.bias.copy_(
+                torch.tensor((4.0, -4.0, -6.0), dtype=self.projection.bias.dtype)
+            )
 
     def forward(self, token_embeddings: Tensor) -> GateValues:
         if token_embeddings.ndim < 1 or token_embeddings.size(-1) != self.projection.in_features:

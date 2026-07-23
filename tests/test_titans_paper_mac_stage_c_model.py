@@ -24,6 +24,9 @@ from seqtrainer.torch.titans_paper_mac_stage_c import (  # noqa: E402
     load_stage_c_checkpoint,
     save_stage_c_checkpoint,
 )
+from seqtrainer.torch.titans_paper_mac_stage_c.trainer import (  # noqa: E402
+    NonFiniteTrainingError,
+)
 
 
 def tiny_config(*, horizon: int = 2) -> StageCModelConfig:
@@ -133,6 +136,56 @@ def test_cpu_basal_routes_backward_through_math_sdpa() -> None:
     output.loss.backward()
     gradient = model.stack.blocks[0].attention.in_proj_weight.grad
     assert gradient is not None and torch.isfinite(gradient).all()
+
+
+def test_cpu_basal_inner_memory_updates_remain_finite_across_training_steps() -> None:
+    tokenizer = SeqTrainerBaseTokenizer()
+    config = StageCModelConfig.cpu_basal(
+        vocab_size=tokenizer.spec.vocab_size,
+        pad_token_id=tokenizer.spec.pad_token_id,
+        tokenizer_name=tokenizer.spec.name,
+        tokenizer_checksum=tokenizer.spec.checksum,
+    )
+    segments = build_stream_segments(
+        sequence="ACGTN" * 80,
+        accession="cpu-basal",
+        contig_id="contig",
+        split="train",
+        clade_group="cpu-basal",
+        tokenizer=tokenizer,
+    )
+    model = StageCPaperMACForCausalLM(config)
+    trainer = StageCTrainer(model, torch.optim.AdamW(model.parameters(), lr=3e-4))
+    history = trainer.train(
+        StreamBatchScheduler({segments[0].stream_id: segments}, batch_size=1, shuffle=False),
+        max_optimizer_steps=4,
+    )
+
+    assert len(history) == 4
+    assert all(torch.isfinite(torch.tensor(record.loss_per_token)) for record in history)
+    assert all(torch.isfinite(torch.tensor(record.gradient_norm)) for record in history)
+
+
+def test_trainer_reports_the_first_nonfinite_forward_value() -> None:
+    model = StageCPaperMACForCausalLM(tiny_config())
+    with torch.no_grad():
+        model.token_embeddings.weight.fill_(float("nan"))
+    tokenizer = SeqTrainerBaseTokenizer()
+    segments = build_stream_segments(
+        sequence="ACGT" * 16,
+        accession="nonfinite",
+        contig_id="contig",
+        split="train",
+        clade_group="nonfinite",
+        tokenizer=tokenizer,
+    )
+    trainer = StageCTrainer(model, torch.optim.AdamW(model.parameters(), lr=1e-3))
+
+    with pytest.raises(NonFiniteTrainingError, match="non-finite forward output.*loss_sum"):
+        trainer.train(
+            StreamBatchScheduler({segments[0].stream_id: segments}, batch_size=1, shuffle=False),
+            max_optimizer_steps=1,
+        )
 
 
 def test_future_tokens_do_not_change_earlier_logits_or_valid_memory_state() -> None:

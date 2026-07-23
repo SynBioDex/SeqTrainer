@@ -95,6 +95,17 @@ def test_tokenizer_selection_uses_equal_bases_threshold_and_freezes_spec() -> No
     assert promoted["selected_tokenizer_spec"] == tokenizers[1].spec.to_dict()
 
 
+def test_tokenizer_selection_rejects_nonfinite_validation_bpb() -> None:
+    tokenizer = SeqTrainerBaseTokenizer()
+    metrics = [evaluate_tokenizer(tokenizer, ["ACGT" * 20])]
+    runs = [
+        {"tokenizer": "seqtrainer_base_v1", "regime": "equal_bases", "validation_bpb": float("nan")}
+    ]
+
+    with pytest.raises(ValueError, match="non-finite"):
+        _select_tokenizer(metrics, runs, [tokenizer])
+
+
 def test_clade_groups_never_cross_splits_and_leakage_is_detected() -> None:
     rows = []
     for scope in ("ecoli_species", "enterobacteriaceae_family"):

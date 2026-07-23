@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 import platform
 from typing import Iterable, Sequence
@@ -172,6 +173,10 @@ def _evaluate_model(
             with torch.enable_grad():
                 output = model.forward_segment((states,), **tensors)
             assert output.loss_sum is not None
+            if not torch.isfinite(output.loss_sum):
+                raise RuntimeError(
+                    f"non-finite validation loss for stream {stream_id} segment {segment.segment_index}"
+                )
             total_nll += float(output.loss_sum.detach())
             total_bases += output.valid_bases
             states = detach_stream_states(output.states[0])
@@ -197,7 +202,12 @@ def _select_tokenizer(
         item
         for item in equal_base_runs
         if intrinsic_by_name[str(item["tokenizer"])].eligible
+        and math.isfinite(float(item["validation_bpb"]))
     ]
+    if not math.isfinite(float(base_run["validation_bpb"])):
+        raise ValueError("base tokenizer has non-finite equal-base validation BPB")
+    if not eligible_runs:
+        raise ValueError("no eligible tokenizer has finite equal-base validation BPB")
     best = min(
         eligible_runs,
         key=lambda item: (

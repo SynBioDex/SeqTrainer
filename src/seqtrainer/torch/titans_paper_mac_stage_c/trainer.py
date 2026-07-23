@@ -47,6 +47,10 @@ class TrainingStepRecord:
         return asdict(self)
 
 
+class NonFiniteTrainingError(RuntimeError):
+    """Stop a run before non-finite model state can contaminate its evidence."""
+
+
 class StreamBatchScheduler:
     """Deterministically interleave streams without reordering their segments."""
 
@@ -211,6 +215,28 @@ class StageCTrainer:
             for stream_id, states in self.stream_states.items()
         }
 
+    def _require_finite(self, phase: str, tensors: Sequence[tuple[str, Tensor]]) -> None:
+        for name, value in tensors:
+            if not torch.isfinite(value).all():
+                raise NonFiniteTrainingError(
+                    f"non-finite {phase} at optimizer step {self.optimizer_step + 1}: {name}"
+                )
+
+    @staticmethod
+    def _state_tensors(states: Sequence[BlockStates]) -> list[tuple[str, Tensor]]:
+        tensors: list[tuple[str, Tensor]] = []
+        for row, row_states in enumerate(states):
+            for block, state in enumerate(row_states):
+                tensors.extend(
+                    (f"state[{row}][{block}].fast_weights.{name}", value)
+                    for name, value in state.fast_weights.items()
+                )
+                tensors.extend(
+                    (f"state[{row}][{block}].surprise.{name}", value)
+                    for name, value in state.surprise.items()
+                )
+        return tensors
+
     def train(
         self,
         scheduler: StreamBatchScheduler,
@@ -256,6 +282,14 @@ class StageCTrainer:
                 return
             loss_sum = torch.stack(accumulation_losses).sum()
             (loss_sum / max(accumulation_tokens, 1)).backward()
+            self._require_finite(
+                "backward gradient",
+                [
+                    (name, parameter.grad)
+                    for name, parameter in self.model.named_parameters()
+                    if parameter.grad is not None
+                ],
+            )
             gradient_norm_tensor = torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(), self.gradient_clip_norm
             )
@@ -331,6 +365,11 @@ class StageCTrainer:
             states = self._states_for(batch)
             output = self.model.forward_segment(states, memory_mode=memory_mode, **tensors)
             assert output.loss_sum is not None
+            self._require_finite(
+                "forward output",
+                [("loss_sum", output.loss_sum), ("logits", output.logits)]
+                + self._state_tensors(output.states),
+            )
             self._commit_states(batch, output.states)
             accumulation_losses.append(output.loss_sum)
             accumulation_outputs.append(
