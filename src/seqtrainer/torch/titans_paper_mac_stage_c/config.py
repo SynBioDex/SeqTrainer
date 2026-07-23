@@ -98,7 +98,10 @@ class StageCModelConfig:
             persistent_tokens=4,
             memory_depth=1,
             gradient_horizon=gradient_horizon,
-            backend=StageBBackendConfig(),
+            # CPU MultiheadAttention may dispatch to a Flash SDPA backward
+            # kernel that Colab does not implement. The SDPA adapter routes
+            # CPU through the exact differentiable math implementation.
+            backend=StageBBackendConfig(attention_backend=AttentionBackend.SDPA),
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -116,4 +119,3 @@ class StageCModelConfig:
         values = dict(payload)
         values["backend"] = backend
         return cls(**values)
-

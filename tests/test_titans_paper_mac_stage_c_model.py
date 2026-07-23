@@ -7,7 +7,10 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from seqtrainer.data.bacteria_titan import build_stream_segments  # noqa: E402
-from seqtrainer.torch.titans_paper_mac_stage_b import StageBBackendConfig  # noqa: E402
+from seqtrainer.torch.titans_paper_mac_stage_b import (  # noqa: E402
+    AttentionBackend,
+    StageBBackendConfig,
+)
 from seqtrainer.torch.titans_paper_mac_stage_c import (  # noqa: E402
     MemoryMode,
     SeqTrainerBaseTokenizer,
@@ -101,6 +104,35 @@ def test_stage_c_lm_has_tied_head_finite_meta_gradients_and_bpb() -> None:
     metrics = compute_stage_c_metrics(output.logits.detach(), labels, mask, bases)
     assert metrics.valid_tokens == metrics.valid_bases == 32
     assert metrics.bits_per_base > 0
+
+
+def test_cpu_basal_routes_backward_through_math_sdpa() -> None:
+    """Colab CPU pilots must not reach MultiheadAttention's Flash backward."""
+
+    tokenizer = SeqTrainerBaseTokenizer()
+    config = StageCModelConfig.cpu_basal(
+        vocab_size=tokenizer.spec.vocab_size,
+        pad_token_id=tokenizer.spec.pad_token_id,
+        tokenizer_name=tokenizer.spec.name,
+        tokenizer_checksum=tokenizer.spec.checksum,
+    )
+    assert config.backend.attention_backend is AttentionBackend.SDPA
+
+    model = StageCPaperMACForCausalLM(config)
+    inputs, labels, mask, bases = tensors()
+    output = model.forward_segment(
+        (model.initial_states("cpu"),),
+        inputs,
+        labels=labels,
+        valid_mask=mask,
+        loss_mask=mask,
+        represented_base_counts=bases,
+    )
+
+    assert output.loss is not None
+    output.loss.backward()
+    gradient = model.stack.blocks[0].attention.in_proj_weight.grad
+    assert gradient is not None and torch.isfinite(gradient).all()
 
 
 def test_future_tokens_do_not_change_earlier_logits_or_valid_memory_state() -> None:
