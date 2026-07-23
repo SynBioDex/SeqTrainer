@@ -6,11 +6,12 @@ Notebook: `notebooks/titans_stage_c/00b_stage_c_stream_dataset.ipynb`
 
 Run this after Handoff 00 freezes `tokenizer_selection.json`. Add the shared
 `bacteria_titan_v1_ecoli_related_15gbp` Stage B source folder to My Drive as a
-shortcut and leave `SOURCE_ROOT` pointed to it. Supply the skani extended
-triangle TSV for the selected *E. coli*
-assemblies, and the frozen tokenizer artifact paths. The skani screen must have
-been below the 99% clustering boundary (the repository helper uses 95%) and the
-table must retain `Ref_file`, `Query_file`, and `ANI` columns.
+shortcut and leave `SOURCE_ROOT` pointed to it. Notebook 00b materializes one
+temporary FASTA per selected *E. coli* assembly from the cached NCBI ZIPs, runs
+the Skani extended triangle, and writes `inputs/ecoli_skani_triangle.tsv` to
+the Stage C Drive workspace. The 95% screen is deliberately below the 99% split
+clustering boundary so near-threshold pairs are retained. The resulting table
+must retain `Ref_file`, `Query_file`, and `ANI` columns.
 
 Edit only the tagged configuration cell. `GIT_REF` must be a pushed immutable
 commit. The notebook loads `tokenizer_selection.json` and refuses a tokenizer

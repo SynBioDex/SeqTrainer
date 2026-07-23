@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
+import zipfile
 
 import pandas as pd
 import pytest
@@ -181,6 +183,31 @@ def test_skani_triangle_uses_sparse_list_input_and_screen_below_boundary(
     inputs = Path(command[command.index("-l") + 1]).read_text(encoding="utf-8").splitlines()
     assert inputs == [str(path.resolve()) for path in fastas]
     assert output.read_text(encoding="utf-8").startswith("Ref_file")
+
+
+def test_ani_generation_materializes_one_fasta_per_ecoli_accession(tmp_path) -> None:
+    script_path = Path(__file__).parents[1] / "scripts" / "generate_stage_c_ani_pairs.py"
+    spec = importlib.util.spec_from_file_location("stage_c_ani_generator", script_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    zip_dir = tmp_path / "zips"
+    zip_dir.mkdir()
+    with zipfile.ZipFile(zip_dir / "batch.zip", "w") as archive:
+        archive.writestr("ncbi_dataset/data/GCF_000001.1/a.fna", ">a\nACGT\n")
+        archive.writestr("ncbi_dataset/data/GCF_000002.1/b.fna", ">b\nTGCA\n")
+        archive.writestr("ncbi_dataset/data/GCF_000003.1/c.fna", ">c\nNNNN\n")
+
+    paths = module.materialize_ecoli_fastas(
+        zip_dir,
+        {"GCF_000001.1", "GCF_000002.1"},
+        tmp_path / "fastas",
+    )
+
+    assert [path.name for path in paths] == ["GCF_000001.1.fna", "GCF_000002.1.fna"]
+    assert paths[0].read_text(encoding="ascii") == ">a\nACGT\n"
+    assert paths[1].read_text(encoding="ascii") == ">b\nTGCA\n"
 
 
 def test_stream_segments_preserve_cross_segment_labels_and_mask_tail(tmp_path) -> None:
