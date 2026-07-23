@@ -163,6 +163,7 @@ def test_stream_dataset_notebook_uses_an_isolated_colab_numeric_abi_stack() -> N
     )
     source = "\n".join("".join(cell.get("source", [])) for cell in notebook["cells"])
 
+    assert "virtualenv" in source
     assert "--system-site-packages" in source
     assert "stage_c_python" in source
     assert "stage_c_runner" in source
@@ -170,4 +171,4 @@ def test_stream_dataset_notebook_uses_an_isolated_colab_numeric_abi_stack() -> N
     assert "numpy==1.26.4" in source
     assert "pandas==2.2.2" in source
     assert "pyarrow==18.1.0" in source
-    assert "[sys.executable,'-m','pip'" not in source
+    assert "[sys.executable,'-m','venv'" not in source
