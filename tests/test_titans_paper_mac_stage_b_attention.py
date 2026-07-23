@@ -14,6 +14,7 @@ from seqtrainer.torch.titans_paper_mac_stage_b import (  # noqa: E402
     StageBBackendConfig,
     StageBBackendRegistry,
     execute_stage_b,
+    integrate_sdpa_attention,
     probe_flash_mask_support,
     run_attention_backend_evidence,
     sdpa_allowed_attention_mask,
