@@ -29,7 +29,10 @@ units/hour.
 Success produces `hardware.json`, `gpu_smoke.json`, `capacity_matrix.json/.md`,
 FP32/FP16 checkpoint files, nonzero horizon-3 written-state gradients, FP32
 memory-state dtypes, matched bounded validation BPB, peak CUDA memory,
-bases/sec, and checkpoint save/load timings. If the
+bases/sec, and checkpoint save/load timings. The T4 matrix intentionally
+measures only exact-SDPA FP32 and FP16: the unaccelerated reference recurrence
+is retained as a correctness oracle but is not a full-geometry T4 capacity
+candidate. If the
 full geometry cannot fit after batch size one, retain the failure logs; do not
 change the architecture in the notebook. Rerunning the notebook creates or
 reuses only the named output directory. Return the directory printed at the

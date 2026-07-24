@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import hashlib
 import json
 from pathlib import Path
@@ -80,6 +81,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     for horizon in args.horizons:
         for variant in args.variants:
             mode, activation = VARIANTS[variant]
+            print(
+                json.dumps(
+                    {
+                        "event": "capacity_variant_started",
+                        "horizon": horizon,
+                        "variant": variant,
+                    },
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
             torch.manual_seed(args.seed)
             torch.cuda.empty_cache()
             torch.cuda.reset_peak_memory_stats(device)
@@ -88,6 +100,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "variant": variant,
                 "available": False,
             }
+            model = None
+            optimizer = None
+            scheduler = None
+            trainer = None
+            restored_model = None
+            restored_optimizer = None
+            restored_scheduler = None
+            restored_trainer = None
+            history = ()
+            validation = None
             try:
                 config = StageCModelConfig(
                     vocab_size=int(tokenizer["vocab_size"]),
@@ -205,6 +227,29 @@ def main(argv: Sequence[str] | None = None) -> int:
             except (RuntimeError, ValueError) as error:
                 result["reason"] = str(error)
             results.append(result)
+            print(
+                json.dumps(
+                    {
+                        "event": "capacity_variant_finished",
+                        "horizon": horizon,
+                        "variant": variant,
+                        "available": result["available"],
+                        "reason": result.get("reason"),
+                    },
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
+            # Release each full model/checkpoint graph before the next variant.
+            # This does not make the intentionally unaccelerated reference
+            # recurrence T4-capacity eligible, but avoids retaining completed
+            # exact-SDPA variant allocations in one Colab process.
+            model = optimizer = scheduler = trainer = None
+            restored_model = restored_optimizer = restored_scheduler = restored_trainer = None
+            history = ()
+            validation = None
+            gc.collect()
+            torch.cuda.empty_cache()
     payload = {
         "format_version": 1,
         "classification": "stage_c_capacity_matrix",
