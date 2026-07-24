@@ -72,6 +72,7 @@ seqtrainer-titans-stage-c-cpu-pilot = "seqtrainer.torch.titans_paper_mac_stage_c
 seqtrainer-titans-stage-c-hardware-preflight = "seqtrainer.torch.titans_paper_mac_stage_c.cli:hardware_preflight_main"
 seqtrainer-titans-stage-c-train = "seqtrainer.torch.titans_paper_mac_stage_c.train_cli:main"
 seqtrainer-titans-stage-c-capacity = "seqtrainer.torch.titans_paper_mac_stage_c.capacity_cli:main"
+seqtrainer-titans-stage-c-gpu-smoke = "seqtrainer.torch.titans_paper_mac_stage_c.smoke_cli:main"
 seqtrainer-titans-stage-c-evaluate = "seqtrainer.torch.titans_paper_mac_stage_c.evaluate_cli:main"
 seqtrainer-titans-stage-c-colab-run = "seqtrainer.torch.titans_paper_mac_stage_c.colab_cli:main"
 

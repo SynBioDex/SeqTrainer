@@ -29,7 +29,11 @@ training script remain preserved baselines.
    `scripts/build_bacteria_titan_stage_c_streams.py --tokenizer auto
    --tokenizer-selection ...` with that locked artifact. Handoff 00b provides
    the thin Drive-backed notebook for this step.
-3. Use the T4 horizon-3 notebook, then the same-hardware A100 horizon matrix.
+3. Use the T4 horizon-3 notebook. It first runs CPU contract tests and a
+   production-geometry CUDA smoke gate; only then does it run the T4 capacity
+   matrix. CPU is the fast functional gate, while the T4 smoke gate verifies
+   the actual CUDA SDPA/dtype/mask path. Then run the same-hardware A100 horizon
+   matrix.
 4. Run the four bounded-pilot conditions with explicit valid-base budgets.
 5. Run `seqtrainer-titans-stage-c-evaluate` on validation. Touch test only
    after the configuration is frozen.
