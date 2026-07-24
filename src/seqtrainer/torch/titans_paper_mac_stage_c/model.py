@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 from typing import Sequence
 
@@ -105,8 +105,20 @@ class StageCPaperMACForCausalLM(nn.Module):
     def initial_states(self, stream_id: str) -> BlockStates:
         return self.stack.initial_states(stream_id)
 
-    def _effective_backend(self, mode: MemoryMode) -> StageBBackendConfig:
-        return StageBBackendConfig() if mode is MemoryMode.REFERENCE else self.config.backend
+    def _effective_backend(
+        self,
+        mode: MemoryMode,
+        *,
+        device: torch.device,
+    ) -> StageBBackendConfig:
+        backend = StageBBackendConfig() if mode is MemoryMode.REFERENCE else self.config.backend
+        if device.type == "cpu" and backend.attention_backend is AttentionBackend.MULTIHEAD_ATTENTION:
+            # Colab's CPU MultiheadAttention can silently select the Flash SDPA
+            # forward kernel even though its backward is unimplemented. The
+            # reviewed SDPA adapter uses the identical masked attention equation
+            # and explicitly evaluates it with differentiable tensor math on CPU.
+            return replace(backend, attention_backend=AttentionBackend.SDPA)
+        return backend
 
     @staticmethod
     def _state_update_norm(before: BlockStates, after: BlockStates) -> Tensor:
@@ -199,7 +211,7 @@ class StageCPaperMACForCausalLM(nn.Module):
             self.token_embeddings(input_ids) * math.sqrt(self.config.d_model)
             + self.position_embeddings(positions)
         )
-        backend = self._effective_backend(mode)
+        backend = self._effective_backend(mode, device=embeddings.device)
         if mode is MemoryMode.NONE:
             sequence, next_states, retrievals, block_sequences = self._no_memory_forward(
                 states, embeddings, backend

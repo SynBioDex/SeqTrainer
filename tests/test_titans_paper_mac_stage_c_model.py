@@ -138,6 +138,27 @@ def test_cpu_basal_routes_backward_through_math_sdpa() -> None:
     assert gradient is not None and torch.isfinite(gradient).all()
 
 
+def test_cpu_reference_attention_routes_backward_through_math_sdpa() -> None:
+    """The Stage C reference condition must be safe in CPU-only test runs."""
+
+    model = StageCPaperMACForCausalLM(tiny_config())
+    inputs, labels, mask, bases = tensors()
+    output = model.forward_segment(
+        (model.initial_states("cpu-reference"),),
+        inputs,
+        labels=labels,
+        valid_mask=mask,
+        loss_mask=mask,
+        represented_base_counts=bases,
+        memory_mode=MemoryMode.REFERENCE,
+    )
+
+    assert output.loss is not None
+    output.loss.backward()
+    gradient = model.stack.blocks[0].attention.in_proj_weight.grad
+    assert gradient is not None and torch.isfinite(gradient).all()
+
+
 def test_cpu_basal_inner_memory_updates_remain_finite_across_training_steps() -> None:
     tokenizer = SeqTrainerBaseTokenizer()
     config = StageCModelConfig.cpu_basal(
