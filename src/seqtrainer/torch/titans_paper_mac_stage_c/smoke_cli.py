@@ -228,11 +228,13 @@ def _causal_check(
             (model.initial_states("smoke-causal"),),
             batch["input_ids"],
             valid_mask=batch["valid_mask"],
+            memory_mode=MemoryMode.NONE,
         )
         perturbed = model.forward_segment(
             (model.initial_states("smoke-causal"),),
             changed,
             valid_mask=batch["valid_mask"],
+            memory_mode=MemoryMode.NONE,
         )
     earlier = valid_positions[valid_positions < split]
     baseline_earlier = baseline.logits[0, earlier]

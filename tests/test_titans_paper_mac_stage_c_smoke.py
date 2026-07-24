@@ -8,6 +8,7 @@ torch = pytest.importorskip("torch")
 
 from seqtrainer.data.bacteria_titan import build_stream_segments  # noqa: E402
 from seqtrainer.torch.titans_paper_mac_stage_c import (  # noqa: E402
+    MemoryMode,
     SeqTrainerBaseTokenizer,
     StageCModelConfig,
     StageCPaperMACForCausalLM,
@@ -84,3 +85,40 @@ def test_parity_probe_allows_first_segment_write_only_parameters() -> None:
     assert any(".attention." in name for name in gradients)
     assert not any(".attention." in name for name in inactive)
     assert any(".memory." in name for name in inactive)
+
+
+def test_no_grad_causal_probe_uses_attention_without_functional_memory_writes() -> None:
+    tokenizer = SeqTrainerBaseTokenizer()
+    config = StageCModelConfig(
+        vocab_size=tokenizer.spec.vocab_size,
+        pad_token_id=tokenizer.spec.pad_token_id,
+        tokenizer_name=tokenizer.spec.name,
+        tokenizer_checksum=tokenizer.spec.checksum,
+        block_count=1,
+        d_model=4,
+        num_heads=2,
+        persistent_tokens=2,
+        memory_depth=1,
+        gradient_horizon=1,
+    )
+    segment = build_stream_segments(
+        sequence="ACGT" * 16,
+        accession="causal-smoke",
+        contig_id="contig",
+        split="train",
+        clade_group="causal-smoke",
+        tokenizer=tokenizer,
+    )[0]
+    model = StageCPaperMACForCausalLM(config)
+    inputs = torch.tensor([segment.input_ids], dtype=torch.long)
+    valid_mask = torch.tensor([segment.valid_mask], dtype=torch.bool)
+
+    with torch.no_grad():
+        output = model.forward_segment(
+            (model.initial_states("causal-smoke"),),
+            inputs,
+            valid_mask=valid_mask,
+            memory_mode=MemoryMode.NONE,
+        )
+
+    assert torch.isfinite(output.logits).all()
