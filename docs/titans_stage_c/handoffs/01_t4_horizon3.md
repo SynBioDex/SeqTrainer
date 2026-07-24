@@ -32,7 +32,9 @@ memory-state dtypes, matched bounded validation BPB, peak CUDA memory,
 bases/sec, and checkpoint save/load timings. The T4 matrix intentionally
 measures only exact-SDPA FP32 and FP16: the unaccelerated reference recurrence
 is retained as a correctness oracle but is not a full-geometry T4 capacity
-candidate. If the
+candidate. Each T4 variant is bounded to one horizon-3 optimizer step and eight
+validation segments; the smoke gate establishes this full geometry fits, while
+the larger matrix is reserved for A100. If the
 full geometry cannot fit after batch size one, retain the failure logs; do not
 change the architecture in the notebook. Rerunning the notebook creates or
 reuses only the named output directory. Return the directory printed at the

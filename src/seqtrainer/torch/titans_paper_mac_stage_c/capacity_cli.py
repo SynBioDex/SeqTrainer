@@ -153,7 +153,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 trainer = StageCTrainer(model, optimizer, device=device)
                 started = time.perf_counter()
-                history = trainer.train(scheduler, max_optimizer_steps=args.steps)
+                history = trainer.train(
+                    scheduler,
+                    max_optimizer_steps=args.steps,
+                    on_step=lambda record: print(
+                        json.dumps(
+                            {
+                                "event": "capacity_training_step",
+                                "horizon": horizon,
+                                "variant": variant,
+                                "optimizer_step": record.optimizer_step,
+                                "loss_per_token": record.loss_per_token,
+                                "gradient_norm": record.gradient_norm,
+                            },
+                            sort_keys=True,
+                        ),
+                        flush=True,
+                    ),
+                )
                 torch.cuda.synchronize(device)
                 elapsed = time.perf_counter() - started
                 checkpoint = args.output_dir / f"{variant}_h{horizon}.pt"
@@ -185,6 +202,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 load_seconds = time.perf_counter() - load_started
                 valid_bases = sum(record.valid_bases for record in history)
+                print(
+                    json.dumps(
+                        {
+                            "event": "capacity_validation_started",
+                            "horizon": horizon,
+                            "variant": variant,
+                            "segments": args.validation_segments,
+                        },
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
                 validation = evaluate_ordered_streams(
                     model,
                     validation_streams,
@@ -193,6 +222,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                     max_segments=(
                         None if args.validation_segments == 0 else args.validation_segments
                     ),
+                )
+                print(
+                    json.dumps(
+                        {
+                            "event": "capacity_validation_finished",
+                            "horizon": horizon,
+                            "variant": variant,
+                            "bits_per_base": validation.bits_per_base,
+                        },
+                        sort_keys=True,
+                    ),
+                    flush=True,
                 )
                 result.update(
                     {
