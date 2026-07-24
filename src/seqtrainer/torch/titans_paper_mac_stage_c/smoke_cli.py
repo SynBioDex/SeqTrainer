@@ -132,7 +132,7 @@ def _forward_backward(
     model: StageCPaperMACForCausalLM,
     segment: StreamSegment,
     device: torch.device,
-) -> tuple[Tensor, Tensor, dict[str, Tensor]]:
+) -> tuple[Tensor, Tensor, dict[str, Tensor], list[str]]:
     model.to(device)
     batch = _batch(segment, device)
     output = model.forward_segment(
@@ -145,12 +145,20 @@ def _forward_backward(
     _require_finite("parity loss", output.loss)
     output.loss.backward()
     gradients: dict[str, Tensor] = {}
+    inactive_parameters: list[str] = []
     for name, parameter in model.named_parameters():
         if parameter.grad is None:
-            raise RuntimeError(f"missing parity gradient: {name}")
+            # A first-segment loss cannot differentiate through memory writes
+            # that are consumed only by a later segment. These parameters are
+            # expected to be inactive in this direct attention parity probe.
+            inactive_parameters.append(name)
+            continue
         _require_finite(f"parity gradient: {name}", parameter.grad)
         gradients[name] = parameter.grad.detach().cpu().clone()
-    return output.logits.detach().cpu(), output.loss.detach().cpu(), gradients
+    inactive_attention = [name for name in inactive_parameters if ".attention." in name]
+    if inactive_attention:
+        raise RuntimeError(f"missing direct attention gradients: {inactive_attention}")
+    return output.logits.detach().cpu(), output.loss.detach().cpu(), gradients, inactive_parameters
 
 
 def _run_training_step(
@@ -276,12 +284,20 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
     previous_tf32 = torch.backends.cuda.matmul.allow_tf32
     torch.backends.cuda.matmul.allow_tf32 = False
     try:
-        cpu_logits, cpu_loss, cpu_gradients = _forward_backward(cpu_model, segment, torch.device("cpu"))
-        gpu_logits, gpu_loss, gpu_gradients = _forward_backward(gpu_model, segment, device)
+        cpu_logits, cpu_loss, cpu_gradients, cpu_inactive = _forward_backward(
+            cpu_model, segment, torch.device("cpu")
+        )
+        gpu_logits, gpu_loss, gpu_gradients, gpu_inactive = _forward_backward(
+            gpu_model, segment, device
+        )
     finally:
         torch.backends.cuda.matmul.allow_tf32 = previous_tf32
     logits_match = torch.allclose(cpu_logits, gpu_logits, atol=PARITY_ATOL, rtol=PARITY_RTOL)
     loss_match = torch.allclose(cpu_loss, gpu_loss, atol=PARITY_ATOL, rtol=PARITY_RTOL)
+    if set(cpu_gradients) != set(gpu_gradients):
+        raise RuntimeError("CPU/GPU FP32 parity has different active gradient parameter sets")
+    if cpu_inactive != gpu_inactive:
+        raise RuntimeError("CPU/GPU FP32 parity has different inactive gradient parameter sets")
     gradient_differences = {
         name: _max_difference(cpu_gradients[name], gpu_gradients[name])
         for name in cpu_gradients
@@ -298,6 +314,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, object]:
         "logits": _max_difference(cpu_logits, gpu_logits),
         "loss": _max_difference(cpu_loss, gpu_loss),
         "gradients": gradient_differences,
+        "inactive_parameters": cpu_inactive,
     }
     if not parity["passed"]:
         raise RuntimeError(f"CPU/GPU FP32 parity smoke check failed: {parity}")
