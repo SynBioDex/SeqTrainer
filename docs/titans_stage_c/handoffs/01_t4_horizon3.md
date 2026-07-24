@@ -15,7 +15,10 @@ The notebook aborts before capacity testing if the device name does not contain
 gate fails. The smoke gate runs one FP32 and one FP16 optimizer step, checks
 finite parameters/gradients/functional state, verifies causal masking, and
 compares CPU exact attention with GPU FP32 SDPA while TF32 is disabled for that
-comparison. It writes `gpu_smoke.json` alongside the capacity evidence.
+comparison. Stage C constrains this stateful higher-order-gradient path to
+PyTorch's exact math-SDPA kernel on CUDA; fast Flash/efficient kernels do not
+provide the required double backward on all Colab builds. It writes
+`gpu_smoke.json` alongside the capacity evidence.
 
 The provisional budget is at most 20 compute units. Record the balance before
 and after execution in the returned run notes so later runs can calibrate

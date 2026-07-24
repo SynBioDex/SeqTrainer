@@ -61,6 +61,28 @@ def _forced_flash_context() -> ContextManager[object]:
     )
 
 
+def differentiable_sdpa_context(device: torch.device) -> ContextManager[object]:
+    """Select math SDPA when an outer loss differentiates through attention.
+
+    The efficient and Flash CUDA kernels are useful forward-performance
+    choices, but some PyTorch builds do not implement their double backward.
+    Paper-MAC's functional memory writes use ``autograd.grad(create_graph=True)``
+    and therefore require a differentiable backward graph. The math kernel is
+    the exact SDPA equation and has that portable autograd path.
+    """
+
+    attention = getattr(torch.nn, "attention", None)
+    if attention is not None:
+        return attention.sdpa_kernel([attention.SDPBackend.MATH])
+    if device.type == "cuda":
+        return torch.backends.cuda.sdp_kernel(
+            enable_flash=False,
+            enable_math=True,
+            enable_mem_efficient=False,
+        )
+    return nullcontext()
+
+
 def integrate_sdpa_attention(
     block: PaperMACBlock,
     retrieval: Tensor,

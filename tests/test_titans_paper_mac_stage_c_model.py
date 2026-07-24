@@ -159,6 +159,16 @@ def test_cpu_reference_attention_routes_backward_through_math_sdpa() -> None:
     assert gradient is not None and torch.isfinite(gradient).all()
 
 
+def test_stage_c_reference_attention_uses_the_exact_sdpa_adapter_on_cuda() -> None:
+    """Avoid CUDA MHA dispatch kernels that lack Paper-MAC double backward."""
+
+    model = StageCPaperMACForCausalLM(tiny_config())
+
+    backend = model._effective_backend(MemoryMode.REFERENCE, device=torch.device("cuda"))
+
+    assert backend.attention_backend is AttentionBackend.SDPA
+
+
 def test_cpu_basal_inner_memory_updates_remain_finite_across_training_steps() -> None:
     tokenizer = SeqTrainerBaseTokenizer()
     config = StageCModelConfig.cpu_basal(

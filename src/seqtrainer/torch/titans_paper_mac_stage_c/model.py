@@ -18,7 +18,10 @@ from seqtrainer.torch.titans_paper_mac_stage_b import (
     StageBBackendConfig,
     StageBMACStack,
 )
-from seqtrainer.torch.titans_paper_mac_stage_b.attention import integrate_sdpa_attention
+from seqtrainer.torch.titans_paper_mac_stage_b.attention import (
+    differentiable_sdpa_context,
+    integrate_sdpa_attention,
+)
 
 from .config import MemoryMode, StageCModelConfig
 
@@ -112,11 +115,12 @@ class StageCPaperMACForCausalLM(nn.Module):
         device: torch.device,
     ) -> StageBBackendConfig:
         backend = StageBBackendConfig() if mode is MemoryMode.REFERENCE else self.config.backend
-        if device.type == "cpu" and backend.attention_backend is AttentionBackend.MULTIHEAD_ATTENTION:
-            # Colab's CPU MultiheadAttention can silently select the Flash SDPA
-            # forward kernel even though its backward is unimplemented. The
-            # reviewed SDPA adapter uses the identical masked attention equation
-            # and explicitly evaluates it with differentiable tensor math on CPU.
+        if backend.attention_backend is AttentionBackend.MULTIHEAD_ATTENTION:
+            # Stage C's functional memory writes retain a higher-order graph.
+            # MultiheadAttention is free to dispatch to a kernel without double
+            # backward support, so use the reviewed exact SDPA adapter instead.
+            # CPU evaluates it directly as tensor math; CUDA is scoped to math
+            # SDPA in _forward_row below.
             return replace(backend, attention_backend=AttentionBackend.SDPA)
         return backend
 
@@ -212,21 +216,25 @@ class StageCPaperMACForCausalLM(nn.Module):
             + self.position_embeddings(positions)
         )
         backend = self._effective_backend(mode, device=embeddings.device)
-        if mode is MemoryMode.NONE:
-            sequence, next_states, retrievals, block_sequences = self._no_memory_forward(
-                states, embeddings, backend
-            )
-        else:
-            output = self.stack(
-                states,
-                embeddings,
-                config=backend,
-                valid_mask=valid_mask,
-            )
-            sequence = output.sequence
-            retrievals = output.retrievals
-            block_sequences = output.block_sequences
-            next_states = states if mode is MemoryMode.FROZEN else output.states
+        # Functional neural-memory updates call autograd.grad(create_graph=True).
+        # Constrain CUDA SDPA to its exact math kernel so the subsequent outer
+        # backward has a supported backward-of-backward path on T4/A100 builds.
+        with differentiable_sdpa_context(embeddings.device):
+            if mode is MemoryMode.NONE:
+                sequence, next_states, retrievals, block_sequences = self._no_memory_forward(
+                    states, embeddings, backend
+                )
+            else:
+                output = self.stack(
+                    states,
+                    embeddings,
+                    config=backend,
+                    valid_mask=valid_mask,
+                )
+                sequence = output.sequence
+                retrievals = output.retrievals
+                block_sequences = output.block_sequences
+                next_states = states if mode is MemoryMode.FROZEN else output.states
         logits = self.lm_head(self.final_norm(sequence))
         update_norm = self._state_update_norm(states, next_states).to(device=logits.device)
         surprise_norm = self._surprise_norm(next_states).to(device=logits.device)
