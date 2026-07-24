@@ -26,15 +26,13 @@ units/hour.
 
 ## Expected evidence and recovery
 
-Success produces `hardware.json`, `gpu_smoke.json`, `capacity_matrix.json/.md`,
-FP32/FP16 checkpoint files, nonzero horizon-3 written-state gradients, FP32
-memory-state dtypes, matched bounded validation BPB, peak CUDA memory,
-bases/sec, and checkpoint save/load timings. The T4 matrix intentionally
-measures only exact-SDPA FP32 and FP16: the unaccelerated reference recurrence
-is retained as a correctness oracle but is not a full-geometry T4 capacity
-candidate. Each T4 variant is bounded to one horizon-3 optimizer step and eight
-validation segments; the smoke gate establishes this full geometry fits, while
-the larger matrix is reserved for A100. If the
+Success produces `hardware.json`, `gpu_smoke.json`, and
+`t4_bounded_evidence.json/.md`, including one full-geometry horizon-3 optimizer
+step for both FP32 and FP16, finite functional-state evidence, CPU/GPU FP32
+parity, and FP16 causal masking. The extended multi-step capacity, checkpoint,
+throughput, and validation matrix is deliberately deferred to Notebook 02 on
+A100: Colab T4 terminates a second long-lived full-geometry capacity process.
+If the
 full geometry cannot fit after batch size one, retain the failure logs; do not
 change the architecture in the notebook. Rerunning the notebook creates or
 reuses only the named output directory. Return the directory printed at the

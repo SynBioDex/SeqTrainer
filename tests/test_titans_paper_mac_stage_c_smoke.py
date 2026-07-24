@@ -18,6 +18,10 @@ from seqtrainer.torch.titans_paper_mac_stage_c.smoke_cli import (  # noqa: E402
     parse_args,
     resolve_stage_c_dataset,
 )
+from seqtrainer.torch.titans_paper_mac_stage_c.t4_evidence_cli import (  # noqa: E402
+    build_t4_evidence,
+    write_t4_evidence,
+)
 
 
 def test_smoke_cli_uses_the_production_t4_geometry_by_default(tmp_path) -> None:
@@ -122,3 +126,31 @@ def test_no_grad_causal_probe_uses_attention_without_functional_memory_writes() 
         )
 
     assert torch.isfinite(output.logits).all()
+
+
+def test_t4_evidence_preserves_the_passed_smoke_contract(tmp_path) -> None:
+    smoke = {
+        "classification": "stage_c_gpu_smoke",
+        "passed": True,
+        "hardware": {"device_name": "Tesla T4"},
+        "geometry": {"block_count": 8, "d_model": 384, "gradient_horizon": 3},
+        "dataset": {"path": "/content/dataset"},
+        "fp32_training": {"optimizer_steps": 1, "valid_bases": 96},
+        "fp16_training": {"optimizer_steps": 1, "valid_bases": 96},
+        "fp32_cpu_gpu_parity": {"passed": True},
+        "fp16_causal_mask": {"passed": True},
+    }
+    smoke_path = tmp_path / "gpu_smoke.json"
+    smoke_path.write_text(json.dumps(smoke))
+
+    evidence = build_t4_evidence(smoke)
+    paths = write_t4_evidence(smoke_path, tmp_path / "evidence")
+
+    assert evidence["passed"] is True
+    assert "deferred_to_a100" in evidence["scope"]
+    assert all(path.exists() for path in paths.values())
+
+
+def test_t4_evidence_rejects_a_failed_smoke_report() -> None:
+    with pytest.raises(ValueError, match="passed stage_c_gpu_smoke"):
+        build_t4_evidence({"classification": "stage_c_gpu_smoke", "passed": False})
