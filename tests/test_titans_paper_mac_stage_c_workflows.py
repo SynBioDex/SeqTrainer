@@ -167,7 +167,11 @@ def test_production_stream_dataset_trains_checkpoints_and_reports_on_cpu(tmp_pat
     ):
         assert (run_dir / name).exists(), name
     manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    live_status = json.loads((run_dir / "LIVE_STATUS.json").read_text(encoding="utf-8"))
     assert manifest["optimizer_steps"] == 1
+    assert manifest["learning_rate"] == pytest.approx(3e-5)
+    assert manifest["gradient_clip_norm"] == pytest.approx(0.5)
+    assert live_status["state"] == "completed"
     assert manifest["processed_bases"] > 0
     assert manifest["validation"]["bits_per_base"] > 0
     assert manifest["validation"]["perplexity"] > 0

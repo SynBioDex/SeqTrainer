@@ -128,6 +128,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"log={log_path}\n",
             encoding="utf-8",
         )
+        # Colab commonly collapses the child traceback behind CalledProcessError.
+        # Print a bounded tail here while retaining the complete Drive log.
+        try:
+            tail = log_path.read_text(encoding="utf-8", errors="replace")[-12000:]
+        except OSError as error:
+            tail = f"<could not read persisted log: {error}>"
+        print(f"\nFAILED: {args.label} (exit {return_code})")
+        print(f"Full log: {log_path}")
+        print("--- last 12000 log characters ---")
+        print(tail)
+        print("--- end log tail ---", flush=True)
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if return_code:
         raise SystemExit(return_code)

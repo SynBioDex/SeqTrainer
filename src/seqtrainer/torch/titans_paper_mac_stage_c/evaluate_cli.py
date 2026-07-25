@@ -17,6 +17,7 @@ from .config import MemoryMode, StageCModelConfig
 from .evaluation import EvaluationResult, evaluate_ordered_streams
 from .model import StageCPaperMACForCausalLM
 from .reporting import bar_svg
+from .study import StudyProtocol
 
 
 def _load_payload(path: Path, device: torch.device) -> Mapping[str, object]:
@@ -63,11 +64,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-segments", type=int, default=0)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--seed", type=int, default=20260747)
+    parser.add_argument("--protocol", type=Path, help="frozen Stage C study protocol")
+    parser.add_argument("--run-id", help="protocol run-matrix identifier for this analysis")
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
+    if bool(args.protocol) != bool(args.run_id):
+        raise ValueError("--protocol and --run-id must be supplied together")
+    if args.protocol:
+        StudyProtocol.from_path(args.protocol).validate_run_config(args.run_id, {"phase": "analysis"})
     device = torch.device(
         "cuda" if args.device == "auto" and torch.cuda.is_available()
         else "cpu" if args.device == "auto"

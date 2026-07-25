@@ -25,6 +25,7 @@ from .tokenizers import (
     evaluate_tokenizer,
     normalize_dna,
 )
+from .study import StudyProtocol, amend, canonical_json, initialize, record, report, validate_protocol, verify
 
 __all__ = [
     "EncodedDNA",
@@ -61,4 +62,12 @@ __all__ = [
     "write_cpu_pilot_report",
     "write_tokenizer_report",
     "write_training_history",
+    "StudyProtocol",
+    "canonical_json",
+    "validate_protocol",
+    "initialize",
+    "record",
+    "amend",
+    "verify",
+    "report",
 ]

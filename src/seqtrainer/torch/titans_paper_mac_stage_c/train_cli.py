@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
 import subprocess
+import traceback
 from typing import Sequence
 
 import torch
@@ -25,6 +27,7 @@ from .evaluation import evaluate_ordered_streams
 from .model import StageCPaperMACForCausalLM
 from .reporting import write_training_history
 from .trainer import StageCTrainer, StreamBatchScheduler
+from .study import StudyProtocol
 
 
 def _git_commit() -> str:
@@ -53,8 +56,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--memory-mode", choices=[mode.value for mode in MemoryMode], default="adaptive")
     parser.add_argument("--horizon", type=int, choices=(1, 2, 3, 4), default=2)
     parser.add_argument("--batch-size", type=int, default=1)
-    parser.add_argument("--learning-rate", type=float, default=3e-4)
+    parser.add_argument("--learning-rate", type=float, default=3e-5)
     parser.add_argument("--weight-decay", type=float, default=0.1)
+    parser.add_argument("--gradient-clip-norm", type=float, default=0.5)
     parser.add_argument("--max-valid-bases", type=int)
     parser.add_argument("--max-optimizer-steps", type=int)
     parser.add_argument("--checkpoint-every", type=int, default=100)
@@ -70,14 +74,37 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--memory-depth", type=int, default=1)
     parser.add_argument("--no-resume", action="store_true")
     parser.add_argument("--verify-dataset", action="store_true")
+    parser.add_argument("--protocol", type=Path, help="frozen Stage C study protocol")
+    parser.add_argument("--run-id", help="protocol run-matrix identifier")
     args = parser.parse_args(argv)
     if args.max_valid_bases is None and args.max_optimizer_steps is None:
         parser.error("set --max-valid-bases or --max-optimizer-steps")
+    if bool(args.protocol) != bool(args.run_id):
+        parser.error("--protocol and --run-id must be supplied together")
+    if args.learning_rate <= 0 or args.gradient_clip_norm <= 0:
+        parser.error("--learning-rate and --gradient-clip-norm must be positive")
     return args
+
+
+def _write_json(path: Path, payload: dict[str, object]) -> None:
+    temporary = path.with_suffix(path.suffix + ".partial")
+    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(path)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.protocol:
+        protocol = StudyProtocol.from_path(args.protocol)
+        requested_budget = args.max_valid_bases
+        protocol.validate_run_config(
+            args.run_id,
+            {
+                "memory_mode": args.memory_mode,
+                **({"budget_bases": requested_budget} if requested_budget is not None else {}),
+                "seed": args.seed,
+            },
+        )
     torch.manual_seed(args.seed)
     device = _device(args.device)
     if device.type == "cuda":
@@ -129,8 +156,35 @@ def main(argv: Sequence[str] | None = None) -> int:
         seed=args.seed,
         shuffle=True,
     )
-    trainer = StageCTrainer(model, optimizer, device=device)
+    trainer = StageCTrainer(
+        model,
+        optimizer,
+        device=device,
+        gradient_clip_norm=args.gradient_clip_norm,
+    )
     args.run_dir.mkdir(parents=True, exist_ok=True)
+    progress_path = args.run_dir / "LIVE_STATUS.json"
+    latest_record: dict[str, object] | None = None
+
+    def write_status(*, state: str, latest: dict[str, object] | None = None, error: BaseException | None = None) -> None:
+        payload: dict[str, object] = {
+            "format_version": 1,
+            "state": state,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "processed_bases": trainer.processed_bases,
+            "requested_max_valid_bases": args.max_valid_bases,
+            "optimizer_steps": trainer.optimizer_step,
+            "latest": latest,
+        }
+        if args.max_valid_bases:
+            payload["progress_fraction"] = min(1.0, trainer.processed_bases / args.max_valid_bases)
+        if error is not None:
+            payload["error_type"] = type(error).__name__
+            payload["error"] = str(error)
+            payload["traceback"] = traceback.format_exc()
+        _write_json(progress_path, payload)
+
+    write_status(state="starting")
     latest = args.run_dir / "latest.pt"
     manifest_path = args.dataset_dir / "token_stream_manifest.json"
     dataset_fingerprint = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
@@ -145,8 +199,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
 
     def on_step(record) -> None:
+        nonlocal latest_record
+        latest_record = record.to_dict()
         print(json.dumps(record.to_dict(), sort_keys=True), flush=True)
         write_training_history(trainer.history, args.run_dir, write_plots=False)
+        write_status(state="running", latest=latest_record)
         if trainer.optimizer_step % args.checkpoint_every == 0:
             save_stage_c_checkpoint(
                 latest,
@@ -156,12 +213,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 code_commit=commit,
             )
 
-    trainer.train(
-        scheduler,
-        max_valid_bases=args.max_valid_bases,
-        max_optimizer_steps=args.max_optimizer_steps,
-        on_step=on_step,
-    )
+    try:
+        trainer.train(
+            scheduler,
+            max_valid_bases=args.max_valid_bases,
+            max_optimizer_steps=args.max_optimizer_steps,
+            on_step=on_step,
+        )
+    except BaseException as error:
+        write_status(state="failed", latest=latest_record, error=error)
+        raise
     write_training_history(trainer.history, args.run_dir)
     save_stage_c_checkpoint(
         latest,
@@ -202,6 +263,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         "requested_max_valid_bases": args.max_valid_bases,
         "requested_max_optimizer_steps": args.max_optimizer_steps,
+        "learning_rate": args.learning_rate,
+        "weight_decay": args.weight_decay,
+        "gradient_clip_norm": args.gradient_clip_norm,
         "scheduler_exhausted": scheduler.exhausted,
         "stop_reason": (
             "corpus_exhausted"
@@ -217,6 +281,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         json.dumps(run_manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    write_status(state="completed", latest=latest_record)
     print(json.dumps(run_manifest, indent=2, sort_keys=True))
     return 0
 

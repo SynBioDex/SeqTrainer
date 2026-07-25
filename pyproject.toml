@@ -76,6 +76,7 @@ seqtrainer-titans-stage-c-gpu-smoke = "seqtrainer.torch.titans_paper_mac_stage_c
 seqtrainer-titans-stage-c-t4-evidence = "seqtrainer.torch.titans_paper_mac_stage_c.t4_evidence_cli:main"
 seqtrainer-titans-stage-c-evaluate = "seqtrainer.torch.titans_paper_mac_stage_c.evaluate_cli:main"
 seqtrainer-titans-stage-c-colab-run = "seqtrainer.torch.titans_paper_mac_stage_c.colab_cli:main"
+seqtrainer-titans-stage-c-study = "seqtrainer.torch.titans_paper_mac_stage_c.study:main"
 
 [project.urls]
 Homepage = "https://github.com/SynBioDex/SeqTrainer"
