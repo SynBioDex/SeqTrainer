@@ -19,6 +19,14 @@ from .trainer import StageCTrainer, StreamBatchScheduler, TrainingStepRecord
 CHECKPOINT_FORMAT_VERSION = 1
 
 
+def _cpu_byte_rng_state(value: object, *, name: str) -> torch.Tensor:
+    """Normalize RNG metadata after a CUDA ``map_location`` checkpoint load."""
+
+    if not isinstance(value, torch.Tensor):
+        raise ValueError(f"checkpoint {name} RNG state is invalid")
+    return value.detach().to(device="cpu", dtype=torch.uint8)
+
+
 def _serialize_states(states: Mapping[str, BlockStates]) -> dict[str, list[dict[str, object]]]:
     return {
         stream_id: [state.to_state_dict() for state in block_states]
@@ -131,7 +139,12 @@ def load_stage_c_checkpoint(
         raise ValueError("checkpoint RNG state is invalid")
     random.setstate(rng["python"])
     np.random.set_state(rng["numpy"])
-    torch.set_rng_state(rng["torch_cpu"])
-    if torch.cuda.is_available() and rng.get("torch_cuda"):
-        torch.cuda.set_rng_state_all(rng["torch_cuda"])
+    torch.set_rng_state(_cpu_byte_rng_state(rng.get("torch_cpu"), name="torch_cpu"))
+    raw_cuda_rng = rng.get("torch_cuda", [])
+    if torch.cuda.is_available() and raw_cuda_rng:
+        if not isinstance(raw_cuda_rng, (list, tuple)):
+            raise ValueError("checkpoint torch_cuda RNG state is invalid")
+        torch.cuda.set_rng_state_all(
+            [_cpu_byte_rng_state(value, name="torch_cuda") for value in raw_cuda_rng]
+        )
     return dict(payload)

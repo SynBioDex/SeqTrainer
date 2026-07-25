@@ -27,6 +27,9 @@ from seqtrainer.torch.titans_paper_mac_stage_c import (  # noqa: E402
 from seqtrainer.torch.titans_paper_mac_stage_c.trainer import (  # noqa: E402
     NonFiniteTrainingError,
 )
+from seqtrainer.torch.titans_paper_mac_stage_c.checkpoints import (  # noqa: E402
+    _cpu_byte_rng_state,
+)
 
 
 def tiny_config(*, horizon: int = 2) -> StageCModelConfig:
@@ -426,3 +429,12 @@ def test_checkpoint_restores_optimizer_cursor_rng_and_functional_states(tmp_path
             uninterrupted_model.state_dict().values(), restored_model.state_dict().values()
         )
     )
+
+
+def test_checkpoint_rng_state_is_normalized_after_cuda_map_location() -> None:
+    # A CUDA map_location can turn checkpoint metadata into a CUDA tensor;
+    # torch.set_rng_state specifically requires a CPU ByteTensor.
+    normalized = _cpu_byte_rng_state(torch.get_rng_state().to(dtype=torch.int64), name="torch_cpu")
+
+    assert normalized.device.type == "cpu"
+    assert normalized.dtype is torch.uint8
