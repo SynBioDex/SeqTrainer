@@ -66,15 +66,21 @@ class StreamBatchScheduler:
     ) -> None:
         if batch_size <= 0:
             raise ValueError("batch_size must be positive")
-        self.streams = {stream_id: tuple(segments) for stream_id, segments in streams.items()}
-        if not self.streams or any(not segments for segments in self.streams.values()):
+        # Production TokenStreamDataset values are mmap-backed LazyTokenStreams.
+        # Materialising them as tuples would create one Python StreamSegment per
+        # 32-token window across the whole training corpus before the first
+        # batch. Keep the indexed Sequence intact and fetch only scheduled
+        # segments. This also keeps checkpoint state independent of corpus size.
+        self.streams = dict(streams)
+        if not self.streams or any(len(segments) == 0 for segments in self.streams.values()):
             raise ValueError("scheduler requires non-empty streams")
         for stream_id, segments in self.streams.items():
-            if any(segment.stream_id != stream_id for segment in segments):
+            first, last = segments[0], segments[-1]
+            if first.stream_id != stream_id or last.stream_id != stream_id:
                 raise ValueError("segment ownership does not match scheduler stream key")
-            if [segment.segment_index for segment in segments] != list(range(len(segments))):
+            if first.segment_index != 0 or last.segment_index != len(segments) - 1:
                 raise ValueError("segments must be contiguous and ordered within each stream")
-            if not segments[0].start_of_stream or not segments[-1].end_of_stream:
+            if not first.start_of_stream or not last.end_of_stream:
                 raise ValueError("every scheduled stream requires explicit start/end markers")
         self.batch_size = batch_size
         self.seed = seed

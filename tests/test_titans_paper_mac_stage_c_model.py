@@ -197,6 +197,35 @@ def test_cpu_basal_inner_memory_updates_remain_finite_across_training_steps() ->
     assert all(torch.isfinite(torch.tensor(record.gradient_norm)) for record in history)
 
 
+def test_scheduler_keeps_indexed_lazy_streams_lazy() -> None:
+    """A production mmap stream must not be expanded before its first batch."""
+
+    tokenizer = SeqTrainerBaseTokenizer()
+    segments = build_stream_segments(
+        sequence="ACGTN" * 80,
+        accession="lazy-stream",
+        contig_id="contig",
+        split="train",
+        clade_group="lazy-stream",
+        tokenizer=tokenizer,
+    )
+
+    class GuardedStream:
+        def __len__(self) -> int:
+            return len(segments)
+
+        def __getitem__(self, index: int):
+            return segments[index]
+
+        def __iter__(self):
+            raise AssertionError("scheduler must not materialize a lazy production stream")
+
+    scheduler = StreamBatchScheduler(
+        {segments[0].stream_id: GuardedStream()}, batch_size=1, shuffle=False
+    )
+    assert scheduler.next_batch()[0] == segments[0]
+
+
 def test_trainer_reports_the_first_nonfinite_forward_value() -> None:
     model = StageCPaperMACForCausalLM(tiny_config())
     with torch.no_grad():
