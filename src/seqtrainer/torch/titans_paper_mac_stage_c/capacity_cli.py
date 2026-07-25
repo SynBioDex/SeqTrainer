@@ -52,7 +52,98 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--memory-depth", type=int, default=1)
     parser.add_argument("--seed", type=int, default=20260743)
     parser.add_argument("--validation-segments", type=int, default=32)
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="merge completed probes into an existing capacity_matrix.json",
+    )
     return parser.parse_args(argv)
+
+
+def _result_key(result: dict[str, object]) -> tuple[int, str]:
+    return int(result["horizon"]), str(result["variant"])
+
+
+def _write_capacity_artifacts(
+    *,
+    args: argparse.Namespace,
+    device_name: str,
+    train_predictable_bases: int,
+    results: list[dict[str, object]],
+) -> dict[str, object]:
+    """Persist completed probes so a later Colab interruption loses no evidence."""
+
+    payload = {
+        "format_version": 1,
+        "classification": "stage_c_capacity_matrix",
+        "hardware": {
+            "required": args.require,
+            "device_name": device_name,
+            "torch": torch.__version__,
+            "cuda": torch.version.cuda,
+        },
+        "geometry": {
+            "block_count": args.block_count,
+            "d_model": args.d_model,
+            "num_heads": args.num_heads,
+            "persistent_tokens": args.persistent_tokens,
+            "memory_depth": args.memory_depth,
+            "batch_size": args.batch_size,
+        },
+        "train_predictable_bases": train_predictable_bases,
+        "results": results,
+    }
+    json_path = args.output_dir / "capacity_matrix.json"
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    available_results = [result for result in results if result["available"]]
+    labels = [f"{result['variant']} h{result['horizon']}" for result in available_results]
+    (args.output_dir / "capacity_throughput.svg").write_text(
+        bar_svg(
+            labels,
+            [float(result["bases_per_second"]) for result in available_results],
+            title=f"Stage C throughput on {device_name}",
+            x_label="Bases per second",
+        ),
+        encoding="utf-8",
+    )
+    (args.output_dir / "capacity_memory.svg").write_text(
+        bar_svg(
+            labels,
+            [float(result["peak_allocated_bytes"]) / 1_000_000_000 for result in available_results],
+            title=f"Stage C peak allocated memory on {device_name}",
+            x_label="GB",
+        ),
+        encoding="utf-8",
+    )
+    (args.output_dir / "capacity_validation_bpb.svg").write_text(
+        bar_svg(
+            labels,
+            [float(result["validation_bpb"]) for result in available_results],
+            title="Matched bounded validation by horizon/backend",
+            x_label="Bits per base (lower is better)",
+        ),
+        encoding="utf-8",
+    )
+    lines = [
+        "# Stage C capacity matrix",
+        "",
+        f"Hardware: `{device_name}`",
+        "",
+        "| Horizon | Variant | Available | Validation BPB | Bases/s | Peak allocated | State/stream | Pass hours | Written-state grad |",
+        "| ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for result in results:
+        lines.append(
+            f"| {result['horizon']} | {result['variant']} | {result['available']} | "
+            f"{float(result.get('validation_bpb', 0)):.4f} | "
+            f"{float(result.get('bases_per_second', 0)):.2f} | "
+            f"{int(result.get('peak_allocated_bytes', 0))} | "
+            f"{int(result.get('functional_state_bytes_per_stream', 0))} | "
+            f"{float(result.get('projected_one_train_pass_hours', 0)):.2f} | "
+            f"{float(result.get('written_state_gradient_norm', 0)):.6f} |"
+        )
+    (args.output_dir / "capacity_matrix.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return payload
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -77,7 +168,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         (args.dataset_dir / "token_stream_manifest.json").read_bytes()
     ).hexdigest()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    results: list[dict[str, object]] = []
+    prior_results: dict[tuple[int, str], dict[str, object]] = {}
+    prior_path = args.output_dir / "capacity_matrix.json"
+    if args.append and prior_path.is_file():
+        prior_payload = json.loads(prior_path.read_text(encoding="utf-8"))
+        for item in prior_payload.get("results", []):
+            if isinstance(item, dict) and {"horizon", "variant", "available"} <= item.keys():
+                prior_results[_result_key(item)] = item
+    results: list[dict[str, object]] = list(prior_results.values())
     for horizon in args.horizons:
         for variant in args.variants:
             mode, activation = VARIANTS[variant]
@@ -267,7 +365,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             except (RuntimeError, ValueError) as error:
                 result["reason"] = str(error)
-            results.append(result)
+            prior_results[_result_key(result)] = result
+            results = [prior_results[key] for key in sorted(prior_results)]
             print(
                 json.dumps(
                     {
@@ -291,76 +390,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             validation = None
             gc.collect()
             torch.cuda.empty_cache()
-    payload = {
-        "format_version": 1,
-        "classification": "stage_c_capacity_matrix",
-        "hardware": {
-            "required": args.require,
-            "device_name": device_name,
-            "torch": torch.__version__,
-            "cuda": torch.version.cuda,
-        },
-        "geometry": {
-            "block_count": args.block_count,
-            "d_model": args.d_model,
-            "num_heads": args.num_heads,
-            "persistent_tokens": args.persistent_tokens,
-            "memory_depth": args.memory_depth,
-            "batch_size": args.batch_size,
-        },
-        "train_predictable_bases": train_predictable_bases,
-        "results": results,
-    }
-    json_path = args.output_dir / "capacity_matrix.json"
-    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    available_results = [result for result in results if result["available"]]
-    labels = [f"{result['variant']} h{result['horizon']}" for result in available_results]
-    (args.output_dir / "capacity_throughput.svg").write_text(
-        bar_svg(
-            labels,
-            [float(result["bases_per_second"]) for result in available_results],
-            title=f"Stage C throughput on {device_name}",
-            x_label="Bases per second",
-        ),
-        encoding="utf-8",
+            _write_capacity_artifacts(
+                args=args,
+                device_name=device_name,
+                train_predictable_bases=train_predictable_bases,
+                results=results,
+            )
+    payload = _write_capacity_artifacts(
+        args=args,
+        device_name=device_name,
+        train_predictable_bases=train_predictable_bases,
+        results=results,
     )
-    (args.output_dir / "capacity_memory.svg").write_text(
-        bar_svg(
-            labels,
-            [float(result["peak_allocated_bytes"]) / 1_000_000_000 for result in available_results],
-            title=f"Stage C peak allocated memory on {device_name}",
-            x_label="GB",
-        ),
-        encoding="utf-8",
-    )
-    (args.output_dir / "capacity_validation_bpb.svg").write_text(
-        bar_svg(
-            labels,
-            [float(result["validation_bpb"]) for result in available_results],
-            title="Matched bounded validation by horizon/backend",
-            x_label="Bits per base (lower is better)",
-        ),
-        encoding="utf-8",
-    )
-    lines = [
-        "# Stage C capacity matrix",
-        "",
-        f"Hardware: `{device_name}`",
-        "",
-        "| Horizon | Variant | Available | Validation BPB | Bases/s | Peak allocated | State/stream | Pass hours | Written-state grad |",
-        "| ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
-    ]
-    for result in results:
-        lines.append(
-            f"| {result['horizon']} | {result['variant']} | {result['available']} | "
-            f"{float(result.get('validation_bpb', 0)):.4f} | "
-            f"{float(result.get('bases_per_second', 0)):.2f} | "
-            f"{int(result.get('peak_allocated_bytes', 0))} | "
-            f"{int(result.get('functional_state_bytes_per_stream', 0))} | "
-            f"{float(result.get('projected_one_train_pass_hours', 0)):.2f} | "
-            f"{float(result.get('written_state_gradient_norm', 0)):.6f} |"
-        )
-    (args.output_dir / "capacity_matrix.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
 

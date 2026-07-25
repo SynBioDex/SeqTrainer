@@ -11,6 +11,10 @@ torch = pytest.importorskip("torch")
 from seqtrainer.data.bacteria_titan import materialize_token_stream_dataset  # noqa: E402
 from seqtrainer.torch.titans_paper_mac_stage_c import SeqTrainerBaseTokenizer  # noqa: E402
 from seqtrainer.torch.titans_paper_mac_stage_c.colab_cli import main as colab_main  # noqa: E402
+from seqtrainer.torch.titans_paper_mac_stage_c.capacity_cli import (  # noqa: E402
+    _write_capacity_artifacts,
+    parse_args as parse_capacity_args,
+)
 from seqtrainer.torch.titans_paper_mac_stage_c.evaluate_cli import main as evaluate_main  # noqa: E402
 from seqtrainer.torch.titans_paper_mac_stage_c.train_cli import main as train_main  # noqa: E402
 
@@ -51,6 +55,52 @@ def test_colab_wrapper_persists_streamed_log_manifest_and_failure_marker(tmp_pat
     manifest = json.loads((run_dir / "colab_run_manifest.json").read_text(encoding="utf-8"))
     assert manifest["steps"][-1]["return_code"] == 7
     assert manifest["steps"][-1]["status"] == "failed"
+
+
+def test_capacity_artifacts_are_safe_to_append_after_an_isolated_probe(tmp_path) -> None:
+    args = parse_capacity_args(
+        [
+            "--dataset-dir",
+            str(tmp_path / "dataset"),
+            "--output-dir",
+            str(tmp_path / "capacity"),
+            "--require",
+            "A100",
+            "--horizons",
+            "2",
+            "--variants",
+            "exact_sdpa_fp32",
+            "--append",
+        ]
+    )
+    args.output_dir.mkdir()
+    result = {
+        "horizon": 2,
+        "variant": "exact_sdpa_fp32",
+        "available": True,
+        "validation_bpb": 2.0,
+        "bases_per_second": 100.0,
+        "peak_allocated_bytes": 1_000_000,
+        "functional_state_bytes_per_stream": 512,
+        "projected_one_train_pass_hours": 1.0,
+        "written_state_gradient_norm": 3.0,
+    }
+    payload = _write_capacity_artifacts(
+        args=args,
+        device_name="NVIDIA A100",
+        train_predictable_bases=1000,
+        results=[result],
+    )
+
+    assert payload["results"] == [result]
+    assert json.loads((args.output_dir / "capacity_matrix.json").read_text())["results"] == [result]
+    for name in (
+        "capacity_throughput.svg",
+        "capacity_memory.svg",
+        "capacity_validation_bpb.svg",
+        "capacity_matrix.md",
+    ):
+        assert (args.output_dir / name).is_file(), name
 
 
 def test_production_stream_dataset_trains_checkpoints_and_reports_on_cpu(tmp_path) -> None:
