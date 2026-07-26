@@ -54,6 +54,32 @@ def test_fp64_one_step_matches_hand_calculated_equations() -> None:
     assert state.segment_index == 0
 
 
+def test_optional_surprise_trust_region_bounds_pathological_local_writes() -> None:
+    """A rare associative-gradient spike must not become an unbounded state."""
+
+    memory = FunctionalNeuralMemory(
+        d_model=2,
+        memory_depth=1,
+        max_surprise_norm=0.25,
+    ).double()
+    _set_tiny_parameters(memory)
+    state = memory.initial_state("bounded-stream")
+    updated = memory.update_one(
+        state,
+        torch.tensor([50.0, -50.0], dtype=torch.float64),
+        torch.tensor([-75.0, 75.0], dtype=torch.float64),
+        alpha=torch.tensor([0.1], dtype=torch.float64),
+        eta=torch.tensor([0.6], dtype=torch.float64),
+        theta=torch.tensor([0.2], dtype=torch.float64),
+    )
+
+    surprise_norm = torch.stack(
+        [value.square().sum() for value in updated.surprise.values()]
+    ).sum().sqrt()
+    assert float(surprise_norm.detach()) == pytest.approx(0.25)
+    assert all(torch.isfinite(value).all() for value in updated.fast_weights.values())
+
+
 def test_segment_shapes_read_snapshot_and_stream_isolation() -> None:
     torch.manual_seed(11)
     memory = FunctionalNeuralMemory(d_model=4, memory_depth=2).double()

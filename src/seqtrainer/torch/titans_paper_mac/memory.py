@@ -78,7 +78,14 @@ class FunctionalNeuralMemory(nn.Module):
     the matching state to :meth:`read_then_update` or :meth:`update_segment`.
     """
 
-    def __init__(self, d_model: int, memory_depth: int = 2, segment_length: int = 32) -> None:
+    def __init__(
+        self,
+        d_model: int,
+        memory_depth: int = 2,
+        segment_length: int = 32,
+        *,
+        max_surprise_norm: float | None = None,
+    ) -> None:
         super().__init__()
         if d_model <= 0:
             raise ValueError("d_model must be positive")
@@ -86,8 +93,11 @@ class FunctionalNeuralMemory(nn.Module):
             raise ValueError("memory_depth must be positive")
         if segment_length != 32:
             raise ValueError("paper-MAC Stage A requires segment_length=32")
+        if max_surprise_norm is not None and max_surprise_norm <= 0:
+            raise ValueError("max_surprise_norm must be positive when supplied")
         self.d_model = d_model
         self.segment_length = segment_length
+        self.max_surprise_norm = max_surprise_norm
 
         layers: list[nn.Module] = []
         for _ in range(memory_depth - 1):
@@ -169,6 +179,24 @@ class FunctionalNeuralMemory(nn.Module):
             (name, eta * previous_surprise[name] - theta * gradient[name]) for name in previous_surprise
         )
 
+    def _bound_surprise(self, surprise: Mapping[str, Tensor]) -> FastWeights:
+        """Project the local surprise vector into an optional trust region.
+
+        The paper recurrence is unbounded.  During long outer-loop training a
+        rare associative-gradient spike can otherwise become the next
+        fast-weight state and make the following read non-finite.  A single
+        scale preserves its direction and is differentiable almost everywhere;
+        disabled guards retain the exact original recurrence.
+        """
+
+        bounded = OrderedDict(surprise.items())
+        if self.max_surprise_norm is None:
+            return bounded
+        squared = torch.stack([value.square().sum() for value in bounded.values()]).sum()
+        norm = squared.sqrt()
+        scale = (self.max_surprise_norm / norm.clamp_min(self.max_surprise_norm)).detach()
+        return OrderedDict((name, value * scale) for name, value in bounded.items())
+
     @staticmethod
     def forgetting_update(
         fast_weights: Mapping[str, Tensor], surprise: Mapping[str, Tensor], alpha: Tensor
@@ -200,7 +228,9 @@ class FunctionalNeuralMemory(nn.Module):
             if gate.numel() != 1:
                 raise ValueError(f"{name} must be a scalar or a single-element tensor")
         gradient = self.surprise_gradient(state.fast_weights, key, value)
-        surprise = self.momentum_update(state.surprise, gradient, eta, theta)
+        surprise = self._bound_surprise(
+            self.momentum_update(state.surprise, gradient, eta, theta)
+        )
         fast_weights = self.forgetting_update(state.fast_weights, surprise, alpha)
         return state.replace(fast_weights=fast_weights, surprise=surprise)
 

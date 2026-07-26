@@ -37,6 +37,7 @@ class StageCModelConfig:
     num_heads: int = 8
     persistent_tokens: int = 4
     memory_depth: int = 1
+    memory_surprise_clip_norm: float | None = 4.0
     segment_length: int = 32
     tie_embeddings: bool = True
     gradient_horizon: int = 2
@@ -65,6 +66,8 @@ class StageCModelConfig:
             raise ValueError("d_model must be divisible by num_heads")
         if self.segment_length != 32:
             raise ValueError("Stage C preserves the paper-MAC 32-token segment")
+        if self.memory_surprise_clip_norm is not None and self.memory_surprise_clip_norm <= 0:
+            raise ValueError("memory_surprise_clip_norm must be positive when supplied")
         if self.gradient_horizon not in (1, 2, 3, 4):
             raise ValueError("gradient_horizon must be one of 1, 2, 3, or 4")
         if self.backend.memory_backend in (

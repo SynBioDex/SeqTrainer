@@ -90,6 +90,7 @@ class PaperMACBlock(nn.Module):
         persistent_tokens: int = 4,
         memory_depth: int = 2,
         segment_length: int = 32,
+        max_surprise_norm: float | None = None,
     ) -> None:
         super().__init__()
         if d_model <= 0:
@@ -108,6 +109,7 @@ class PaperMACBlock(nn.Module):
             d_model=d_model,
             memory_depth=memory_depth,
             segment_length=segment_length,
+            max_surprise_norm=max_surprise_norm,
         )
         self.persistent_tokens = nn.Parameter(torch.empty(persistent_tokens, d_model))
         nn.init.normal_(self.persistent_tokens, mean=0.0, std=0.02)

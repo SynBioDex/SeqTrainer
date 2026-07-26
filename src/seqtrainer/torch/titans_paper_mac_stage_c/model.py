@@ -90,6 +90,7 @@ class StageCPaperMACForCausalLM(nn.Module):
             persistent_tokens=config.persistent_tokens,
             memory_depth=config.memory_depth,
             segment_length=config.segment_length,
+            max_surprise_norm=config.memory_surprise_clip_norm,
         )
         self.final_norm = nn.LayerNorm(config.d_model)
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)

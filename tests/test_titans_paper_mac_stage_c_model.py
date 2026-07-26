@@ -112,6 +112,14 @@ def test_stage_c_lm_has_tied_head_finite_meta_gradients_and_bpb() -> None:
     assert metrics.bits_per_base > 0
 
 
+def test_stage_c_defaults_to_a_bounded_adaptive_memory_trust_region() -> None:
+    config = tiny_config()
+    model = StageCPaperMACForCausalLM(config)
+
+    assert config.memory_surprise_clip_norm == pytest.approx(4.0)
+    assert model.stack.blocks[0].memory.max_surprise_norm == pytest.approx(4.0)
+
+
 def test_cpu_basal_routes_backward_through_math_sdpa() -> None:
     """Colab CPU pilots must not reach MultiheadAttention's Flash backward."""
 

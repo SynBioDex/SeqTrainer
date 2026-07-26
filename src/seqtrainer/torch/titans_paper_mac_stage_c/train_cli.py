@@ -72,6 +72,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--num-heads", type=int, default=8)
     parser.add_argument("--persistent-tokens", type=int, default=4)
     parser.add_argument("--memory-depth", type=int, default=1)
+    parser.add_argument("--memory-surprise-clip-norm", type=float, default=4.0)
     parser.add_argument("--no-resume", action="store_true")
     parser.add_argument("--verify-dataset", action="store_true")
     parser.add_argument("--protocol", type=Path, help="frozen Stage C study protocol")
@@ -83,6 +84,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         parser.error("--protocol and --run-id must be supplied together")
     if args.learning_rate <= 0 or args.gradient_clip_norm <= 0:
         parser.error("--learning-rate and --gradient-clip-norm must be positive")
+    if args.memory_surprise_clip_norm <= 0:
+        parser.error("--memory-surprise-clip-norm must be positive")
     return args
 
 
@@ -129,6 +132,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         num_heads=args.num_heads,
         persistent_tokens=args.persistent_tokens,
         memory_depth=args.memory_depth,
+        memory_surprise_clip_norm=args.memory_surprise_clip_norm,
         gradient_horizon=args.horizon,
         memory_mode=MemoryMode(args.memory_mode),
         backend=backend,
@@ -266,6 +270,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "learning_rate": args.learning_rate,
         "weight_decay": args.weight_decay,
         "gradient_clip_norm": args.gradient_clip_norm,
+        "memory_surprise_clip_norm": args.memory_surprise_clip_norm,
         "scheduler_exhausted": scheduler.exhausted,
         "stop_reason": (
             "corpus_exhausted"

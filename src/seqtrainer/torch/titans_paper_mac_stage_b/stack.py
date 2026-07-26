@@ -36,6 +36,7 @@ class StageBMACStack(nn.Module):
         memory_depth: int = 2,
         segment_length: int = 32,
         convolution_kernel_size: int | None = None,
+        max_surprise_norm: float | None = None,
     ) -> None:
         super().__init__()
         if block_count <= 0:
@@ -50,6 +51,7 @@ class StageBMACStack(nn.Module):
                 persistent_tokens=persistent_tokens,
                 memory_depth=memory_depth,
                 segment_length=segment_length,
+                max_surprise_norm=max_surprise_norm,
             )
             for _ in range(block_count)
         )
