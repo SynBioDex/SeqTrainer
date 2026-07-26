@@ -16,6 +16,9 @@ from seqtrainer.torch.titans_paper_mac_stage_c.capacity_cli import (  # noqa: E4
     parse_args as parse_capacity_args,
 )
 from seqtrainer.torch.titans_paper_mac_stage_c.evaluate_cli import main as evaluate_main  # noqa: E402
+from seqtrainer.torch.titans_paper_mac_stage_c.resume_verify_cli import (  # noqa: E402
+    main as resume_verify_main,
+)
 from seqtrainer.torch.titans_paper_mac_stage_c.train_cli import main as train_main  # noqa: E402
 
 
@@ -195,6 +198,30 @@ def test_production_stream_dataset_trains_checkpoints_and_reports_on_cpu(tmp_pat
     assert manifest["validation"]["gate_statistics"]
     assert manifest["validation"]["memory_gradient_statistics"]
     assert manifest["stop_reason"] == "optimizer_step_budget"
+    verification_path = tmp_path / "resume_verification.json"
+    assert resume_verify_main(
+        [
+            "--dataset-dir",
+            str(dataset_dir),
+            "--checkpoint",
+            str(run_dir / "latest.pt"),
+            "--output",
+            str(verification_path),
+            "--device",
+            "cpu",
+            "--expected-step",
+            "1",
+        ]
+    ) == 0
+    verification = json.loads(verification_path.read_text(encoding="utf-8"))
+    assert verification["status"] == "passed"
+    assert verification["read_only_source_checkpoint"] is True
+    assert verification["deterministic_continuation"] is True
+    assert (
+        verification["first_continuation"]["continued_optimizer_step"]
+        == verification["second_continuation"]["continued_optimizer_step"]
+        == 2
+    )
     with pytest.raises(ValueError, match="separately trained runs"):
         evaluate_main(
             [
