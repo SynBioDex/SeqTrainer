@@ -6,7 +6,11 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from seqtrainer.torch.titans_paper_mac import FunctionalNeuralMemory, PaperMACStreamState  # noqa: E402
+from seqtrainer.torch.titans_paper_mac import (  # noqa: E402
+    AdaptiveUpdateGates,
+    FunctionalNeuralMemory,
+    PaperMACStreamState,
+)
 
 
 def _set_tiny_parameters(memory: FunctionalNeuralMemory) -> None:
@@ -78,6 +82,65 @@ def test_optional_surprise_trust_region_bounds_pathological_local_writes() -> No
     ).sum().sqrt()
     assert float(surprise_norm.detach()) == pytest.approx(0.25)
     assert all(torch.isfinite(value).all() for value in updated.fast_weights.values())
+
+
+def test_mean_associative_loss_is_exact_dimension_normalization() -> None:
+    summed = FunctionalNeuralMemory(d_model=2, memory_depth=1).double()
+    averaged = FunctionalNeuralMemory(
+        d_model=2,
+        memory_depth=1,
+        associative_loss_reduction="mean",
+    ).double()
+    averaged.load_state_dict(summed.state_dict())
+    weights = summed.initial_fast_weights()
+    keys = torch.tensor([[0.5, -1.0]], dtype=torch.float64)
+    values = torch.tensor([[-0.25, 0.75]], dtype=torch.float64)
+
+    sum_loss = summed.associative_loss(weights, keys, values)
+    mean_loss = averaged.associative_loss(weights, keys, values)
+
+    assert torch.equal(mean_loss * summed.d_model, sum_loss)
+
+
+def test_relative_gradient_rms_conditioning_matches_declared_equation() -> None:
+    memory = FunctionalNeuralMemory(
+        d_model=2,
+        memory_depth=1,
+        max_gradient_rms_ratio=0.25,
+    ).double()
+    weights = memory.initial_fast_weights()
+    gradient = type(weights)(
+        (name, torch.full_like(value, 100.0)) for name, value in weights.items()
+    )
+    memory.begin_update_telemetry(weights)
+
+    conditioned = memory.condition_gradient(weights, gradient)
+
+    raw_rms = memory._mapping_rms(gradient)
+    admissible = 0.25 * memory._mapping_rms(weights)
+    expected_scale = admissible / raw_rms
+    for name in gradient:
+        assert torch.allclose(conditioned[name], gradient[name] * expected_scale)
+    telemetry = memory.update_telemetry()
+    assert float(telemetry["gradient_scale_min"]) == pytest.approx(
+        float(expected_scale.detach())
+    )
+    assert float(telemetry["gradient_interventions"]) == 1.0
+
+
+def test_theta_gate_has_declared_maximum_and_initial_value() -> None:
+    gates = AdaptiveUpdateGates(
+        3,
+        theta_max=0.5,
+        theta_initial=0.25,
+    ).double()
+    with torch.no_grad():
+        gates.projection.weight.zero_()
+
+    values = gates(torch.zeros(4, 3, dtype=torch.float64))
+
+    assert torch.allclose(values.theta, torch.full((4, 1), 0.25, dtype=torch.float64))
+    assert bool(values.theta.max() < 0.5)
 
 
 def test_segment_shapes_read_snapshot_and_stream_isolation() -> None:

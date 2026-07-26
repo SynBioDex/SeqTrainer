@@ -37,6 +37,11 @@ class StageBMACStack(nn.Module):
         segment_length: int = 32,
         convolution_kernel_size: int | None = None,
         max_surprise_norm: float | None = None,
+        associative_loss_reduction: str = "sum",
+        max_gradient_rms: float | None = None,
+        max_gradient_rms_ratio: float | None = None,
+        theta_max: float = 1.0,
+        theta_initial: float | None = None,
     ) -> None:
         super().__init__()
         if block_count <= 0:
@@ -52,6 +57,11 @@ class StageBMACStack(nn.Module):
                 memory_depth=memory_depth,
                 segment_length=segment_length,
                 max_surprise_norm=max_surprise_norm,
+                associative_loss_reduction=associative_loss_reduction,
+                max_gradient_rms=max_gradient_rms,
+                max_gradient_rms_ratio=max_gradient_rms_ratio,
+                theta_max=theta_max,
+                theta_initial=theta_initial,
             )
             for _ in range(block_count)
         )

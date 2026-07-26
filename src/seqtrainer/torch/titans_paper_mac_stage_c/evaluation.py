@@ -36,6 +36,7 @@ class EvaluationResult:
     surprise_norm_mean: float
     state_drift_norm_mean: float
     gate_statistics: Mapping[str, float]
+    memory_gradient_statistics: Mapping[str, float]
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -77,6 +78,9 @@ def evaluate_ordered_streams(
         "state_drift_norm": 0.0,
     }
     gate_sums: dict[str, float] = defaultdict(float)
+    memory_gradient_sums: dict[str, float] = defaultdict(float)
+    memory_gradient_maxima: dict[str, float] = defaultdict(float)
+    memory_gradient_scale_min = 1.0
     stream_count = 0
     segment_count = 0
     for stream_id in sorted(streams):
@@ -124,6 +128,19 @@ def evaluate_ordered_streams(
             diagnostic_sums["state_drift_norm"] += output.state_drift_norm
             for key, value in output.gate_statistics.items():
                 gate_sums[key] += value
+            for key in (
+                "gradient_intervention_fraction",
+                "legacy_surprise_intervention_fraction",
+            ):
+                memory_gradient_sums[key] += output.memory_gradient_statistics[key]
+            for key in ("raw_gradient_rms_max", "conditioned_gradient_rms_max"):
+                memory_gradient_maxima[key] = max(
+                    memory_gradient_maxima[key], output.memory_gradient_statistics[key]
+                )
+            memory_gradient_scale_min = min(
+                memory_gradient_scale_min,
+                output.memory_gradient_statistics["gradient_scale_min"],
+            )
             states = detach_stream_states(output.states[0])
             segment_count += 1
     if not total_tokens or not total_bases:
@@ -153,4 +170,12 @@ def evaluate_ordered_streams(
         surprise_norm_mean=diagnostic_sums["surprise_norm"] / segment_count,
         state_drift_norm_mean=diagnostic_sums["state_drift_norm"] / segment_count,
         gate_statistics={key: value / segment_count for key, value in gate_sums.items()},
+        memory_gradient_statistics={
+            **memory_gradient_maxima,
+            "gradient_scale_min": memory_gradient_scale_min,
+            **{
+                key: value / segment_count
+                for key, value in memory_gradient_sums.items()
+            },
+        },
     )

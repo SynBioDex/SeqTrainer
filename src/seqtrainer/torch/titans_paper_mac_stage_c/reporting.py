@@ -300,9 +300,30 @@ def write_training_history(
             {
                 "parameters": [item.gradient_norm for item in records],
                 "written state": [item.written_state_gradient_norm for item in records],
+                "raw memory RMS max": [
+                    item.raw_memory_gradient_rms_max for item in records
+                ],
+                "conditioned memory RMS max": [
+                    item.conditioned_memory_gradient_rms_max for item in records
+                ],
             },
             "Gradient health",
             "Gradient norm",
+        ),
+        "memory_conditioning.svg": (
+            {
+                "minimum gradient scale": [
+                    item.memory_gradient_scale_min for item in records
+                ],
+                "gradient intervention fraction": [
+                    item.memory_gradient_intervention_fraction for item in records
+                ],
+                "legacy cap intervention fraction": [
+                    item.legacy_surprise_intervention_fraction for item in records
+                ],
+            },
+            "Neural-memory conditioning",
+            "Fraction / scale",
         ),
         "training_throughput.svg": (
             {"bases/s": [item.bases_per_second for item in records]},

@@ -40,6 +40,15 @@ def _git_commit() -> str:
     return result.stdout.strip() if result.returncode == 0 else "unknown"
 
 
+def _optional_positive_float(value: str) -> float | None:
+    if value.lower() in {"none", "off", "disabled"}:
+        return None
+    parsed = float(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("value must be positive or 'none'")
+    return parsed
+
+
 def _device(value: str) -> torch.device:
     if value == "auto":
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -72,7 +81,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--num-heads", type=int, default=8)
     parser.add_argument("--persistent-tokens", type=int, default=4)
     parser.add_argument("--memory-depth", type=int, default=1)
-    parser.add_argument("--memory-surprise-clip-norm", type=float, default=4.0)
+    parser.add_argument("--memory-surprise-clip-norm", type=_optional_positive_float, default=4.0)
+    parser.add_argument(
+        "--memory-associative-loss-reduction",
+        choices=("sum", "mean"),
+        default="sum",
+    )
+    parser.add_argument("--memory-max-gradient-rms", type=_optional_positive_float)
+    parser.add_argument("--memory-max-gradient-rms-ratio", type=_optional_positive_float)
+    parser.add_argument("--memory-theta-max", type=float, default=1.0)
+    parser.add_argument("--memory-theta-initial", type=float)
     parser.add_argument("--no-resume", action="store_true")
     parser.add_argument("--verify-dataset", action="store_true")
     parser.add_argument("--protocol", type=Path, help="frozen Stage C study protocol")
@@ -84,8 +102,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         parser.error("--protocol and --run-id must be supplied together")
     if args.learning_rate <= 0 or args.gradient_clip_norm <= 0:
         parser.error("--learning-rate and --gradient-clip-norm must be positive")
-    if args.memory_surprise_clip_norm <= 0:
-        parser.error("--memory-surprise-clip-norm must be positive")
+    if not 0.0 < args.memory_theta_max <= 1.0:
+        parser.error("--memory-theta-max must be in (0, 1]")
+    if args.memory_theta_initial is not None and not (
+        0.0 < args.memory_theta_initial < args.memory_theta_max
+    ):
+        parser.error("--memory-theta-initial must be in (0, --memory-theta-max)")
     return args
 
 
@@ -133,6 +155,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         persistent_tokens=args.persistent_tokens,
         memory_depth=args.memory_depth,
         memory_surprise_clip_norm=args.memory_surprise_clip_norm,
+        memory_associative_loss_reduction=args.memory_associative_loss_reduction,
+        memory_max_gradient_rms=args.memory_max_gradient_rms,
+        memory_max_gradient_rms_ratio=args.memory_max_gradient_rms_ratio,
+        memory_theta_max=args.memory_theta_max,
+        memory_theta_initial=args.memory_theta_initial,
         gradient_horizon=args.horizon,
         memory_mode=MemoryMode(args.memory_mode),
         backend=backend,
@@ -271,6 +298,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "weight_decay": args.weight_decay,
         "gradient_clip_norm": args.gradient_clip_norm,
         "memory_surprise_clip_norm": args.memory_surprise_clip_norm,
+        "memory_associative_loss_reduction": args.memory_associative_loss_reduction,
+        "memory_max_gradient_rms": args.memory_max_gradient_rms,
+        "memory_max_gradient_rms_ratio": args.memory_max_gradient_rms_ratio,
+        "memory_theta_max": args.memory_theta_max,
+        "memory_theta_initial": args.memory_theta_initial,
         "scheduler_exhausted": scheduler.exhausted,
         "stop_reason": (
             "corpus_exhausted"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Mapping
+from typing import Literal, Mapping
 
 from seqtrainer.torch.titans_paper_mac_stage_b import (
     ActivationDType,
@@ -38,6 +38,11 @@ class StageCModelConfig:
     persistent_tokens: int = 4
     memory_depth: int = 1
     memory_surprise_clip_norm: float | None = 4.0
+    memory_associative_loss_reduction: Literal["sum", "mean"] = "sum"
+    memory_max_gradient_rms: float | None = None
+    memory_max_gradient_rms_ratio: float | None = None
+    memory_theta_max: float = 1.0
+    memory_theta_initial: float | None = None
     segment_length: int = 32
     tie_embeddings: bool = True
     gradient_horizon: int = 2
@@ -68,6 +73,21 @@ class StageCModelConfig:
             raise ValueError("Stage C preserves the paper-MAC 32-token segment")
         if self.memory_surprise_clip_norm is not None and self.memory_surprise_clip_norm <= 0:
             raise ValueError("memory_surprise_clip_norm must be positive when supplied")
+        if self.memory_associative_loss_reduction not in {"sum", "mean"}:
+            raise ValueError("memory_associative_loss_reduction must be 'sum' or 'mean'")
+        if self.memory_max_gradient_rms is not None and self.memory_max_gradient_rms <= 0:
+            raise ValueError("memory_max_gradient_rms must be positive when supplied")
+        if (
+            self.memory_max_gradient_rms_ratio is not None
+            and self.memory_max_gradient_rms_ratio <= 0
+        ):
+            raise ValueError("memory_max_gradient_rms_ratio must be positive when supplied")
+        if not 0.0 < self.memory_theta_max <= 1.0:
+            raise ValueError("memory_theta_max must be in (0, 1]")
+        if self.memory_theta_initial is not None and not (
+            0.0 < self.memory_theta_initial < self.memory_theta_max
+        ):
+            raise ValueError("memory_theta_initial must be in (0, memory_theta_max)")
         if self.gradient_horizon not in (1, 2, 3, 4):
             raise ValueError("gradient_horizon must be one of 1, 2, 3, or 4")
         if self.backend.memory_backend in (

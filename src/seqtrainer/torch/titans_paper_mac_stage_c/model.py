@@ -44,6 +44,7 @@ class StageCLMOutput:
     surprise_norm: float
     state_drift_norm: float
     gate_statistics: dict[str, float]
+    memory_gradient_statistics: dict[str, float]
 
 
 def detach_stream_states(states: BlockStates) -> BlockStates:
@@ -91,6 +92,11 @@ class StageCPaperMACForCausalLM(nn.Module):
             memory_depth=config.memory_depth,
             segment_length=config.segment_length,
             max_surprise_norm=config.memory_surprise_clip_norm,
+            associative_loss_reduction=config.memory_associative_loss_reduction,
+            max_gradient_rms=config.memory_max_gradient_rms,
+            max_gradient_rms_ratio=config.memory_max_gradient_rms_ratio,
+            theta_max=config.memory_theta_max,
+            theta_initial=config.memory_theta_initial,
         )
         self.final_norm = nn.LayerNorm(config.d_model)
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
@@ -176,6 +182,37 @@ class StageCPaperMACForCausalLM(nn.Module):
             statistics[f"{name}_max"] = float(combined.max().cpu()) if combined.numel() else 0.0
         return statistics
 
+    def _memory_gradient_statistics(self) -> dict[str, float]:
+        telemetry = [block.memory.update_telemetry() for block in self.stack.blocks]
+        populated = [item for item in telemetry if item]
+        if not populated:
+            return {
+                "raw_gradient_rms_max": 0.0,
+                "conditioned_gradient_rms_max": 0.0,
+                "gradient_scale_min": 1.0,
+                "gradient_intervention_fraction": 0.0,
+                "legacy_surprise_intervention_fraction": 0.0,
+            }
+        update_count = torch.stack([item["update_count"] for item in populated]).sum()
+        denominator = update_count.clamp_min(1.0)
+        return {
+            "raw_gradient_rms_max": float(torch.stack(
+                [item["raw_gradient_rms_max"] for item in populated]
+            ).max().cpu()),
+            "conditioned_gradient_rms_max": float(torch.stack(
+                [item["conditioned_gradient_rms_max"] for item in populated]
+            ).max().cpu()),
+            "gradient_scale_min": float(torch.stack(
+                [item["gradient_scale_min"] for item in populated]
+            ).min().cpu()),
+            "gradient_intervention_fraction": float((torch.stack(
+                [item["gradient_interventions"] for item in populated]
+            ).sum() / denominator).cpu()),
+            "legacy_surprise_intervention_fraction": float((torch.stack(
+                [item["legacy_surprise_interventions"] for item in populated]
+            ).sum() / denominator).cpu()),
+        }
+
     def _no_memory_forward(
         self,
         states: BlockStates,
@@ -210,7 +247,16 @@ class StageCPaperMACForCausalLM(nn.Module):
         input_ids: Tensor,
         valid_mask: Tensor,
         mode: MemoryMode,
-    ) -> tuple[Tensor, BlockStates, tuple[Tensor, ...], Tensor, Tensor, Tensor, dict[str, float]]:
+    ) -> tuple[
+        Tensor,
+        BlockStates,
+        tuple[Tensor, ...],
+        Tensor,
+        Tensor,
+        Tensor,
+        dict[str, float],
+        dict[str, float],
+    ]:
         positions = torch.arange(self.config.segment_length, device=input_ids.device)
         embeddings = (
             self.token_embeddings(input_ids) * math.sqrt(self.config.d_model)
@@ -242,6 +288,17 @@ class StageCPaperMACForCausalLM(nn.Module):
         drift_norm = self._state_drift_norm(next_states).to(device=logits.device)
         block_inputs = (embeddings, *block_sequences[:-1])
         gate_statistics = self._gate_statistics(block_inputs, valid_mask)
+        memory_gradient_statistics = (
+            self._memory_gradient_statistics()
+            if mode is not MemoryMode.NONE
+            else {
+                "raw_gradient_rms_max": 0.0,
+                "conditioned_gradient_rms_max": 0.0,
+                "gradient_scale_min": 1.0,
+                "gradient_intervention_fraction": 0.0,
+                "legacy_surprise_intervention_fraction": 0.0,
+            }
+        )
         return (
             logits,
             next_states,
@@ -250,6 +307,7 @@ class StageCPaperMACForCausalLM(nn.Module):
             surprise_norm,
             drift_norm,
             gate_statistics,
+            memory_gradient_statistics,
         )
 
     def forward_segment(
@@ -284,6 +342,7 @@ class StageCPaperMACForCausalLM(nn.Module):
         surprise_norms: list[Tensor] = []
         drift_norms: list[Tensor] = []
         gate_rows: list[dict[str, float]] = []
+        memory_gradient_rows: list[dict[str, float]] = []
         for row, row_states in enumerate(states):
             (
                 row_logits,
@@ -293,6 +352,7 @@ class StageCPaperMACForCausalLM(nn.Module):
                 surprise_norm,
                 drift_norm,
                 gate_statistics,
+                memory_gradient_statistics,
             ) = self._forward_row(
                 row_states,
                 input_ids[row],
@@ -306,6 +366,7 @@ class StageCPaperMACForCausalLM(nn.Module):
             surprise_norms.append(surprise_norm.detach())
             drift_norms.append(drift_norm.detach())
             gate_rows.append(gate_statistics)
+            memory_gradient_rows.append(memory_gradient_statistics)
         stacked = torch.stack(logits)
         loss = None
         loss_sum = None
@@ -351,6 +412,23 @@ class StageCPaperMACForCausalLM(nn.Module):
             key: sum(row[key] for row in gate_rows) / len(gate_rows)
             for key in gate_rows[0]
         } if gate_rows else {}
+        memory_gradient_statistics = {
+            "raw_gradient_rms_max": max(
+                row["raw_gradient_rms_max"] for row in memory_gradient_rows
+            ),
+            "conditioned_gradient_rms_max": max(
+                row["conditioned_gradient_rms_max"] for row in memory_gradient_rows
+            ),
+            "gradient_scale_min": min(
+                row["gradient_scale_min"] for row in memory_gradient_rows
+            ),
+            "gradient_intervention_fraction": sum(
+                row["gradient_intervention_fraction"] for row in memory_gradient_rows
+            ) / len(memory_gradient_rows),
+            "legacy_surprise_intervention_fraction": sum(
+                row["legacy_surprise_intervention_fraction"] for row in memory_gradient_rows
+            ) / len(memory_gradient_rows),
+        } if memory_gradient_rows else {}
         return StageCLMOutput(
             logits=stacked,
             states=tuple(next_states),
@@ -363,6 +441,7 @@ class StageCPaperMACForCausalLM(nn.Module):
             surprise_norm=surprise_norm,
             state_drift_norm=state_drift_norm,
             gate_statistics=gate_statistics,
+            memory_gradient_statistics=memory_gradient_statistics,
         )
 
     def count_parameters(self) -> int:

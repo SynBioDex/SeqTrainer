@@ -151,6 +151,16 @@ def test_production_stream_dataset_trains_checkpoints_and_reports_on_cpu(tmp_pat
             "2",
             "--memory-depth",
             "1",
+            "--memory-surprise-clip-norm",
+            "none",
+            "--memory-associative-loss-reduction",
+            "mean",
+            "--memory-max-gradient-rms-ratio",
+            "10",
+            "--memory-theta-max",
+            "0.5",
+            "--memory-theta-initial",
+            "0.25",
         ]
     ) == 0
 
@@ -162,6 +172,7 @@ def test_production_stream_dataset_trains_checkpoints_and_reports_on_cpu(tmp_pat
         "training_bpb.svg",
         "memory_diagnostics.svg",
         "gradient_diagnostics.svg",
+        "memory_conditioning.svg",
         "gate_diagnostics.svg",
         "training_throughput.svg",
     ):
@@ -171,12 +182,18 @@ def test_production_stream_dataset_trains_checkpoints_and_reports_on_cpu(tmp_pat
     assert manifest["optimizer_steps"] == 1
     assert manifest["learning_rate"] == pytest.approx(3e-5)
     assert manifest["gradient_clip_norm"] == pytest.approx(0.5)
+    assert manifest["memory_surprise_clip_norm"] is None
+    assert manifest["memory_associative_loss_reduction"] == "mean"
+    assert manifest["memory_max_gradient_rms_ratio"] == pytest.approx(10.0)
+    assert manifest["memory_theta_max"] == pytest.approx(0.5)
+    assert manifest["memory_theta_initial"] == pytest.approx(0.25)
     assert live_status["state"] == "completed"
     assert manifest["processed_bases"] > 0
     assert manifest["validation"]["bits_per_base"] > 0
     assert manifest["validation"]["perplexity"] > 0
     assert manifest["validation"]["per_gc_bin_bpb"]
     assert manifest["validation"]["gate_statistics"]
+    assert manifest["validation"]["memory_gradient_statistics"]
     assert manifest["stop_reason"] == "optimizer_step_budget"
     with pytest.raises(ValueError, match="separately trained runs"):
         evaluate_main(

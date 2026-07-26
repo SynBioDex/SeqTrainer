@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Mapping, Optional
+from typing import Literal, Mapping, Optional
 
 import torch
 from torch import Tensor, nn
@@ -47,25 +47,43 @@ class AdaptiveUpdateGates(nn.Module):
     is therefore a data-dependent learning-rate multiplier.
     """
 
-    def __init__(self, d_model: int) -> None:
+    def __init__(
+        self,
+        d_model: int,
+        *,
+        theta_max: float = 1.0,
+        theta_initial: float | None = None,
+    ) -> None:
         super().__init__()
         if d_model <= 0:
             raise ValueError("d_model must be positive")
+        if not 0.0 < theta_max <= 1.0:
+            raise ValueError("theta_max must be in (0, 1]")
+        if theta_initial is not None and not 0.0 < theta_initial < theta_max:
+            raise ValueError("theta_initial must be in (0, theta_max)")
+        self.theta_max = float(theta_max)
         self.projection = nn.Linear(d_model, 3)
         # The local update is applied 32 times before a state is committed.
         # Starting every gate near 0.5 makes that recurrence explode before
         # outer-loop gradient clipping can intervene. Keep the gates learnable,
         # but begin with rapid forgetting and conservative momentum/updates.
         with torch.no_grad():
-            self.projection.bias.copy_(
-                torch.tensor((4.0, -4.0, -6.0), dtype=self.projection.bias.dtype)
+            theta_fraction = (
+                torch.sigmoid(torch.tensor(-6.0)).item()
+                if theta_initial is None
+                else theta_initial / theta_max
             )
+            theta_bias = torch.logit(torch.tensor(theta_fraction)).item()
+            self.projection.bias.copy_(torch.tensor(
+                (4.0, -4.0, theta_bias), dtype=self.projection.bias.dtype
+            ))
 
     def forward(self, token_embeddings: Tensor) -> GateValues:
         if token_embeddings.ndim < 1 or token_embeddings.size(-1) != self.projection.in_features:
             raise ValueError("token_embeddings must have shape (..., d_model)")
         values = torch.sigmoid(self.projection(token_embeddings))
-        alpha, eta, theta = values.unbind(dim=-1)
+        alpha, eta, theta_unit = values.unbind(dim=-1)
+        theta = self.theta_max * theta_unit
         return GateValues(alpha=alpha.unsqueeze(-1), eta=eta.unsqueeze(-1), theta=theta.unsqueeze(-1))
 
 
@@ -85,6 +103,11 @@ class FunctionalNeuralMemory(nn.Module):
         segment_length: int = 32,
         *,
         max_surprise_norm: float | None = None,
+        associative_loss_reduction: Literal["sum", "mean"] = "sum",
+        max_gradient_rms: float | None = None,
+        max_gradient_rms_ratio: float | None = None,
+        theta_max: float = 1.0,
+        theta_initial: float | None = None,
     ) -> None:
         super().__init__()
         if d_model <= 0:
@@ -95,9 +118,19 @@ class FunctionalNeuralMemory(nn.Module):
             raise ValueError("paper-MAC Stage A requires segment_length=32")
         if max_surprise_norm is not None and max_surprise_norm <= 0:
             raise ValueError("max_surprise_norm must be positive when supplied")
+        if associative_loss_reduction not in {"sum", "mean"}:
+            raise ValueError("associative_loss_reduction must be 'sum' or 'mean'")
+        if max_gradient_rms is not None and max_gradient_rms <= 0:
+            raise ValueError("max_gradient_rms must be positive when supplied")
+        if max_gradient_rms_ratio is not None and max_gradient_rms_ratio <= 0:
+            raise ValueError("max_gradient_rms_ratio must be positive when supplied")
         self.d_model = d_model
         self.segment_length = segment_length
         self.max_surprise_norm = max_surprise_norm
+        self.associative_loss_reduction = associative_loss_reduction
+        self.max_gradient_rms = max_gradient_rms
+        self.max_gradient_rms_ratio = max_gradient_rms_ratio
+        self._update_telemetry: dict[str, Tensor] = {}
 
         layers: list[nn.Module] = []
         for _ in range(memory_depth - 1):
@@ -107,7 +140,11 @@ class FunctionalNeuralMemory(nn.Module):
         self.key_projection = nn.Linear(d_model, d_model, bias=False)
         self.value_projection = nn.Linear(d_model, d_model, bias=False)
         self.query_projection = nn.Linear(d_model, d_model, bias=False)
-        self.gates = AdaptiveUpdateGates(d_model)
+        self.gates = AdaptiveUpdateGates(
+            d_model,
+            theta_max=theta_max,
+            theta_initial=theta_initial,
+        )
 
     def initial_fast_weights(self) -> FastWeights:
         """Return the MLP's meta-parameters as the initial functional memory."""
@@ -152,7 +189,10 @@ class FunctionalNeuralMemory(nn.Module):
         if keys.shape != values.shape or keys.shape[-1:] != (self.d_model,):
             raise ValueError("keys and values must have equal shape (..., d_model)")
         reconstruction = self._functional_memory(fast_weights, keys)
-        return 0.5 * (reconstruction - values).square().sum(dim=-1)
+        squared_error = (reconstruction - values).square()
+        if self.associative_loss_reduction == "mean":
+            return 0.5 * squared_error.mean(dim=-1)
+        return 0.5 * squared_error.sum(dim=-1)
 
     def surprise_gradient(self, fast_weights: Mapping[str, Tensor], key: Tensor, value: Tensor) -> FastWeights:
         """Compute the exact higher-order gradient of one associative loss."""
@@ -168,6 +208,87 @@ class FunctionalNeuralMemory(nn.Module):
             allow_unused=False,
         )
         return OrderedDict(zip(fast_weights, gradients))
+
+    @staticmethod
+    def _mapping_rms(values: Mapping[str, Tensor]) -> Tensor:
+        squared = torch.stack([value.square().sum() for value in values.values()]).sum()
+        count = sum(value.numel() for value in values.values())
+        return (squared / count).sqrt()
+
+    def begin_update_telemetry(self, reference: Mapping[str, Tensor]) -> None:
+        """Reset detached diagnostics for one segment update."""
+
+        zero = next(iter(reference.values())).new_zeros(())
+        self._update_telemetry = {
+            "raw_gradient_rms_max": zero,
+            "conditioned_gradient_rms_max": zero,
+            "gradient_scale_min": zero.new_ones(()),
+            "gradient_interventions": zero,
+            "legacy_surprise_interventions": zero,
+            "update_count": zero,
+        }
+
+    def update_telemetry(self) -> Mapping[str, Tensor]:
+        """Return detached diagnostics from the most recent segment update."""
+
+        return self._update_telemetry
+
+    def _record_gradient_telemetry(
+        self,
+        raw_rms: Tensor,
+        conditioned_rms: Tensor,
+        scale: Tensor,
+    ) -> None:
+        if not self._update_telemetry:
+            return
+        telemetry = self._update_telemetry
+        telemetry["raw_gradient_rms_max"] = torch.maximum(
+            telemetry["raw_gradient_rms_max"], raw_rms.detach()
+        )
+        telemetry["conditioned_gradient_rms_max"] = torch.maximum(
+            telemetry["conditioned_gradient_rms_max"], conditioned_rms.detach()
+        )
+        telemetry["gradient_scale_min"] = torch.minimum(
+            telemetry["gradient_scale_min"], scale.detach()
+        )
+        telemetry["gradient_interventions"] = (
+            telemetry["gradient_interventions"] + scale.detach().lt(1.0).to(scale.dtype)
+        )
+        telemetry["update_count"] = telemetry["update_count"] + 1.0
+
+    def condition_gradient(
+        self,
+        fast_weights: Mapping[str, Tensor],
+        gradient: Mapping[str, Tensor],
+    ) -> FastWeights:
+        """Apply the declared scale-aware inner-gradient trust region.
+
+        For the concatenated gradient vector ``g`` and fast-weight vector ``M``,
+        ``rms(g) = ||g||_2 / sqrt(N)``.  If configured, the admissible RMS is
+        ``min(c, rho * rms(M))`` and the returned gradient is
+        ``g * min(1, admissible / rms(g))``.  The operation is differentiable
+        almost everywhere and remains in the higher-order training graph.
+        """
+
+        raw_rms = self._mapping_rms(gradient)
+        limits: list[Tensor] = []
+        if self.max_gradient_rms is not None:
+            limits.append(raw_rms.new_tensor(self.max_gradient_rms))
+        if self.max_gradient_rms_ratio is not None:
+            limits.append(
+                self._mapping_rms(fast_weights) * self.max_gradient_rms_ratio
+            )
+        if limits:
+            admissible = torch.stack(limits).min()
+            scale = torch.minimum(
+                torch.ones_like(raw_rms),
+                admissible / raw_rms.clamp_min(torch.finfo(raw_rms.dtype).eps),
+            )
+        else:
+            scale = torch.ones_like(raw_rms)
+        conditioned = OrderedDict((name, value * scale) for name, value in gradient.items())
+        self._record_gradient_telemetry(raw_rms, self._mapping_rms(conditioned), scale)
+        return conditioned
 
     @staticmethod
     def momentum_update(
@@ -195,6 +316,11 @@ class FunctionalNeuralMemory(nn.Module):
         squared = torch.stack([value.square().sum() for value in bounded.values()]).sum()
         norm = squared.sqrt()
         scale = (self.max_surprise_norm / norm.clamp_min(self.max_surprise_norm)).detach()
+        if self._update_telemetry:
+            self._update_telemetry["legacy_surprise_interventions"] = (
+                self._update_telemetry["legacy_surprise_interventions"]
+                + scale.lt(1.0).to(scale.dtype)
+            )
         return OrderedDict((name, value * scale) for name, value in bounded.items())
 
     @staticmethod
@@ -227,12 +353,37 @@ class FunctionalNeuralMemory(nn.Module):
         for name, gate in (("alpha", alpha), ("eta", eta), ("theta", theta)):
             if gate.numel() != 1:
                 raise ValueError(f"{name} must be a scalar or a single-element tensor")
-        gradient = self.surprise_gradient(state.fast_weights, key, value)
-        surprise = self._bound_surprise(
-            self.momentum_update(state.surprise, gradient, eta, theta)
+        fast_weights, surprise = self.update_tensors(
+            state.fast_weights,
+            state.surprise,
+            key,
+            value,
+            alpha=alpha,
+            eta=eta,
+            theta=theta,
         )
-        fast_weights = self.forgetting_update(state.fast_weights, surprise, alpha)
         return state.replace(fast_weights=fast_weights, surprise=surprise)
+
+    def update_tensors(
+        self,
+        fast_weights: Mapping[str, Tensor],
+        previous_surprise: Mapping[str, Tensor],
+        key: Tensor,
+        value: Tensor,
+        *,
+        alpha: Tensor,
+        eta: Tensor,
+        theta: Tensor,
+    ) -> tuple[FastWeights, FastWeights]:
+        """Apply one centralized update shared by reference and accelerated paths."""
+
+        raw_gradient = self.surprise_gradient(fast_weights, key, value)
+        gradient = self.condition_gradient(fast_weights, raw_gradient)
+        surprise = self._bound_surprise(
+            self.momentum_update(previous_surprise, gradient, eta, theta)
+        )
+        next_weights = self.forgetting_update(fast_weights, surprise, alpha)
+        return next_weights, surprise
 
     def update_segment(
         self,
@@ -256,6 +407,7 @@ class FunctionalNeuralMemory(nn.Module):
         values = self.value_projection(segment_embeddings)
         gate_values = self.gates(segment_embeddings)
         candidate = state
+        self.begin_update_telemetry(state.fast_weights)
         for position in range(self.segment_length):
             if valid_mask is not None and not bool(valid_mask[position].item()):
                 continue

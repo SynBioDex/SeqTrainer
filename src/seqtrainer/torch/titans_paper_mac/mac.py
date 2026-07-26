@@ -91,6 +91,11 @@ class PaperMACBlock(nn.Module):
         memory_depth: int = 2,
         segment_length: int = 32,
         max_surprise_norm: float | None = None,
+        associative_loss_reduction: str = "sum",
+        max_gradient_rms: float | None = None,
+        max_gradient_rms_ratio: float | None = None,
+        theta_max: float = 1.0,
+        theta_initial: float | None = None,
     ) -> None:
         super().__init__()
         if d_model <= 0:
@@ -110,6 +115,11 @@ class PaperMACBlock(nn.Module):
             memory_depth=memory_depth,
             segment_length=segment_length,
             max_surprise_norm=max_surprise_norm,
+            associative_loss_reduction=associative_loss_reduction,
+            max_gradient_rms=max_gradient_rms,
+            max_gradient_rms_ratio=max_gradient_rms_ratio,
+            theta_max=theta_max,
+            theta_initial=theta_initial,
         )
         self.persistent_tokens = nn.Parameter(torch.empty(persistent_tokens, d_model))
         nn.init.normal_(self.persistent_tokens, mean=0.0, std=0.02)

@@ -67,24 +67,18 @@ class ExactAcceleratedMemoryBackend:
         gate_values = memory.gates(sequence)
         fast_weights = OrderedDict(state.fast_weights.items())
         surprise = OrderedDict(state.surprise.items())
+        memory.begin_update_telemetry(fast_weights)
         for position in range(memory.segment_length):
             if valid_mask is not None and not bool(valid_mask[position].item()):
                 continue
-            gradient = memory.surprise_gradient(
+            fast_weights, surprise = memory.update_tensors(
                 fast_weights,
+                surprise,
                 keys[position],
                 values[position],
-            )
-            surprise = memory.momentum_update(
-                surprise,
-                gradient,
-                gate_values.eta[position],
-                gate_values.theta[position],
-            )
-            fast_weights = memory.forgetting_update(
-                fast_weights,
-                surprise,
-                gate_values.alpha[position],
+                alpha=gate_values.alpha[position],
+                eta=gate_values.eta[position],
+                theta=gate_values.theta[position],
             )
         self.accelerated_calls += 1
         self.last_execution = "exact_functional_loop"
@@ -103,4 +97,3 @@ class ExactAcceleratedMemoryBackend:
             "stale_gradients": False,
             "token_order_preserved": True,
         }
-

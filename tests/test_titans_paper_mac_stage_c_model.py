@@ -112,12 +112,33 @@ def test_stage_c_lm_has_tied_head_finite_meta_gradients_and_bpb() -> None:
     assert metrics.bits_per_base > 0
 
 
-def test_stage_c_defaults_to_a_bounded_adaptive_memory_trust_region() -> None:
+def test_stage_c_retains_the_legacy_surprise_guard_as_an_option() -> None:
     config = tiny_config()
     model = StageCPaperMACForCausalLM(config)
 
     assert config.memory_surprise_clip_norm == pytest.approx(4.0)
     assert model.stack.blocks[0].memory.max_surprise_norm == pytest.approx(4.0)
+
+
+def test_stage_c_preconditioned_memory_configuration_reaches_every_block() -> None:
+    config = tiny_config()
+    config = StageCModelConfig.from_dict(
+        {
+            **config.to_dict(),
+            "memory_surprise_clip_norm": None,
+            "memory_associative_loss_reduction": "mean",
+            "memory_max_gradient_rms_ratio": 10.0,
+            "memory_theta_max": 0.5,
+            "memory_theta_initial": 0.25,
+        }
+    )
+    model = StageCPaperMACForCausalLM(config)
+    memory = model.stack.blocks[0].memory
+
+    assert memory.max_surprise_norm is None
+    assert memory.associative_loss_reduction == "mean"
+    assert memory.max_gradient_rms_ratio == pytest.approx(10.0)
+    assert memory.gates.theta_max == pytest.approx(0.5)
 
 
 def test_cpu_basal_routes_backward_through_math_sdpa() -> None:

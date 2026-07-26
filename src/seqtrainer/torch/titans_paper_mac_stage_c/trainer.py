@@ -38,6 +38,11 @@ class TrainingStepRecord:
     eta_std: float
     theta_mean: float
     theta_std: float
+    raw_memory_gradient_rms_max: float
+    conditioned_memory_gradient_rms_max: float
+    memory_gradient_scale_min: float
+    memory_gradient_intervention_fraction: float
+    legacy_surprise_intervention_fraction: float
     gradient_norm: float
     written_state_gradient_norm: float
     elapsed_seconds: float
@@ -277,12 +282,20 @@ class StageCTrainer:
             for name in ("alpha", "eta", "theta")
             for key in (f"{name}_mean", f"{name}_std")
         }
+        memory_gradient_statistics = {
+            "raw_gradient_rms_max": 0.0,
+            "conditioned_gradient_rms_max": 0.0,
+            "gradient_scale_min": 1.0,
+            "gradient_intervention_fraction": 0.0,
+            "legacy_surprise_intervention_fraction": 0.0,
+        }
         written_state_tensors: list[Tensor] = []
 
         def finish_step() -> None:
             nonlocal accumulation_losses, accumulation_outputs, accumulation_segments, accumulation_examples
             nonlocal accumulation_tokens, accumulation_bases, retrieval_norm, update_norm, started
             nonlocal surprise_norm, state_drift_norm, gate_statistics
+            nonlocal memory_gradient_statistics
             nonlocal written_state_tensors
             if not accumulation_losses:
                 return
@@ -339,6 +352,19 @@ class StageCTrainer:
                 eta_std=gate_statistics["eta_std"] / accumulation_segments,
                 theta_mean=gate_statistics["theta_mean"] / accumulation_segments,
                 theta_std=gate_statistics["theta_std"] / accumulation_segments,
+                raw_memory_gradient_rms_max=memory_gradient_statistics[
+                    "raw_gradient_rms_max"
+                ],
+                conditioned_memory_gradient_rms_max=memory_gradient_statistics[
+                    "conditioned_gradient_rms_max"
+                ],
+                memory_gradient_scale_min=memory_gradient_statistics["gradient_scale_min"],
+                memory_gradient_intervention_fraction=memory_gradient_statistics[
+                    "gradient_intervention_fraction"
+                ] / accumulation_segments,
+                legacy_surprise_intervention_fraction=memory_gradient_statistics[
+                    "legacy_surprise_intervention_fraction"
+                ] / accumulation_segments,
                 gradient_norm=float(gradient_norm_tensor.detach().cpu()),
                 written_state_gradient_norm=written_gradient_norm,
                 elapsed_seconds=elapsed,
@@ -358,6 +384,13 @@ class StageCTrainer:
             surprise_norm = 0.0
             state_drift_norm = 0.0
             gate_statistics = {key: 0.0 for key in gate_statistics}
+            memory_gradient_statistics = {
+                "raw_gradient_rms_max": 0.0,
+                "conditioned_gradient_rms_max": 0.0,
+                "gradient_scale_min": 1.0,
+                "gradient_intervention_fraction": 0.0,
+                "legacy_surprise_intervention_fraction": 0.0,
+            }
             written_state_tensors = []
             started = time.perf_counter()
 
@@ -396,6 +429,24 @@ class StageCTrainer:
             state_drift_norm += output.state_drift_norm
             for key in gate_statistics:
                 gate_statistics[key] += output.gate_statistics[key]
+            memory_gradient_statistics["raw_gradient_rms_max"] = max(
+                memory_gradient_statistics["raw_gradient_rms_max"],
+                output.memory_gradient_statistics["raw_gradient_rms_max"],
+            )
+            memory_gradient_statistics["conditioned_gradient_rms_max"] = max(
+                memory_gradient_statistics["conditioned_gradient_rms_max"],
+                output.memory_gradient_statistics["conditioned_gradient_rms_max"],
+            )
+            memory_gradient_statistics["gradient_scale_min"] = min(
+                memory_gradient_statistics["gradient_scale_min"],
+                output.memory_gradient_statistics["gradient_scale_min"],
+            )
+            memory_gradient_statistics["gradient_intervention_fraction"] += (
+                output.memory_gradient_statistics["gradient_intervention_fraction"]
+            )
+            memory_gradient_statistics["legacy_surprise_intervention_fraction"] += (
+                output.memory_gradient_statistics["legacy_surprise_intervention_fraction"]
+            )
             if accumulation_segments < horizon:
                 for row_states in output.states:
                     for state in row_states:

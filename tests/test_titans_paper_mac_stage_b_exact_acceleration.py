@@ -97,3 +97,31 @@ def test_exact_acceleration_preserves_tail_mask_and_one_published_state() -> Non
     for name in expected.state.fast_weights:
         assert torch.equal(actual.state.fast_weights[name], expected.state.fast_weights[name])
         assert torch.equal(actual.state.surprise[name], expected.state.surprise[name])
+
+
+def test_exact_acceleration_respects_optional_legacy_surprise_guard() -> None:
+    torch.manual_seed(317)
+    reference = PaperMACBlock(
+        d_model=4,
+        num_heads=2,
+        persistent_tokens=2,
+        memory_depth=1,
+        max_surprise_norm=0.01,
+    ).double()
+    candidate = copy.deepcopy(reference)
+    segment = 100.0 * torch.randn(32, 4, dtype=torch.float64)
+
+    expected = reference(reference.initial_state("legacy-guard"), segment)
+    actual = execute_stage_b(
+        candidate,
+        candidate.initial_state("legacy-guard"),
+        segment,
+        config=StageBBackendConfig(memory_backend=MemoryBackend.EXACT_ACCELERATED),
+    )
+
+    for name in expected.state.fast_weights:
+        assert torch.equal(actual.state.fast_weights[name], expected.state.fast_weights[name])
+        assert torch.equal(actual.state.surprise[name], expected.state.surprise[name])
+    assert float(
+        candidate.memory.update_telemetry()["legacy_surprise_interventions"]
+    ) > 0.0
