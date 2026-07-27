@@ -144,6 +144,47 @@ def test_theta_gate_has_declared_maximum_and_initial_value() -> None:
     assert bool(values.theta.max() < 0.5)
 
 
+def test_legacy_gate_honors_explicit_matched_initial_conditions() -> None:
+    gates = AdaptiveUpdateGates(
+        3,
+        theta_max=1.0,
+        alpha_initial=1e-3,
+        eta_initial=0.9,
+        theta_initial=1e-3,
+    ).double()
+    with torch.no_grad():
+        gates.projection.weight.zero_()
+
+    values = gates(torch.zeros(4, 3, dtype=torch.float64))
+
+    assert torch.allclose(values.alpha, torch.full((4, 1), 1e-3, dtype=torch.float64))
+    assert torch.allclose(values.eta, torch.full((4, 1), 0.9, dtype=torch.float64))
+    assert torch.allclose(values.theta, torch.full((4, 1), 1e-3, dtype=torch.float64))
+
+
+def test_relative_rms_conditioning_has_finite_higher_order_gradient_at_zero_state() -> None:
+    memory = FunctionalNeuralMemory(
+        d_model=2,
+        memory_depth=1,
+        max_gradient_rms_ratio=10.0,
+    ).double()
+    weights = type(memory.initial_fast_weights())(
+        (name, torch.zeros_like(value, requires_grad=True))
+        for name, value in memory.initial_fast_weights().items()
+    )
+    gradient = type(weights)(
+        (name, torch.ones_like(value, requires_grad=True)) for name, value in weights.items()
+    )
+
+    conditioned = memory.condition_gradient(weights, gradient)
+    torch.stack([value.sum() for value in conditioned.values()]).sum().backward()
+
+    assert all(
+        value.grad is not None and torch.isfinite(value.grad).all()
+        for value in weights.values()
+    )
+
+
 def test_segment_shapes_read_snapshot_and_stream_isolation() -> None:
     torch.manual_seed(11)
     memory = FunctionalNeuralMemory(d_model=4, memory_depth=2).double()

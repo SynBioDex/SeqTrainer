@@ -169,6 +169,8 @@ class AdaptiveUpdateGates(nn.Module):
         *,
         theta_max: float = 1.0,
         theta_initial: float | None = None,
+        alpha_initial: float | None = None,
+        eta_initial: float | None = None,
     ) -> None:
         super().__init__()
         if d_model <= 0:
@@ -177,6 +179,12 @@ class AdaptiveUpdateGates(nn.Module):
             raise ValueError("theta_max must be in (0, 1]")
         if theta_initial is not None and not 0.0 < theta_initial < theta_max:
             raise ValueError("theta_initial must be in (0, theta_max)")
+        for name, value in (
+            ("alpha_initial", alpha_initial),
+            ("eta_initial", eta_initial),
+        ):
+            if value is not None and not 0.0 < value < 1.0:
+                raise ValueError(f"{name} must be in (0, 1)")
         self.theta_max = float(theta_max)
         self.projection = nn.Linear(d_model, 3)
         # The local update is applied 32 times before a state is committed.
@@ -190,8 +198,18 @@ class AdaptiveUpdateGates(nn.Module):
                 else theta_initial / theta_max
             )
             theta_bias = torch.logit(torch.tensor(theta_fraction)).item()
+            # Preserve legacy defaults unless a matched initial condition is
+            # explicitly requested.  Alpha is the fraction removed by the
+            # forgetting equation, so its legacy +4 bias is intentionally
+            # high while paper-deep comparisons use alpha=.001.
+            alpha_bias = 4.0 if alpha_initial is None else torch.logit(
+                torch.tensor(alpha_initial)
+            ).item()
+            eta_bias = -4.0 if eta_initial is None else torch.logit(
+                torch.tensor(eta_initial)
+            ).item()
             self.projection.bias.copy_(torch.tensor(
-                (4.0, -4.0, theta_bias), dtype=self.projection.bias.dtype
+                (alpha_bias, eta_bias, theta_bias), dtype=self.projection.bias.dtype
             ))
 
     def forward(self, token_embeddings: Tensor) -> GateValues:
@@ -312,6 +330,8 @@ class FunctionalNeuralMemory(nn.Module):
                 d_model,
                 theta_max=theta_max,
                 theta_initial=theta_initial,
+                alpha_initial=alpha_initial,
+                eta_initial=eta_initial,
             )
 
     def initial_fast_weights(self) -> FastWeights:
@@ -461,10 +481,20 @@ class FunctionalNeuralMemory(nn.Module):
         return OrderedDict(zip(fast_weights, gradients))
 
     @staticmethod
-    def _mapping_rms(values: Mapping[str, Tensor]) -> Tensor:
+    def _mapping_rms(
+        values: Mapping[str, Tensor],
+        *,
+        smooth_at_zero: bool = False,
+    ) -> Tensor:
         squared = torch.stack([value.square().sum() for value in values.values()]).sum()
         count = sum(value.numel() for value in values.values())
-        return (squared / count).sqrt()
+        mean_square = squared / count
+        if smooth_at_zero:
+            # RMS(z) has an undefined derivative at z=0.  Only the optional
+            # RMS-conditioned recurrence needs this smooth form; paper_exact
+            # never invokes it.  The resulting RMS floor is sqrt(dtype.tiny).
+            mean_square = mean_square + torch.finfo(mean_square.dtype).tiny
+        return mean_square.sqrt()
 
     def begin_update_telemetry(self, reference: Mapping[str, Tensor]) -> None:
         """Reset detached diagnostics for one segment update."""
@@ -527,18 +557,20 @@ class FunctionalNeuralMemory(nn.Module):
         """
 
         raw_rms = self._mapping_rms(gradient)
+        safe_raw_rms = self._mapping_rms(gradient, smooth_at_zero=True)
         limits: list[Tensor] = []
         if self.max_gradient_rms is not None:
             limits.append(raw_rms.new_tensor(self.max_gradient_rms))
         if self.max_gradient_rms_ratio is not None:
             limits.append(
-                self._mapping_rms(fast_weights) * self.max_gradient_rms_ratio
+                self._mapping_rms(fast_weights, smooth_at_zero=True)
+                * self.max_gradient_rms_ratio
             )
         if limits:
             admissible = torch.stack(limits).min()
             scale = torch.minimum(
                 torch.ones_like(raw_rms),
-                admissible / raw_rms.clamp_min(torch.finfo(raw_rms.dtype).eps),
+                admissible / safe_raw_rms,
             )
         else:
             scale = torch.ones_like(raw_rms)

@@ -97,3 +97,29 @@ MultiheadAttention reference path; Stage C CUDA training already constrains
 its higher-order path to math SDPA. A regression test runs a full CPU
 higher-order memory backward. This correction changes neither the attention
 mask nor the model mathematics.
+
+## 2026-07-27 engineering correction: matched shallow-memory control
+
+The initial compact shallow control in c15 used `legacy_mlp_v1` with legacy
+scalar-gate defaults even though its command line supplied the deep
+initialization values. `AdaptiveUpdateGates` accepted only `theta_initial` and
+silently retained `alpha=sigmoid(4)≈0.982` and `eta=sigmoid(-4)≈0.018`.
+Repeated within-segment forgetting therefore retained
+`(1-alpha)^32≈1.4e-56` of the initial fast state, which underflows in FP32.
+With the optional relative RMS limiter, an exactly zero fast state also made
+the higher-order derivative of `RMS(M)` singular. The attempt remains failed
+engineering evidence and is not eligible for model comparison.
+
+Legacy scalar gates now honor explicitly supplied `alpha_initial` and
+`eta_initial`; their no-argument defaults remain unchanged for legacy callers.
+The matched shallow control sets `alpha=0.001`, `eta=0.9`, and
+`theta=0.001`, identical to deep memory. It also uses the same selected
+recurrence policy, associative-loss reduction, Q/K L2 normalization, and
+causal projection-convolution kernel. Its deliberate differences are its
+one-layer legacy topology and shared scalar gates.
+
+For the optional RMS-conditioned policy only, conditioning uses
+`sqrt(mean(z^2) + finfo(dtype).tiny)`. Its negligible floor is
+`sqrt(finfo(dtype).tiny)`, it makes the derivative finite at an exact zero
+state, and it does not affect `paper_exact`, which has no inner-gradient
+conditioning.

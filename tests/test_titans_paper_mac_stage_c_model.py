@@ -153,6 +153,58 @@ def test_paper_deep_config_freezes_exact_and_stabilized_math() -> None:
     assert stabilized.memory_surprise_clip_norm is None
 
 
+def test_matched_shallow_control_has_finite_three_segment_higher_order_gradient() -> None:
+    """A depth-one control must share deep memory's conservative start state."""
+
+    torch.manual_seed(20260741)
+    tokenizer = SeqTrainerBaseTokenizer()
+    config = StageCModelConfig(
+        vocab_size=tokenizer.spec.vocab_size,
+        pad_token_id=tokenizer.spec.pad_token_id,
+        tokenizer_name=tokenizer.spec.name,
+        tokenizer_checksum=tokenizer.spec.checksum,
+        block_count=4,
+        d_model=128,
+        num_heads=4,
+        persistent_tokens=4,
+        memory_depth=1,
+        memory_architecture="legacy_mlp_v1",
+        memory_projection_convolution_kernel=4,
+        memory_normalize_queries_and_keys=True,
+        memory_recurrence_policy="paper_exact",
+        memory_surprise_clip_norm=None,
+        memory_associative_loss_reduction="sum",
+        memory_theta_max=1.0,
+        memory_alpha_initial=1e-3,
+        memory_eta_initial=0.9,
+        memory_theta_initial=1e-3,
+        gradient_horizon=3,
+        backend=StageBBackendConfig(),
+    )
+    model = StageCPaperMACForCausalLM(config)
+    inputs, labels, mask, bases = tensors()
+    states = (model.initial_states("matched-shallow"),)
+    losses = []
+    for _ in range(3):
+        output = model.forward_segment(
+            states,
+            inputs,
+            labels=labels,
+            valid_mask=mask,
+            loss_mask=mask,
+            represented_base_counts=bases,
+        )
+        assert output.loss is not None and torch.isfinite(output.loss)
+        losses.append(output.loss)
+        states = output.states
+
+    torch.stack(losses).sum().backward()
+    assert all(
+        parameter.grad is None or torch.isfinite(parameter.grad).all()
+        for parameter in model.parameters()
+    )
+
+
 def test_stage_c_preconditioned_memory_configuration_reaches_every_block() -> None:
     config = tiny_config()
     config = StageCModelConfig.from_dict(
