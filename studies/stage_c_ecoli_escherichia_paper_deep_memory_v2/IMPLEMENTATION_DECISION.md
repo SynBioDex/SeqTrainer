@@ -123,3 +123,24 @@ For the optional RMS-conditioned policy only, conditioning uses
 `sqrt(finfo(dtype).tiny)`, it makes the derivative finite at an exact zero
 state, and it does not affect `paper_exact`, which has no inner-gradient
 conditioning.
+
+## 2026-07-27 exploratory five-million-base adaptive scale gate
+
+The completed c15 deep-adaptive compact run was finite, used nonzero memory
+updates, and had lower held-out BPB than its no-memory counterpart.  It did
+not establish adaptive-memory superiority: the frozen-memory condition had
+lower BPB, and the original shallow attempt is invalid engineering evidence.
+
+The next run is therefore one fresh `paper_exact` deep-adaptive compact run at
+five million valid bases, with a new seed.  Five million bases is deliberately
+large enough to expose a longer BPB trajectory and state behavior than the
+one-million-base hint, while remaining a single overnight T4-scale decision
+gate rather than a costly control suite.  It is registered by the linked
+`adaptive_exploration_5m_v1` amendment and remains exploratory.  The run is
+followed by a held-out memory trace/PCA and a controlled delayed-association
+probe.  It cannot support a comparative memory-benefit claim by itself.
+
+Do not start frozen, no-memory, shallow, or replication training from this
+notebook.  A matched five-million-base no-memory control is considered only
+after the adaptive run is finite, has a promising held-out BPB trajectory, and
+has non-degenerate trace and controlled-association results.

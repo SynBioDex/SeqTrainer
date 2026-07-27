@@ -20,6 +20,15 @@ from seqtrainer.torch.titans_paper_mac_stage_c.study import (
 
 
 PROTOCOL = Path(__file__).parents[1] / "studies" / STUDY_ID / "protocol.json"
+PAPER_DEEP_PROTOCOL = (
+    Path(__file__).parents[1]
+    / "studies"
+    / "stage_c_ecoli_escherichia_paper_deep_memory_v2"
+    / "protocol.json"
+)
+PAPER_DEEP_ADAPTIVE_5M_AMENDMENT = (
+    PAPER_DEEP_PROTOCOL.parent / "amendments" / "adaptive_exploration_5m_v1.json"
+)
 
 
 def test_frozen_protocol_is_valid_and_canonical_hash_is_deterministic() -> None:
@@ -46,6 +55,69 @@ def test_ledger_chain_amendment_and_artifact_verification(tmp_path: Path) -> Non
     artifact.write_text("tampered\n", encoding="utf-8")
     with pytest.raises(ValueError, match="artifact hash mismatch"):
         verify(PROTOCOL, root)
+
+
+def test_linked_amendment_can_add_but_not_replace_an_exploratory_run(tmp_path: Path) -> None:
+    protocol = validate_protocol(PROTOCOL)
+    amendment = tmp_path / "adaptive_5m.json"
+    amendment.write_text(
+        canonical_json(
+            {
+                "format_version": 1,
+                "amendment_id": "adaptive_5m",
+                "preceding_protocol_hash": protocol.hash,
+                "classification": "exploratory",
+                "changes": {
+                    "run_matrix_additions": {
+                        "adaptive_exploration_5m": {
+                            "phase": "exploratory",
+                            "budget_bases": 5_000_000,
+                            "memory_mode": "adaptive",
+                            "memory_architecture": "paper_residual_mlp_v2",
+                            "memory_recurrence_policy": "paper_exact",
+                        }
+                    }
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    protocol.validate_run_config(
+        "adaptive_exploration_5m",
+        {
+            "phase": "exploratory",
+            "budget_bases": 5_000_000,
+            "memory_mode": "adaptive",
+            "memory_architecture": "paper_residual_mlp_v2",
+            "memory_recurrence_policy": "paper_exact",
+        },
+        amendment_paths=[amendment],
+    )
+    with pytest.raises(ValueError, match="conflicts"):
+        protocol.validate_run_config(
+            "adaptive_exploration_5m",
+            {"memory_mode": "no_memory"},
+            amendment_paths=[amendment],
+        )
+
+
+def test_record_accepts_a_source_controlled_exploratory_addition(tmp_path: Path) -> None:
+    root = tmp_path / "study"
+    artifact = tmp_path / "artifact.txt"
+    artifact.write_text("evidence\n", encoding="utf-8")
+
+    event = record(
+        PAPER_DEEP_PROTOCOL,
+        root,
+        "adaptive_exploration_5m",
+        [artifact],
+        evidence_tier="exploratory",
+        amendment_paths=[PAPER_DEEP_ADAPTIVE_5M_AMENDMENT],
+    )
+
+    assert event["run_id"] == "adaptive_exploration_5m"
+    assert event["evidence_tier"] == "exploratory"
 
 
 def test_failed_runs_remain_visible_and_block_final_report(tmp_path: Path) -> None:

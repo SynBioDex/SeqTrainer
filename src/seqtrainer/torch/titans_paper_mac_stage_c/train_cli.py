@@ -27,7 +27,7 @@ from .evaluation import evaluate_ordered_streams
 from .model import StageCPaperMACForCausalLM
 from .reporting import write_training_history
 from .trainer import StageCTrainer, StreamBatchScheduler
-from .study import StudyProtocol
+from .study import StudyProtocol, sha256_file
 
 
 def _git_commit() -> str:
@@ -118,12 +118,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--no-resume", action="store_true")
     parser.add_argument("--verify-dataset", action="store_true")
     parser.add_argument("--protocol", type=Path, help="frozen Stage C study protocol")
+    parser.add_argument(
+        "--protocol-amendment",
+        type=Path,
+        action="append",
+        default=[],
+        help="source-controlled additive run-matrix amendment linked to --protocol",
+    )
     parser.add_argument("--run-id", help="protocol run-matrix identifier")
     args = parser.parse_args(argv)
     if args.max_valid_bases is None and args.max_optimizer_steps is None:
         parser.error("set --max-valid-bases or --max-optimizer-steps")
     if bool(args.protocol) != bool(args.run_id):
         parser.error("--protocol and --run-id must be supplied together")
+    if args.protocol_amendment and not args.protocol:
+        parser.error("--protocol-amendment requires --protocol and --run-id")
     if args.learning_rate <= 0 or args.gradient_clip_norm <= 0:
         parser.error("--learning-rate and --gradient-clip-norm must be positive")
     if not 0.0 < args.memory_theta_max <= 1.0:
@@ -165,6 +174,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "memory_architecture": args.memory_architecture,
                 "memory_recurrence_policy": args.memory_recurrence_policy,
             },
+            amendment_paths=args.protocol_amendment,
         )
     torch.manual_seed(args.seed)
     device = _device(args.device)
@@ -326,6 +336,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "model_config": config.to_dict(),
         "dataset_fingerprint": dataset_fingerprint,
         "code_commit": commit,
+        "protocol": {
+            "path": str(args.protocol) if args.protocol else None,
+            "run_id": args.run_id,
+            "amendments": [
+                {"path": str(path), "sha256": sha256_file(path)}
+                for path in args.protocol_amendment
+            ],
+        },
         "device": str(device),
         "device_name": torch.cuda.get_device_name(device) if device.type == "cuda" else "CPU",
         "parameter_count": model.count_parameters(),

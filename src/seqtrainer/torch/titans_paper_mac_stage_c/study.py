@@ -105,16 +105,50 @@ class StudyProtocol:
     def hash(self) -> str:
         return protocol_hash(self.payload)
 
-    def run_spec(self, run_id: str) -> Mapping[str, Any]:
+    def run_spec(
+        self,
+        run_id: str,
+        *,
+        amendment_paths: Sequence[str | Path] = (),
+    ) -> Mapping[str, Any]:
         matrix = _require_mapping(self.payload["run_matrix"], "run_matrix")
-        if run_id not in matrix:
-            raise ValueError(f"run ID {run_id!r} is not in the frozen protocol")
-        return _require_mapping(matrix[run_id], f"run_matrix.{run_id}")
+        if run_id in matrix:
+            return _require_mapping(matrix[run_id], f"run_matrix.{run_id}")
+        additions: dict[str, Mapping[str, Any]] = {}
+        for amendment_path in amendment_paths:
+            amendment = _require_mapping(
+                json.loads(Path(amendment_path).read_text(encoding="utf-8")),
+                f"amendment {amendment_path}",
+            )
+            if amendment.get("format_version") != 1:
+                raise ValueError(f"unsupported amendment format: {amendment_path}")
+            if amendment.get("preceding_protocol_hash") != self.hash:
+                raise ValueError(f"amendment is not linked to this frozen protocol: {amendment_path}")
+            changes = _require_mapping(amendment.get("changes"), f"amendment changes {amendment_path}")
+            raw_additions = changes.get("run_matrix_additions", {})
+            added = _require_mapping(raw_additions, f"amendment run_matrix_additions {amendment_path}")
+            for added_id, raw_spec in added.items():
+                if not isinstance(added_id, str) or not added_id:
+                    raise ValueError(f"amendment contains an invalid run ID: {amendment_path}")
+                if added_id in matrix or added_id in additions:
+                    raise ValueError(f"amendment attempts to replace run ID {added_id!r}")
+                additions[added_id] = _require_mapping(
+                    raw_spec, f"amendment run_matrix_additions.{added_id}"
+                )
+        if run_id not in additions:
+            raise ValueError(f"run ID {run_id!r} is not in the frozen protocol or supplied amendments")
+        return additions[run_id]
 
-    def validate_run_config(self, run_id: str, config: Mapping[str, Any]) -> None:
+    def validate_run_config(
+        self,
+        run_id: str,
+        config: Mapping[str, Any],
+        *,
+        amendment_paths: Sequence[str | Path] = (),
+    ) -> None:
         """Reject protocol conflicts; extra runtime metadata is permitted."""
 
-        expected = self.run_spec(run_id)
+        expected = self.run_spec(run_id, amendment_paths=amendment_paths)
         conflicts = []
         for key, value in expected.items():
             if key in config and config[key] != value:
@@ -203,9 +237,20 @@ def initialize(protocol_path: str | Path, study_root: str | Path) -> Path:
     return destination
 
 
-def record(protocol_path: str | Path, study_root: str | Path, run_id: str, paths: Iterable[str | Path], *, status: str = "completed", event_type: str = "run_recorded", deviation_reason: str | None = None, evidence_tier: str = "confirmatory") -> dict[str, Any]:
+def record(
+    protocol_path: str | Path,
+    study_root: str | Path,
+    run_id: str,
+    paths: Iterable[str | Path],
+    *,
+    status: str = "completed",
+    event_type: str = "run_recorded",
+    deviation_reason: str | None = None,
+    evidence_tier: str = "confirmatory",
+    amendment_paths: Sequence[str | Path] = (),
+) -> dict[str, Any]:
     protocol = validate_protocol(protocol_path)
-    protocol.validate_run_config(run_id, {})
+    protocol.validate_run_config(run_id, {}, amendment_paths=amendment_paths)
     root = Path(study_root)
     if not (root / PROTOCOL_FILENAME).exists():
         initialize(protocol_path, root)
@@ -320,6 +365,7 @@ def _cli(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Stage C frozen protocol and append-only experiment ledger")
     parser.add_argument("command", choices=("validate", "initialize", "record", "amend", "verify", "report"))
     parser.add_argument("--protocol", type=Path, required=True)
+    parser.add_argument("--protocol-amendment", type=Path, action="append", default=[])
     parser.add_argument("--study-root", type=Path, required=True)
     parser.add_argument("--run-id")
     parser.add_argument("--artifact", type=Path, action="append", default=[])
@@ -339,7 +385,15 @@ def _cli(argv: Sequence[str] | None = None) -> int:
     elif args.command == "record":
         if not args.run_id:
             parser.error("record requires --run-id")
-        result = record(args.protocol, args.study_root, args.run_id, args.artifact, status=args.status, evidence_tier=args.evidence_tier)
+        result = record(
+            args.protocol,
+            args.study_root,
+            args.run_id,
+            args.artifact,
+            status=args.status,
+            evidence_tier=args.evidence_tier,
+            amendment_paths=args.protocol_amendment,
+        )
     elif args.command == "amend":
         values = (args.amendment_id, args.rationale, args.classification, args.expected_impact)
         if any(value is None for value in values):

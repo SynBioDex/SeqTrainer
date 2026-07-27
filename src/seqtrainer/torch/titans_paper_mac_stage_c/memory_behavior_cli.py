@@ -27,10 +27,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=20260761)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--protocol", type=Path)
+    parser.add_argument("--protocol-amendment", type=Path, action="append", default=[])
     parser.add_argument("--run-id")
     args = parser.parse_args(argv)
     if bool(args.protocol) != bool(args.run_id):
         parser.error("--protocol and --run-id must be supplied together")
+    if args.protocol_amendment and not args.protocol:
+        parser.error("--protocol-amendment requires --protocol and --run-id")
     if args.pairs < 4:
         parser.error("--pairs must be at least four")
     return args
@@ -76,7 +79,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     if args.protocol:
         StudyProtocol.from_path(args.protocol).validate_run_config(
-            args.run_id, {"phase": "analysis"}
+            args.run_id,
+            {"phase": "analysis"},
+            amendment_paths=args.protocol_amendment,
         )
     device = torch.device(
         "cuda"
