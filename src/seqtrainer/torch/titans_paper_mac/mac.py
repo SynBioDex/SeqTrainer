@@ -21,6 +21,7 @@ from typing import Optional
 
 import torch
 from torch import Tensor, nn
+from torch.nn import functional as F
 
 from .memory import FunctionalNeuralMemory
 from .state import PaperMACStreamState
@@ -182,15 +183,53 @@ class PaperMACBlock(nn.Module):
             dtype=segment_embeddings.dtype,
         )
         layout = torch.cat((persistent, retrieval, segment_embeddings), dim=0).unsqueeze(0)
-        attended, _ = self.attention(
-            layout,
-            layout,
-            layout,
-            attn_mask=self.attention_mask(device=layout.device),
-            need_weights=False,
-        )
         sequence_start = self.persistent_token_count + self.segment_length
-        return self.output_norm(segment_embeddings + attended[0, sequence_start:])
+        if layout.device.type != "cpu":
+            attended, _ = self.attention(
+                layout,
+                layout,
+                layout,
+                attn_mask=self.attention_mask(device=layout.device),
+                need_weights=False,
+            )
+            return self.output_norm(segment_embeddings + attended[0, sequence_start:])
+
+        # Some Colab CPU PyTorch builds dispatch MultiheadAttention to CPU
+        # Flash SDPA. Its backward-of-backward is unimplemented, while the
+        # functional memory update intentionally uses create_graph=True.
+        # Keep the reference equation and mask exactly, but spell out the
+        # small (68-token) math attention path so FP64 oracle tests and CPU
+        # pilots retain a portable higher-order gradient.
+        packed = F.linear(
+            layout,
+            self.attention.in_proj_weight,
+            self.attention.in_proj_bias,
+        )
+        query, key, value = packed.chunk(3, dim=-1)
+        batch, length, embed_dim = query.shape
+        head_count = self.attention.num_heads
+        head_dim = embed_dim // head_count
+
+        def split_heads(values: Tensor) -> Tensor:
+            return values.view(batch, length, head_count, head_dim).transpose(1, 2)
+
+        query, key, value = map(split_heads, (query, key, value))
+        allowed = ~self.attention_mask(device=layout.device)
+        additive_mask = torch.zeros_like(allowed, dtype=layout.dtype).masked_fill(
+            ~allowed, float("-inf")
+        )
+        scores = torch.matmul(query, key.transpose(-2, -1)) / (head_dim**0.5)
+        weights = torch.softmax(
+            scores + additive_mask.unsqueeze(0).unsqueeze(0), dim=-1
+        )
+        attended = torch.matmul(weights, value)
+        merged = attended.transpose(1, 2).contiguous().view(batch, length, embed_dim)
+        projected = F.linear(
+            merged,
+            self.attention.out_proj.weight,
+            self.attention.out_proj.bias,
+        )
+        return self.output_norm(segment_embeddings + projected[0, sequence_start:])
 
     def forward(
         self,

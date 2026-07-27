@@ -102,3 +102,21 @@ def test_block_preserves_autograd_through_attention_and_one_write() -> None:
     assert block.attention.in_proj_weight.grad is not None and block.attention.in_proj_weight.grad.abs().sum() > 0
     assert block.memory.gates.projection.weight.grad is not None
     assert block.memory.gates.projection.weight.grad.abs().sum() > 0
+
+
+def test_cpu_reference_attention_retains_the_higher_order_memory_backward() -> None:
+    """Colab CPU Flash SDPA must never enter the paper-memory oracle path."""
+
+    torch.manual_seed(113)
+    block = PaperMACBlock(d_model=4, num_heads=2, persistent_tokens=2, memory_depth=1).double()
+    segment = torch.randn(32, 4, dtype=torch.float64, requires_grad=True)
+
+    output = block(block.initial_state("cpu-double-backward"), segment)
+    loss = output.sequence.square().mean() + sum(
+        value.square().mean() for value in output.state.fast_weights.values()
+    )
+    loss.backward()
+
+    assert segment.grad is not None and torch.isfinite(segment.grad).all()
+    assert block.attention.in_proj_weight.grad is not None
+    assert torch.isfinite(block.attention.in_proj_weight.grad).all()

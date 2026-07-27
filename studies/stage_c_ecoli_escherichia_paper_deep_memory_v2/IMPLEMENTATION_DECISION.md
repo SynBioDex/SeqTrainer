@@ -80,3 +80,20 @@ fast-weight plus surprise state is 50,577,408 bytes per active stream,
 excluding autograd history and optimizer state. The previous 11-by-512
 geometry is not reused because the four-times-expanded deep memory and
 channel-gate heads materially change the parameter budget.
+
+## 2026-07-27 engineering correction: CPU oracle attention
+
+The first Colab CPU oracle run failed before any training because that PyTorch
+build selected `aten::_scaled_dot_product_flash_attention_for_cpu` inside
+`torch.nn.MultiheadAttention`. Its backward-of-backward is unimplemented.
+Paper-MAC's functional update intentionally needs higher-order derivatives, so
+this is an execution-kernel incompatibility rather than a failed memory
+recurrence.
+
+For CPU only, the reference block now evaluates the identical masked
+multi-head scaled-dot-product equation explicitly with matrix multiplication,
+softmax, and the existing input/output projections. CUDA retains the normal
+MultiheadAttention reference path; Stage C CUDA training already constrains
+its higher-order path to math SDPA. A regression test runs a full CPU
+higher-order memory backward. This correction changes neither the attention
+mask nor the model mathematics.
