@@ -125,3 +125,43 @@ def test_exact_acceleration_respects_optional_legacy_surprise_guard() -> None:
     assert float(
         candidate.memory.update_telemetry()["legacy_surprise_interventions"]
     ) > 0.0
+
+
+def test_exact_acceleration_matches_paper_deep_channel_recurrence() -> None:
+    torch.manual_seed(319)
+    options = {
+        "d_model": 4,
+        "num_heads": 2,
+        "persistent_tokens": 2,
+        "memory_depth": 2,
+        "memory_architecture": "paper_residual_mlp_v2",
+        "memory_expansion_factor": 4,
+        "memory_projection_convolution_kernel": 4,
+        "memory_normalize_queries_and_keys": True,
+        "max_surprise_norm": None,
+        "associative_loss_reduction": "mean",
+        "max_gradient_rms_ratio": 10.0,
+        "theta_max": 0.5,
+        "theta_initial": 1e-3,
+        "alpha_initial": 1e-3,
+        "eta_initial": 0.9,
+    }
+    reference = PaperMACBlock(**options).double()
+    candidate = copy.deepcopy(reference)
+    segment = torch.randn(32, 4, dtype=torch.float64)
+
+    report = compare_backends(
+        reference,
+        candidate,
+        segment,
+        candidate_config=StageBBackendConfig(
+            memory_backend=MemoryBackend.EXACT_ACCELERATED
+        ),
+    )
+
+    assert report.passed
+    assert report.sequence.exact
+    assert report.retrieval.exact
+    assert report.input_gradient.exact
+    assert all(item.exact for item in report.fast_weights.values())
+    assert all(item.exact for item in report.surprise.values())

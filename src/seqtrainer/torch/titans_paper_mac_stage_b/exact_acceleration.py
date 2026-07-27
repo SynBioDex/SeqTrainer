@@ -8,7 +8,10 @@ from typing import Callable, Optional
 from torch import Tensor
 
 from seqtrainer.torch.titans_paper_mac.mac import PaperMACBlock
-from seqtrainer.torch.titans_paper_mac.memory import FunctionalNeuralMemory
+from seqtrainer.torch.titans_paper_mac.memory import (
+    FunctionalNeuralMemory,
+    ParameterGateValues,
+)
 from seqtrainer.torch.titans_paper_mac.state import PaperMACStreamState
 
 
@@ -62,8 +65,7 @@ class ExactAcceleratedMemoryBackend:
         if state.ended:
             raise RuntimeError("cannot update an ended stream")
 
-        keys = memory.key_projection(sequence)
-        values = memory.value_projection(sequence)
+        keys, values, write_history = memory.project_writes(state, sequence)
         gate_values = memory.gates(sequence)
         fast_weights = OrderedDict(state.fast_weights.items())
         surprise = OrderedDict(state.surprise.items())
@@ -71,14 +73,28 @@ class ExactAcceleratedMemoryBackend:
         for position in range(memory.segment_length):
             if valid_mask is not None and not bool(valid_mask[position].item()):
                 continue
+            if isinstance(gate_values, ParameterGateValues):
+                alpha = OrderedDict(
+                    (name, value[position]) for name, value in gate_values.alpha.items()
+                )
+                eta = OrderedDict(
+                    (name, value[position]) for name, value in gate_values.eta.items()
+                )
+                theta = OrderedDict(
+                    (name, value[position]) for name, value in gate_values.theta.items()
+                )
+            else:
+                alpha = gate_values.alpha[position]
+                eta = gate_values.eta[position]
+                theta = gate_values.theta[position]
             fast_weights, surprise = memory.update_tensors(
                 fast_weights,
                 surprise,
                 keys[position],
                 values[position],
-                alpha=gate_values.alpha[position],
-                eta=gate_values.eta[position],
-                theta=gate_values.theta[position],
+                alpha=alpha,
+                eta=eta,
+                theta=theta,
             )
         self.accelerated_calls += 1
         self.last_execution = "exact_functional_loop"
@@ -86,6 +102,7 @@ class ExactAcceleratedMemoryBackend:
             fast_weights=fast_weights,
             surprise=surprise,
             segment_index=state.segment_index + 1,
+            write_history=write_history,
         )
 
     def runtime_metadata(self) -> dict[str, object]:

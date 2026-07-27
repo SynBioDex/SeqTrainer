@@ -24,6 +24,9 @@ _MEMORY_EXPORTS = {
     "AdaptiveUpdateGates",
     "FunctionalNeuralMemory",
     "GateValues",
+    "ParameterGateValues",
+    "PaperResidualMemory",
+    "PerLayerChannelUpdateGates",
     "PaperMACStreamState",
 }
 
@@ -50,6 +53,9 @@ __all__ = [
     "DEFAULT_VOCABULARY",
     "FunctionalNeuralMemory",
     "GateValues",
+    "ParameterGateValues",
+    "PaperResidualMemory",
+    "PerLayerChannelUpdateGates",
     "LifecycleTransition",
     "PaperMACStreamState",
     "PaperMACBlock",
@@ -107,13 +113,23 @@ def __getattr__(name: str) -> object:
         return exports[name]
     if name not in _MEMORY_EXPORTS:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    from .memory import AdaptiveUpdateGates, FunctionalNeuralMemory, GateValues
+    from .memory import (
+        AdaptiveUpdateGates,
+        FunctionalNeuralMemory,
+        GateValues,
+        ParameterGateValues,
+        PaperResidualMemory,
+        PerLayerChannelUpdateGates,
+    )
     from .state import PaperMACStreamState
 
     exports = {
         "AdaptiveUpdateGates": AdaptiveUpdateGates,
         "FunctionalNeuralMemory": FunctionalNeuralMemory,
         "GateValues": GateValues,
+        "ParameterGateValues": ParameterGateValues,
+        "PaperResidualMemory": PaperResidualMemory,
+        "PerLayerChannelUpdateGates": PerLayerChannelUpdateGates,
         "PaperMACStreamState": PaperMACStreamState,
     }
     globals().update(exports)

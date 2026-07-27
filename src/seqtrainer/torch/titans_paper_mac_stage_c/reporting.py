@@ -325,6 +325,24 @@ def write_training_history(
             "Neural-memory conditioning",
             "Fraction / scale",
         ),
+        "memory_recurrence.svg": (
+            {
+                "past surprise RMS": [
+                    item.past_surprise_rms_max for item in records
+                ],
+                "momentary surprise RMS": [
+                    item.momentary_surprise_rms_max for item in records
+                ],
+                "combined surprise RMS": [
+                    item.combined_surprise_rms_max for item in records
+                ],
+                "forgotten weight RMS": [
+                    item.forgotten_weight_rms_max for item in records
+                ],
+            },
+            "Dual surprise recurrence",
+            "RMS",
+        ),
         "training_throughput.svg": (
             {"bases/s": [item.bases_per_second for item in records]},
             "Training throughput",

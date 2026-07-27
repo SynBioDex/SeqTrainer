@@ -33,10 +33,13 @@ def test_fidelity_audit_records_every_required_mechanism_and_binary_decision() -
     assert "- [x] Stage A is captured in a reproducible commit" in text
 
 
-def test_paper_path_remains_isolated_and_stage_b_optimizations_are_absent() -> None:
+def test_paper_path_remains_isolated_and_only_declared_optimizations_are_present() -> None:
     sources = "\n".join(path.read_text(encoding="utf-8") for path in PAPER_PACKAGE.glob("*.py"))
     assert "from ..titans_mac" not in sources
     assert "from seqtrainer.torch.titans_mac" not in sources
-    assert "nn.Conv1d" not in sources
+    # V2 intentionally adds the paper's causal kernel-4 Q/K/V projection
+    # convolution. Scan and fused-attention substitutions remain excluded.
+    assert "projection_convolution_kernel" in sources
+    assert "groups=d_model" in sources
     assert "associative_scan" not in sources
     assert "scaled_dot_product_attention" not in sources

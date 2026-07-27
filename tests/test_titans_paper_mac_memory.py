@@ -9,6 +9,7 @@ torch = pytest.importorskip("torch")
 from seqtrainer.torch.titans_paper_mac import (  # noqa: E402
     AdaptiveUpdateGates,
     FunctionalNeuralMemory,
+    PaperResidualMemory,
     PaperMACStreamState,
 )
 
@@ -215,3 +216,126 @@ def test_state_serialization_is_lossless_and_reset_is_stream_local() -> None:
     assert reset_first.reset_count == first.reset_count + 1
     for name in second.fast_weights:
         assert torch.equal(second.fast_weights[name], second_before_reset[name])
+
+
+def test_paper_residual_memory_matches_declared_two_layer_equation() -> None:
+    """The v2 memory is x + LN(Wout GELU(Win x)), not a linear-depth alias."""
+
+    torch.manual_seed(23)
+    module = PaperResidualMemory(d_model=3, expansion_factor=4).double()
+    inputs = torch.randn(5, 3, dtype=torch.float64)
+
+    expected = inputs + module.normalization(
+        module.out_projection(torch.nn.functional.gelu(module.in_projection(inputs)))
+    )
+
+    assert torch.equal(module(inputs), expected)
+    assert module.in_projection.out_features == 12
+    assert module.out_projection.in_features == 12
+
+
+def test_paper_channel_gates_and_dual_recurrence_match_fp64_equations() -> None:
+    torch.manual_seed(29)
+    memory = FunctionalNeuralMemory(
+        d_model=2,
+        memory_depth=2,
+        architecture="paper_residual_mlp_v2",
+        expansion_factor=4,
+        projection_convolution_kernel=4,
+        normalize_queries_and_keys=True,
+        max_surprise_norm=None,
+        associative_loss_reduction="sum",
+        theta_max=1.0,
+        theta_initial=1e-3,
+        alpha_initial=1e-3,
+        eta_initial=0.9,
+    ).double()
+    state = memory.initial_state("paper-equations")
+    key = torch.tensor([0.25, -0.5], dtype=torch.float64)
+    value = torch.tensor([-0.75, 0.125], dtype=torch.float64)
+    raw = memory.surprise_gradient(state.fast_weights, key, value)
+    tokens = torch.zeros(1, 2, dtype=torch.float64)
+    gates = memory.gates(tokens)
+    alpha = type(state.fast_weights)((name, gate[0]) for name, gate in gates.alpha.items())
+    eta = type(state.fast_weights)((name, gate[0]) for name, gate in gates.eta.items())
+    theta = type(state.fast_weights)((name, gate[0]) for name, gate in gates.theta.items())
+
+    updated = memory.update_one(
+        state,
+        key,
+        value,
+        alpha=alpha,
+        eta=eta,
+        theta=theta,
+    )
+
+    for name in state.fast_weights:
+        expected_surprise = eta[name] * state.surprise[name] - theta[name] * raw[name]
+        expected_weight = (1.0 - alpha[name]) * state.fast_weights[name] + expected_surprise
+        assert torch.allclose(updated.surprise[name], expected_surprise, atol=1e-12, rtol=0)
+        assert torch.allclose(updated.fast_weights[name], expected_weight, atol=1e-12, rtol=0)
+        assert alpha[name].shape in {
+            state.fast_weights[name].shape[:1],
+            (*state.fast_weights[name].shape[:1], 1),
+        }
+
+
+def test_causal_kernel_four_projection_carries_exact_stream_history() -> None:
+    torch.manual_seed(31)
+    memory = FunctionalNeuralMemory(
+        d_model=3,
+        memory_depth=2,
+        architecture="paper_residual_mlp_v2",
+        projection_convolution_kernel=4,
+        normalize_queries_and_keys=True,
+        alpha_initial=1e-3,
+        eta_initial=0.9,
+        theta_initial=1e-3,
+    ).double()
+    with torch.no_grad():
+        memory.query_convolution.weight.copy_(
+            torch.randn_like(memory.query_convolution.weight)
+        )
+    first = torch.randn(32, 3, dtype=torch.float64)
+    second = torch.randn(32, 3, dtype=torch.float64)
+    state = memory.initial_state("causal-history")
+
+    first_queries, first_history = memory.project_queries(state, first)
+    advanced = memory.advance_query_history(state, first_history)
+    second_queries, _ = memory.project_queries(advanced, second)
+    combined = torch.cat((first, second))
+    projected = memory.query_projection(combined).transpose(0, 1).unsqueeze(0)
+    expected = memory.query_convolution(
+        torch.nn.functional.pad(projected, (3, 0))
+    ).squeeze(0).transpose(0, 1)
+    expected = memory._l2_normalize(expected)
+
+    assert torch.allclose(first_queries, expected[:32], atol=1e-12, rtol=0)
+    assert torch.allclose(second_queries, expected[32:], atol=1e-12, rtol=0)
+
+
+def test_dual_surprise_telemetry_separates_past_and_momentary_terms() -> None:
+    memory = FunctionalNeuralMemory(d_model=2, memory_depth=1).double()
+    _set_tiny_parameters(memory)
+    state = memory.initial_state("telemetry")
+    previous = type(state.surprise)(
+        (name, torch.full_like(value, 0.25)) for name, value in state.surprise.items()
+    )
+    state = state.replace(fast_weights=state.fast_weights, surprise=previous)
+    memory.begin_update_telemetry(state.fast_weights)
+
+    memory.update_one(
+        state,
+        torch.tensor([0.5, -1.0], dtype=torch.float64),
+        torch.tensor([-0.25, 0.75], dtype=torch.float64),
+        alpha=torch.tensor([0.1], dtype=torch.float64),
+        eta=torch.tensor([0.6], dtype=torch.float64),
+        theta=torch.tensor([0.2], dtype=torch.float64),
+    )
+
+    telemetry = memory.update_telemetry()
+    assert float(telemetry["past_surprise_rms_max"]) > 0
+    assert float(telemetry["momentary_surprise_rms_max"]) > 0
+    assert float(telemetry["combined_surprise_rms_max"]) > 0
+    assert float(telemetry["forgotten_weight_rms_max"]) > 0
+    assert -1.0 <= float(telemetry["past_momentary_cosine_sum"]) <= 1.0

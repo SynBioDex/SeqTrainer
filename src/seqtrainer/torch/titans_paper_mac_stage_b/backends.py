@@ -280,7 +280,9 @@ class StageBBackendRegistry:
         """Run the explicit read/integrate/write transition through dispatch."""
 
         self.validate(config)
-        retrieval = block.memory.read_segment(state, segment_embeddings)
+        retrieval, query_history = block.memory.read_segment_with_history(
+            state, segment_embeddings
+        )
         sequence = self._attention_integrations[config.attention_backend](
             block,
             retrieval,
@@ -324,6 +326,9 @@ class StageBBackendRegistry:
             updated_state = self._memory_updates[config.memory_backend](
                 block, state, sequence, valid_mask
             )
+        updated_state = block.memory.advance_query_history(
+            updated_state, query_history
+        )
         return PaperMACBlockOutput(
             sequence=sequence,
             retrieval=retrieval,

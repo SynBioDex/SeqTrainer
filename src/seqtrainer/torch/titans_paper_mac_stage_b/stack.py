@@ -35,6 +35,10 @@ class StageBMACStack(nn.Module):
         persistent_tokens: int = 4,
         memory_depth: int = 2,
         segment_length: int = 32,
+        memory_architecture: str = "legacy_mlp_v1",
+        memory_expansion_factor: int = 4,
+        memory_projection_convolution_kernel: int | None = None,
+        memory_normalize_queries_and_keys: bool = False,
         convolution_kernel_size: int | None = None,
         max_surprise_norm: float | None = None,
         associative_loss_reduction: str = "sum",
@@ -42,6 +46,8 @@ class StageBMACStack(nn.Module):
         max_gradient_rms_ratio: float | None = None,
         theta_max: float = 1.0,
         theta_initial: float | None = None,
+        alpha_initial: float | None = None,
+        eta_initial: float | None = None,
     ) -> None:
         super().__init__()
         if block_count <= 0:
@@ -56,12 +62,18 @@ class StageBMACStack(nn.Module):
                 persistent_tokens=persistent_tokens,
                 memory_depth=memory_depth,
                 segment_length=segment_length,
+                memory_architecture=memory_architecture,
+                memory_expansion_factor=memory_expansion_factor,
+                memory_projection_convolution_kernel=memory_projection_convolution_kernel,
+                memory_normalize_queries_and_keys=memory_normalize_queries_and_keys,
                 max_surprise_norm=max_surprise_norm,
                 associative_loss_reduction=associative_loss_reduction,
                 max_gradient_rms=max_gradient_rms,
                 max_gradient_rms_ratio=max_gradient_rms_ratio,
                 theta_max=theta_max,
                 theta_initial=theta_initial,
+                alpha_initial=alpha_initial,
+                eta_initial=eta_initial,
             )
             for _ in range(block_count)
         )

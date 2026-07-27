@@ -47,6 +47,11 @@ class TrainingStepRecord:
     written_state_gradient_norm: float
     elapsed_seconds: float
     bases_per_second: float
+    past_surprise_rms_max: float = 0.0
+    momentary_surprise_rms_max: float = 0.0
+    combined_surprise_rms_max: float = 0.0
+    forgotten_weight_rms_max: float = 0.0
+    past_momentary_cosine_mean: float = 0.0
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -246,6 +251,14 @@ class StageCTrainer:
                     (f"state[{row}][{block}].surprise.{name}", value)
                     for name, value in state.surprise.items()
                 )
+                if state.query_history is not None:
+                    tensors.append(
+                        (f"state[{row}][{block}].query_history", state.query_history)
+                    )
+                if state.write_history is not None:
+                    tensors.append(
+                        (f"state[{row}][{block}].write_history", state.write_history)
+                    )
         return tensors
 
     def train(
@@ -288,6 +301,11 @@ class StageCTrainer:
             "gradient_scale_min": 1.0,
             "gradient_intervention_fraction": 0.0,
             "legacy_surprise_intervention_fraction": 0.0,
+            "past_surprise_rms_max": 0.0,
+            "momentary_surprise_rms_max": 0.0,
+            "combined_surprise_rms_max": 0.0,
+            "forgotten_weight_rms_max": 0.0,
+            "past_momentary_cosine_mean": 0.0,
         }
         written_state_tensors: list[Tensor] = []
 
@@ -369,6 +387,21 @@ class StageCTrainer:
                 written_state_gradient_norm=written_gradient_norm,
                 elapsed_seconds=elapsed,
                 bases_per_second=accumulation_bases / elapsed if elapsed else 0.0,
+                past_surprise_rms_max=memory_gradient_statistics[
+                    "past_surprise_rms_max"
+                ],
+                momentary_surprise_rms_max=memory_gradient_statistics[
+                    "momentary_surprise_rms_max"
+                ],
+                combined_surprise_rms_max=memory_gradient_statistics[
+                    "combined_surprise_rms_max"
+                ],
+                forgotten_weight_rms_max=memory_gradient_statistics[
+                    "forgotten_weight_rms_max"
+                ],
+                past_momentary_cosine_mean=memory_gradient_statistics[
+                    "past_momentary_cosine_mean"
+                ] / accumulation_segments,
             )
             self.history.append(record)
             if on_step is not None:
@@ -390,6 +423,11 @@ class StageCTrainer:
                 "gradient_scale_min": 1.0,
                 "gradient_intervention_fraction": 0.0,
                 "legacy_surprise_intervention_fraction": 0.0,
+                "past_surprise_rms_max": 0.0,
+                "momentary_surprise_rms_max": 0.0,
+                "combined_surprise_rms_max": 0.0,
+                "forgotten_weight_rms_max": 0.0,
+                "past_momentary_cosine_mean": 0.0,
             }
             written_state_tensors = []
             started = time.perf_counter()
@@ -446,6 +484,19 @@ class StageCTrainer:
             )
             memory_gradient_statistics["legacy_surprise_intervention_fraction"] += (
                 output.memory_gradient_statistics["legacy_surprise_intervention_fraction"]
+            )
+            for key in (
+                "past_surprise_rms_max",
+                "momentary_surprise_rms_max",
+                "combined_surprise_rms_max",
+                "forgotten_weight_rms_max",
+            ):
+                memory_gradient_statistics[key] = max(
+                    memory_gradient_statistics[key],
+                    output.memory_gradient_statistics[key],
+                )
+            memory_gradient_statistics["past_momentary_cosine_mean"] += (
+                output.memory_gradient_statistics["past_momentary_cosine_mean"]
             )
             if accumulation_segments < horizon:
                 for row_states in output.states:

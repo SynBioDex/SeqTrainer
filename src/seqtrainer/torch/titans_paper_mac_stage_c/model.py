@@ -45,6 +45,7 @@ class StageCLMOutput:
     state_drift_norm: float
     gate_statistics: dict[str, float]
     memory_gradient_statistics: dict[str, float]
+    hidden_states: Tensor | None = None
 
 
 def detach_stream_states(states: BlockStates) -> BlockStates:
@@ -67,6 +68,12 @@ def detach_stream_states(states: BlockStates) -> BlockStates:
                 segment_index=state.segment_index,
                 reset_count=state.reset_count,
                 ended=state.ended,
+                query_history=(
+                    None if state.query_history is None else state.query_history.detach()
+                ),
+                write_history=(
+                    None if state.write_history is None else state.write_history.detach()
+                ),
             )
         )
     return tuple(detached)
@@ -91,12 +98,18 @@ class StageCPaperMACForCausalLM(nn.Module):
             persistent_tokens=config.persistent_tokens,
             memory_depth=config.memory_depth,
             segment_length=config.segment_length,
+            memory_architecture=config.memory_architecture,
+            memory_expansion_factor=config.memory_expansion_factor,
+            memory_projection_convolution_kernel=config.memory_projection_convolution_kernel,
+            memory_normalize_queries_and_keys=config.memory_normalize_queries_and_keys,
             max_surprise_norm=config.memory_surprise_clip_norm,
             associative_loss_reduction=config.memory_associative_loss_reduction,
             max_gradient_rms=config.memory_max_gradient_rms,
             max_gradient_rms_ratio=config.memory_max_gradient_rms_ratio,
             theta_max=config.memory_theta_max,
             theta_initial=config.memory_theta_initial,
+            alpha_initial=config.memory_alpha_initial,
+            eta_initial=config.memory_eta_initial,
         )
         self.final_norm = nn.LayerNorm(config.d_model)
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
@@ -160,6 +173,24 @@ class StageCPaperMACForCausalLM(nn.Module):
         ]
         return torch.stack(terms).sum().sqrt() if terms else torch.tensor(0.0)
 
+    @staticmethod
+    def _freeze_fast_memory(
+        before: BlockStates,
+        after: BlockStates,
+    ) -> BlockStates:
+        """Advance causal projection histories without committing fast writes."""
+
+        return tuple(
+            prior.replace(
+                fast_weights=prior.fast_weights,
+                surprise=prior.surprise,
+                segment_index=candidate.segment_index,
+                query_history=candidate.query_history,
+                write_history=candidate.write_history,
+            )
+            for prior, candidate in zip(before, after)
+        )
+
     def _gate_statistics(
         self,
         block_inputs: Sequence[Tensor],
@@ -168,9 +199,9 @@ class StageCPaperMACForCausalLM(nn.Module):
         values: dict[str, list[Tensor]] = {"alpha": [], "eta": [], "theta": []}
         with torch.no_grad():
             for block, sequence in zip(self.stack.blocks, block_inputs):
-                gates = block.memory.gates(sequence.detach())
+                gates = block.memory.gate_tensors(sequence.detach())
                 for name in values:
-                    values[name].append(getattr(gates, name)[valid_mask].float().flatten())
+                    values[name].append(gates[name][valid_mask].float().flatten())
         statistics: dict[str, float] = {}
         for name, parts in values.items():
             combined = torch.cat(parts) if parts else torch.empty(0)
@@ -192,6 +223,11 @@ class StageCPaperMACForCausalLM(nn.Module):
                 "gradient_scale_min": 1.0,
                 "gradient_intervention_fraction": 0.0,
                 "legacy_surprise_intervention_fraction": 0.0,
+                "past_surprise_rms_max": 0.0,
+                "momentary_surprise_rms_max": 0.0,
+                "combined_surprise_rms_max": 0.0,
+                "forgotten_weight_rms_max": 0.0,
+                "past_momentary_cosine_mean": 0.0,
             }
         update_count = torch.stack([item["update_count"] for item in populated]).sum()
         denominator = update_count.clamp_min(1.0)
@@ -211,6 +247,25 @@ class StageCPaperMACForCausalLM(nn.Module):
             "legacy_surprise_intervention_fraction": float((torch.stack(
                 [item["legacy_surprise_interventions"] for item in populated]
             ).sum() / denominator).cpu()),
+            **{
+                key: float(
+                    torch.stack([item[key] for item in populated]).max().cpu()
+                )
+                for key in (
+                    "past_surprise_rms_max",
+                    "momentary_surprise_rms_max",
+                    "combined_surprise_rms_max",
+                    "forgotten_weight_rms_max",
+                )
+            },
+            "past_momentary_cosine_mean": float(
+                (
+                    torch.stack(
+                        [item["past_momentary_cosine_sum"] for item in populated]
+                    ).sum()
+                    / denominator
+                ).cpu()
+            ),
         }
 
     def _no_memory_forward(
@@ -249,6 +304,7 @@ class StageCPaperMACForCausalLM(nn.Module):
         mode: MemoryMode,
     ) -> tuple[
         Tensor,
+        Tensor,
         BlockStates,
         tuple[Tensor, ...],
         Tensor,
@@ -281,8 +337,13 @@ class StageCPaperMACForCausalLM(nn.Module):
                 sequence = output.sequence
                 retrievals = output.retrievals
                 block_sequences = output.block_sequences
-                next_states = states if mode is MemoryMode.FROZEN else output.states
-        logits = self.lm_head(self.final_norm(sequence))
+                next_states = (
+                    self._freeze_fast_memory(states, output.states)
+                    if mode is MemoryMode.FROZEN
+                    else output.states
+                )
+        hidden_states = self.final_norm(sequence)
+        logits = self.lm_head(hidden_states)
         update_norm = self._state_update_norm(states, next_states).to(device=logits.device)
         surprise_norm = self._surprise_norm(next_states).to(device=logits.device)
         drift_norm = self._state_drift_norm(next_states).to(device=logits.device)
@@ -297,10 +358,16 @@ class StageCPaperMACForCausalLM(nn.Module):
                 "gradient_scale_min": 1.0,
                 "gradient_intervention_fraction": 0.0,
                 "legacy_surprise_intervention_fraction": 0.0,
+                "past_surprise_rms_max": 0.0,
+                "momentary_surprise_rms_max": 0.0,
+                "combined_surprise_rms_max": 0.0,
+                "forgotten_weight_rms_max": 0.0,
+                "past_momentary_cosine_mean": 0.0,
             }
         )
         return (
             logits,
+            hidden_states,
             next_states,
             retrievals,
             update_norm,
@@ -336,6 +403,7 @@ class StageCPaperMACForCausalLM(nn.Module):
             raise ValueError(f"valid_mask must have shape {expected}")
         mode = self.config.memory_mode if memory_mode is None else MemoryMode(memory_mode)
         logits: list[Tensor] = []
+        hidden_rows: list[Tensor] = []
         next_states: list[BlockStates] = []
         retrieval_squares: list[Tensor] = []
         update_norms: list[Tensor] = []
@@ -346,6 +414,7 @@ class StageCPaperMACForCausalLM(nn.Module):
         for row, row_states in enumerate(states):
             (
                 row_logits,
+                row_hidden,
                 row_next,
                 retrievals,
                 update_norm,
@@ -360,6 +429,7 @@ class StageCPaperMACForCausalLM(nn.Module):
                 mode,
             )
             logits.append(row_logits)
+            hidden_rows.append(row_hidden)
             next_states.append(row_next)
             retrieval_squares.extend(retrieval.detach().square().sum() for retrieval in retrievals)
             update_norms.append(update_norm.detach())
@@ -428,6 +498,18 @@ class StageCPaperMACForCausalLM(nn.Module):
             "legacy_surprise_intervention_fraction": sum(
                 row["legacy_surprise_intervention_fraction"] for row in memory_gradient_rows
             ) / len(memory_gradient_rows),
+            **{
+                key: max(row[key] for row in memory_gradient_rows)
+                for key in (
+                    "past_surprise_rms_max",
+                    "momentary_surprise_rms_max",
+                    "combined_surprise_rms_max",
+                    "forgotten_weight_rms_max",
+                )
+            },
+            "past_momentary_cosine_mean": sum(
+                row["past_momentary_cosine_mean"] for row in memory_gradient_rows
+            ) / len(memory_gradient_rows),
         } if memory_gradient_rows else {}
         return StageCLMOutput(
             logits=stacked,
@@ -442,6 +524,7 @@ class StageCPaperMACForCausalLM(nn.Module):
             state_drift_norm=state_drift_norm,
             gate_statistics=gate_statistics,
             memory_gradient_statistics=memory_gradient_statistics,
+            hidden_states=torch.stack(hidden_rows),
         )
 
     def count_parameters(self) -> int:

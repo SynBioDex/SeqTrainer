@@ -20,6 +20,12 @@ from typing import Any, Iterable, Mapping, Sequence
 
 
 STUDY_ID = "stage_c_ecoli_escherichia_medium_25m_v1"
+SUPPORTED_STUDY_IDS = frozenset(
+    {
+        STUDY_ID,
+        "stage_c_ecoli_escherichia_paper_deep_memory_v2",
+    }
+)
 PROTOCOL_FILENAME = "protocol.json"
 LEDGER_FILENAME = "ledger.jsonl"
 GENESIS_HASH = "0" * 64
@@ -70,7 +76,7 @@ class StudyProtocol:
         missing = [key for key in self.REQUIRED if key not in self.payload]
         if missing:
             raise ValueError(f"protocol is missing required fields: {missing}")
-        if self.payload["study_id"] != STUDY_ID:
+        if self.payload["study_id"] not in SUPPORTED_STUDY_IDS:
             raise ValueError(f"unexpected study_id: {self.payload['study_id']!r}")
         if not isinstance(self.payload["format_version"], int) or self.payload["format_version"] < 1:
             raise ValueError("protocol format_version must be a positive integer")

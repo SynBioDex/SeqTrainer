@@ -16,7 +16,8 @@ from .model import BlockStates
 from .trainer import StageCTrainer, StreamBatchScheduler, TrainingStepRecord
 
 
-CHECKPOINT_FORMAT_VERSION = 1
+CHECKPOINT_FORMAT_VERSION = 2
+SUPPORTED_CHECKPOINT_FORMAT_VERSIONS = frozenset({1, 2})
 
 
 def _cpu_byte_rng_state(value: object, *, name: str) -> torch.Tensor:
@@ -68,7 +69,7 @@ def save_stage_c_checkpoint(
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, object] = {
-        "format_version": CHECKPOINT_FORMAT_VERSION,
+        "format_version": min(CHECKPOINT_FORMAT_VERSION, trainer.model.config.format_version),
         "model_config": trainer.model.config.to_dict(),
         "model_state": trainer.model.state_dict(),
         "optimizer_state": trainer.optimizer.state_dict(),
@@ -107,7 +108,10 @@ def load_stage_c_checkpoint(
         payload = torch.load(source, map_location=trainer.device, weights_only=False)
     except TypeError:
         payload = torch.load(source, map_location=trainer.device)
-    if not isinstance(payload, Mapping) or payload.get("format_version") != CHECKPOINT_FORMAT_VERSION:
+    if (
+        not isinstance(payload, Mapping)
+        or payload.get("format_version") not in SUPPORTED_CHECKPOINT_FORMAT_VERSIONS
+    ):
         raise ValueError("unsupported Stage C checkpoint format")
     if payload.get("dataset_fingerprint") != dataset_fingerprint:
         raise ValueError("dataset fingerprint changed across resume")

@@ -90,12 +90,18 @@ class PaperMACBlock(nn.Module):
         persistent_tokens: int = 4,
         memory_depth: int = 2,
         segment_length: int = 32,
+        memory_architecture: str = "legacy_mlp_v1",
+        memory_expansion_factor: int = 4,
+        memory_projection_convolution_kernel: int | None = None,
+        memory_normalize_queries_and_keys: bool = False,
         max_surprise_norm: float | None = None,
         associative_loss_reduction: str = "sum",
         max_gradient_rms: float | None = None,
         max_gradient_rms_ratio: float | None = None,
         theta_max: float = 1.0,
         theta_initial: float | None = None,
+        alpha_initial: float | None = None,
+        eta_initial: float | None = None,
     ) -> None:
         super().__init__()
         if d_model <= 0:
@@ -114,12 +120,18 @@ class PaperMACBlock(nn.Module):
             d_model=d_model,
             memory_depth=memory_depth,
             segment_length=segment_length,
+            architecture=memory_architecture,
+            expansion_factor=memory_expansion_factor,
+            projection_convolution_kernel=memory_projection_convolution_kernel,
+            normalize_queries_and_keys=memory_normalize_queries_and_keys,
             max_surprise_norm=max_surprise_norm,
             associative_loss_reduction=associative_loss_reduction,
             max_gradient_rms=max_gradient_rms,
             max_gradient_rms_ratio=max_gradient_rms_ratio,
             theta_max=theta_max,
             theta_initial=theta_initial,
+            alpha_initial=alpha_initial,
+            eta_initial=eta_initial,
         )
         self.persistent_tokens = nn.Parameter(torch.empty(persistent_tokens, d_model))
         nn.init.normal_(self.persistent_tokens, mean=0.0, std=0.02)
@@ -189,7 +201,10 @@ class PaperMACBlock(nn.Module):
     ) -> PaperMACBlockOutput:
         """Read all 32 values from ``M_(t-1)``, integrate, then write once."""
 
-        retrieval = self.memory.read_segment(state, segment_embeddings)
+        retrieval, query_history = self.memory.read_segment_with_history(
+            state, segment_embeddings
+        )
         sequence = self.integrate(retrieval, segment_embeddings)
         updated_state = self.memory.update_segment(state, sequence, valid_mask=valid_mask)
+        updated_state = self.memory.advance_query_history(updated_state, query_history)
         return PaperMACBlockOutput(sequence=sequence, retrieval=retrieval, state=updated_state)

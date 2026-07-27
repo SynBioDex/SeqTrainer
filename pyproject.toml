@@ -78,6 +78,8 @@ seqtrainer-titans-stage-c-evaluate = "seqtrainer.torch.titans_paper_mac_stage_c.
 seqtrainer-titans-stage-c-colab-run = "seqtrainer.torch.titans_paper_mac_stage_c.colab_cli:main"
 seqtrainer-titans-stage-c-study = "seqtrainer.torch.titans_paper_mac_stage_c.study:main"
 seqtrainer-titans-stage-c-resume-verify = "seqtrainer.torch.titans_paper_mac_stage_c.resume_verify_cli:main"
+seqtrainer-titans-stage-c-memory-trace = "seqtrainer.torch.titans_paper_mac_stage_c.memory_trace_cli:main"
+seqtrainer-titans-stage-c-memory-behavior = "seqtrainer.torch.titans_paper_mac_stage_c.memory_behavior_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/SynBioDex/SeqTrainer"

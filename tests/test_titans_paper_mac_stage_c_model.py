@@ -49,6 +49,22 @@ def tiny_config(*, horizon: int = 2) -> StageCModelConfig:
     )
 
 
+def paper_deep_config(*, recurrence: str = "stabilized_rms_v1") -> StageCModelConfig:
+    tokenizer = SeqTrainerBaseTokenizer()
+    return StageCModelConfig.paper_deep(
+        vocab_size=tokenizer.spec.vocab_size,
+        pad_token_id=tokenizer.spec.pad_token_id,
+        tokenizer_name=tokenizer.spec.name,
+        tokenizer_checksum=tokenizer.spec.checksum,
+        recurrence_policy=recurrence,
+        block_count=1,
+        d_model=4,
+        num_heads=2,
+        persistent_tokens=2,
+        gradient_horizon=1,
+    )
+
+
 def tensors(sequence: str = "ACGT" * 8):
     tokenizer = SeqTrainerBaseTokenizer()
     encoded = tokenizer.encode(sequence + "A")
@@ -118,6 +134,23 @@ def test_stage_c_retains_the_legacy_surprise_guard_as_an_option() -> None:
 
     assert config.memory_surprise_clip_norm == pytest.approx(4.0)
     assert model.stack.blocks[0].memory.max_surprise_norm == pytest.approx(4.0)
+
+
+def test_paper_deep_config_freezes_exact_and_stabilized_math() -> None:
+    exact = paper_deep_config(recurrence="paper_exact")
+    stabilized = paper_deep_config(recurrence="stabilized_rms_v1")
+
+    assert exact.memory_depth == 2
+    assert exact.memory_expansion_factor == 4
+    assert exact.memory_projection_convolution_kernel == 4
+    assert exact.memory_normalize_queries_and_keys is True
+    assert exact.memory_gate_granularity == "per_layer_channel"
+    assert exact.memory_associative_loss_reduction == "sum"
+    assert exact.memory_max_gradient_rms_ratio is None
+    assert exact.memory_surprise_clip_norm is None
+    assert stabilized.memory_associative_loss_reduction == "mean"
+    assert stabilized.memory_max_gradient_rms_ratio == pytest.approx(10.0)
+    assert stabilized.memory_surprise_clip_norm is None
 
 
 def test_stage_c_preconditioned_memory_configuration_reaches_every_block() -> None:
@@ -404,7 +437,8 @@ def test_checkpoint_restores_optimizer_cursor_rng_and_functional_states(tmp_path
         tokenizer=tokenizer,
     )
     streams = {segments[0].stream_id: segments}
-    model = StageCPaperMACForCausalLM(tiny_config(horizon=1))
+    config = paper_deep_config()
+    model = StageCPaperMACForCausalLM(config)
     uninterrupted_model = copy.deepcopy(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
     scheduler = StreamBatchScheduler(streams, batch_size=1, shuffle=False)
@@ -418,7 +452,7 @@ def test_checkpoint_restores_optimizer_cursor_rng_and_functional_states(tmp_path
         code_commit="fixture-code",
     )
 
-    restored_model = StageCPaperMACForCausalLM(tiny_config(horizon=1))
+    restored_model = StageCPaperMACForCausalLM(config)
     restored_optimizer = torch.optim.AdamW(restored_model.parameters(), lr=1e-3)
     restored_scheduler = StreamBatchScheduler(streams, batch_size=1, shuffle=False)
     restored = StageCTrainer(restored_model, restored_optimizer)
@@ -438,6 +472,8 @@ def test_checkpoint_restores_optimizer_cursor_rng_and_functional_states(tmp_path
     ):
         for name in expected.fast_weights:
             assert torch.equal(expected.fast_weights[name], actual.fast_weights[name])
+        assert torch.equal(expected.query_history, actual.query_history)
+        assert torch.equal(expected.write_history, actual.write_history)
     assert all(
         torch.equal(expected, actual)
         for expected, actual in zip(model.state_dict().values(), restored_model.state_dict().values())

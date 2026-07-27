@@ -50,6 +50,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--num-heads", type=int, default=8)
     parser.add_argument("--persistent-tokens", type=int, default=4)
     parser.add_argument("--memory-depth", type=int, default=1)
+    parser.add_argument(
+        "--memory-architecture",
+        choices=("legacy_mlp_v1", "paper_residual_mlp_v2"),
+        default="legacy_mlp_v1",
+    )
+    parser.add_argument(
+        "--memory-recurrence-policy",
+        choices=("paper_exact", "stabilized_rms_v1"),
+        default="stabilized_rms_v1",
+    )
     parser.add_argument("--seed", type=int, default=20260743)
     parser.add_argument("--validation-segments", type=int, default=32)
     parser.add_argument(
@@ -88,6 +98,8 @@ def _write_capacity_artifacts(
             "num_heads": args.num_heads,
             "persistent_tokens": args.persistent_tokens,
             "memory_depth": args.memory_depth,
+            "memory_architecture": args.memory_architecture,
+            "memory_recurrence_policy": args.memory_recurrence_policy,
             "batch_size": args.batch_size,
         },
         "train_predictable_bases": train_predictable_bases,
@@ -209,7 +221,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             history = ()
             validation = None
             try:
-                config = StageCModelConfig(
+                common = dict(
                     vocab_size=int(tokenizer["vocab_size"]),
                     pad_token_id=int(tokenizer["pad_token_id"]),
                     tokenizer_name=str(tokenizer["name"]),
@@ -226,6 +238,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                         attention_backend=AttentionBackend.SDPA,
                         activation_dtype=activation,
                     ),
+                )
+                config = (
+                    StageCModelConfig.paper_deep(
+                        recurrence_policy=args.memory_recurrence_policy,
+                        **{**common, "memory_depth": 2},
+                    )
+                    if args.memory_architecture == "paper_residual_mlp_v2"
+                    else StageCModelConfig(**common)
                 )
                 model = StageCPaperMACForCausalLM(config)
                 initial_memory_state_dtypes = sorted(

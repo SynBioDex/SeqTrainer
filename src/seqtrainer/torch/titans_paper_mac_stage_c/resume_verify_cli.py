@@ -15,7 +15,7 @@ import torch
 
 from seqtrainer.data.bacteria_titan import TokenStreamDataset
 
-from .checkpoints import CHECKPOINT_FORMAT_VERSION, load_stage_c_checkpoint
+from .checkpoints import SUPPORTED_CHECKPOINT_FORMAT_VERSIONS, load_stage_c_checkpoint
 from .config import StageCModelConfig
 from .model import StageCPaperMACForCausalLM
 from .trainer import StageCTrainer, StreamBatchScheduler
@@ -83,7 +83,7 @@ def _read_owned_checkpoint(path: Path, device: torch.device) -> Mapping[str, obj
         payload = torch.load(path, map_location=device)
     if not isinstance(payload, Mapping):
         raise ValueError("checkpoint payload is not a mapping")
-    if payload.get("format_version") != CHECKPOINT_FORMAT_VERSION:
+    if payload.get("format_version") not in SUPPORTED_CHECKPOINT_FORMAT_VERSIONS:
         raise ValueError("unsupported Stage C checkpoint format")
     return payload
 

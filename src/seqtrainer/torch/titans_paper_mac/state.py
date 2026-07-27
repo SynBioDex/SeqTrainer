@@ -46,8 +46,10 @@ class PaperMACStreamState:
     segment_index: int = 0
     reset_count: int = 0
     ended: bool = False
+    query_history: Optional[Tensor] = None
+    write_history: Optional[Tensor] = None
 
-    FORMAT_VERSION = 1
+    FORMAT_VERSION = 2
 
     def __post_init__(self) -> None:
         if not self.stream_id:
@@ -60,14 +62,42 @@ class PaperMACStreamState:
             momentum = self.surprise[name]
             if parameter.shape != momentum.shape:
                 raise ValueError(f"surprise[{name!r}] must match fast_weights[{name!r}]")
+        if (self.query_history is None) != (self.write_history is None):
+            raise ValueError("query_history and write_history must either both be present or both absent")
+        if self.query_history is not None:
+            if self.query_history.ndim != 2 or self.write_history is None:
+                raise ValueError("projection histories must have shape (kernel_size - 1, d_model)")
+            if self.query_history.shape != self.write_history.shape:
+                raise ValueError("query_history and write_history must have identical shapes")
 
     @classmethod
-    def initial(cls, stream_id: str, fast_weights: Mapping[str, Tensor]) -> "PaperMACStreamState":
+    def initial(
+        cls,
+        stream_id: str,
+        fast_weights: Mapping[str, Tensor],
+        *,
+        projection_history_length: int = 0,
+        d_model: int | None = None,
+    ) -> "PaperMACStreamState":
         """Create initial state without copying or mutating the meta-parameters."""
 
         ordered = OrderedDict(fast_weights.items())
         surprise = OrderedDict((name, torch.zeros_like(value)) for name, value in ordered.items())
-        return cls(stream_id=stream_id, fast_weights=ordered, surprise=surprise)
+        if projection_history_length < 0:
+            raise ValueError("projection_history_length must be non-negative")
+        if projection_history_length and (d_model is None or d_model <= 0):
+            raise ValueError("d_model is required when projection histories are enabled")
+        history = None
+        if projection_history_length:
+            reference = next(iter(ordered.values()))
+            history = reference.new_zeros((projection_history_length, int(d_model)))
+        return cls(
+            stream_id=stream_id,
+            fast_weights=ordered,
+            surprise=surprise,
+            query_history=history,
+            write_history=None if history is None else history.clone(),
+        )
 
     def replace(
         self,
@@ -76,6 +106,8 @@ class PaperMACStreamState:
         surprise: Mapping[str, Tensor],
         segment_index: Optional[int] = None,
         ended: Optional[bool] = None,
+        query_history: Optional[Tensor] = None,
+        write_history: Optional[Tensor] = None,
     ) -> "PaperMACStreamState":
         """Return a replacement state while retaining stream identity/metadata."""
 
@@ -86,12 +118,21 @@ class PaperMACStreamState:
             segment_index=self.segment_index if segment_index is None else segment_index,
             reset_count=self.reset_count,
             ended=self.ended if ended is None else ended,
+            query_history=self.query_history if query_history is None else query_history,
+            write_history=self.write_history if write_history is None else write_history,
         )
 
     def reset(self, initial_fast_weights: Mapping[str, Tensor]) -> "PaperMACStreamState":
         """Return fresh state for this stream without affecting any other stream."""
 
-        initial = PaperMACStreamState.initial(self.stream_id, initial_fast_weights)
+        history_length = 0 if self.query_history is None else self.query_history.shape[0]
+        d_model = None if self.query_history is None else self.query_history.shape[1]
+        initial = PaperMACStreamState.initial(
+            self.stream_id,
+            initial_fast_weights,
+            projection_history_length=history_length,
+            d_model=d_model,
+        )
         return PaperMACStreamState(
             stream_id=initial.stream_id,
             fast_weights=initial.fast_weights,
@@ -99,6 +140,8 @@ class PaperMACStreamState:
             segment_index=0,
             reset_count=self.reset_count + 1,
             ended=False,
+            query_history=initial.query_history,
+            write_history=initial.write_history,
         )
 
     def mark_ended(self) -> "PaperMACStreamState":
@@ -126,6 +169,16 @@ class PaperMACStreamState:
             "segment_index": self.segment_index,
             "reset_count": self.reset_count,
             "ended": self.ended,
+            "query_history": (
+                None
+                if self.query_history is None
+                else self.query_history.detach().to(device="cpu").clone()
+            ),
+            "write_history": (
+                None
+                if self.write_history is None
+                else self.write_history.detach().to(device="cpu").clone()
+            ),
         }
 
     @classmethod
@@ -134,7 +187,8 @@ class PaperMACStreamState:
     ) -> "PaperMACStreamState":
         """Restore a serializable state payload as differentiable leaf tensors."""
 
-        if payload.get("format_version") != cls.FORMAT_VERSION:
+        format_version = payload.get("format_version")
+        if format_version not in (1, cls.FORMAT_VERSION):
             raise ValueError("unsupported Titans paper-MAC stream state version")
         raw_weights = payload.get("fast_weights")
         raw_surprise = payload.get("surprise")
@@ -160,6 +214,17 @@ class PaperMACStreamState:
         stream_id = payload.get("stream_id")
         if not isinstance(stream_id, str):
             raise ValueError("state payload has invalid stream_id")
+        def restore_history(name: str) -> Optional[Tensor]:
+            if format_version == 1:
+                return None
+            value = payload.get(name)
+            if value is None:
+                return None
+            if not isinstance(value, Tensor):
+                raise ValueError(f"state payload {name} is invalid")
+            restored = value.detach().clone()
+            return restored.to(device) if device is not None else restored
+
         return cls(
             stream_id=stream_id,
             fast_weights=restore(raw_weights, weight_grad),
@@ -167,4 +232,6 @@ class PaperMACStreamState:
             segment_index=int(payload.get("segment_index", 0)),
             reset_count=int(payload.get("reset_count", 0)),
             ended=bool(payload.get("ended", False)),
+            query_history=restore_history("query_history"),
+            write_history=restore_history("write_history"),
         )

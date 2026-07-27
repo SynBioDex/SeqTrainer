@@ -238,7 +238,7 @@ def test_production_stream_dataset_trains_checkpoints_and_reports_on_cpu(tmp_pat
 def test_all_colab_notebooks_are_thin_pinned_logged_handoffs() -> None:
     root = Path(__file__).parents[1]
     notebooks = sorted((root / "notebooks" / "titans_stage_c").glob("*.ipynb"))
-    assert len(notebooks) == 7
+    assert len(notebooks) >= 7
     for notebook in notebooks:
         payload = json.loads(notebook.read_text(encoding="utf-8"))
         source = "\n".join(

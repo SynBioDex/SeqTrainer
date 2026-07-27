@@ -81,6 +81,28 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--num-heads", type=int, default=8)
     parser.add_argument("--persistent-tokens", type=int, default=4)
     parser.add_argument("--memory-depth", type=int, default=1)
+    parser.add_argument(
+        "--memory-architecture",
+        choices=("legacy_mlp_v1", "paper_residual_mlp_v2"),
+        default="legacy_mlp_v1",
+    )
+    parser.add_argument("--memory-expansion-factor", type=int, default=4)
+    parser.add_argument("--memory-projection-convolution-kernel", type=int)
+    parser.add_argument(
+        "--memory-normalize-queries-and-keys",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+    )
+    parser.add_argument(
+        "--memory-gate-granularity",
+        choices=("shared_scalar", "per_layer_channel"),
+        default="shared_scalar",
+    )
+    parser.add_argument(
+        "--memory-recurrence-policy",
+        choices=("legacy_configured", "paper_exact", "stabilized_rms_v1"),
+        default="legacy_configured",
+    )
     parser.add_argument("--memory-surprise-clip-norm", type=_optional_positive_float, default=4.0)
     parser.add_argument(
         "--memory-associative-loss-reduction",
@@ -91,6 +113,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--memory-max-gradient-rms-ratio", type=_optional_positive_float)
     parser.add_argument("--memory-theta-max", type=float, default=1.0)
     parser.add_argument("--memory-theta-initial", type=float)
+    parser.add_argument("--memory-alpha-initial", type=float)
+    parser.add_argument("--memory-eta-initial", type=float)
     parser.add_argument("--no-resume", action="store_true")
     parser.add_argument("--verify-dataset", action="store_true")
     parser.add_argument("--protocol", type=Path, help="frozen Stage C study protocol")
@@ -127,7 +151,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             {
                 "memory_mode": args.memory_mode,
                 **({"budget_bases": requested_budget} if requested_budget is not None else {}),
+                **(
+                    {"max_optimizer_steps": args.max_optimizer_steps}
+                    if args.max_optimizer_steps is not None
+                    else {}
+                ),
                 "seed": args.seed,
+                "block_count": args.block_count,
+                "d_model": args.d_model,
+                "num_heads": args.num_heads,
+                "gradient_horizon": args.horizon,
+                "memory_depth": args.memory_depth,
+                "memory_architecture": args.memory_architecture,
+                "memory_recurrence_policy": args.memory_recurrence_policy,
             },
         )
     torch.manual_seed(args.seed)
@@ -154,15 +190,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         num_heads=args.num_heads,
         persistent_tokens=args.persistent_tokens,
         memory_depth=args.memory_depth,
+        memory_architecture=args.memory_architecture,
+        memory_expansion_factor=args.memory_expansion_factor,
+        memory_projection_convolution_kernel=args.memory_projection_convolution_kernel,
+        memory_normalize_queries_and_keys=args.memory_normalize_queries_and_keys,
+        memory_gate_granularity=args.memory_gate_granularity,
+        memory_recurrence_policy=args.memory_recurrence_policy,
         memory_surprise_clip_norm=args.memory_surprise_clip_norm,
         memory_associative_loss_reduction=args.memory_associative_loss_reduction,
         memory_max_gradient_rms=args.memory_max_gradient_rms,
         memory_max_gradient_rms_ratio=args.memory_max_gradient_rms_ratio,
         memory_theta_max=args.memory_theta_max,
         memory_theta_initial=args.memory_theta_initial,
+        memory_alpha_initial=args.memory_alpha_initial,
+        memory_eta_initial=args.memory_eta_initial,
         gradient_horizon=args.horizon,
         memory_mode=MemoryMode(args.memory_mode),
         backend=backend,
+        format_version=2 if args.memory_architecture == "paper_residual_mlp_v2" else 1,
     )
     model = StageCPaperMACForCausalLM(config)
     optimizer = torch.optim.AdamW(

@@ -61,6 +61,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--num-heads", type=int, default=8)
     parser.add_argument("--persistent-tokens", type=int, default=4)
     parser.add_argument("--memory-depth", type=int, default=1)
+    parser.add_argument(
+        "--memory-architecture",
+        choices=("legacy_mlp_v1", "paper_residual_mlp_v2"),
+        default="legacy_mlp_v1",
+    )
+    parser.add_argument(
+        "--memory-recurrence-policy",
+        choices=("paper_exact", "stabilized_rms_v1"),
+        default="stabilized_rms_v1",
+    )
     parser.add_argument("--gradient-horizon", type=int, default=3)
     parser.add_argument("--seed", type=int, default=20260744)
     return parser.parse_args(argv)
@@ -72,7 +82,7 @@ def _config(
     args: argparse.Namespace,
     activation: ActivationDType,
 ) -> StageCModelConfig:
-    return StageCModelConfig(
+    common = dict(
         vocab_size=int(tokenizer["vocab_size"]),
         pad_token_id=int(tokenizer["pad_token_id"]),
         tokenizer_name=str(tokenizer["name"]),
@@ -90,6 +100,13 @@ def _config(
             activation_dtype=activation,
         ),
     )
+    if args.memory_architecture == "paper_residual_mlp_v2":
+        common["memory_depth"] = 2
+        return StageCModelConfig.paper_deep(
+            recurrence_policy=args.memory_recurrence_policy,
+            **common,
+        )
+    return StageCModelConfig(**common)
 
 
 def _batch(segment: StreamSegment, device: torch.device) -> dict[str, Tensor]:
@@ -110,13 +127,21 @@ def _require_finite(name: str, tensor: Tensor) -> None:
 
 
 def _state_tensors(states: Sequence[BlockStates]) -> list[Tensor]:
-    return [
+    tensors = [
         value
         for row in states
         for state in row
         for mapping in (state.fast_weights, state.surprise)
         for value in mapping.values()
     ]
+    tensors.extend(
+        history
+        for row in states
+        for state in row
+        for history in (state.query_history, state.write_history)
+        if history is not None
+    )
+    return tensors
 
 
 def _max_difference(left: Tensor, right: Tensor) -> dict[str, float]:

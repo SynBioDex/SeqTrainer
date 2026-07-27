@@ -1,0 +1,182 @@
+{
+  "format_version": 2,
+  "study_id": "stage_c_ecoli_escherichia_paper_deep_memory_v2",
+  "title": "Paper-default deep neural memory validation before Stage C genomic scaling",
+  "scientific_motivation": "Establish that the paper-default two-layer associative memory follows its stated mathematics, remains numerically stable, resumes exactly, and develops non-trivial sequence-dependent state before committing A100 time to the 25M genomic study.",
+  "hypotheses": {
+    "engineering": "The exact paper recurrence and the preregistered RMS-stabilized recurrence remain finite for 500 optimizer steps at compact T4 scale and reproduce checkpoint/resume state.",
+    "behavioral": "Adaptive deep memory improves held-out BPB or controlled delayed-association behavior over frozen-memory, no-memory, and shallow-memory controls at equal one-million-base budgets.",
+    "representation": "Deep-memory state and retrieval traces contain reproducible variation beyond local GC composition and stream position."
+  },
+  "scope_limitations": [
+    "This protocol validates architecture, numerical behavior, and exploratory learning signal; it does not establish the final 25M memory-benefit claim.",
+    "Compact T4 results do not substitute for matched medium-model controls or second-seed replication.",
+    "The current stream manifest has no frozen ORF/intergenic labels, so functional region analyses are deferred."
+  ],
+  "claim_language": {
+    "supported": "paper-default deep memory is implemented faithfully and is sufficiently stable and behaviorally non-trivial to justify scaling",
+    "not_supported": "functional genomic interpretation, anomaly-detection utility, or superiority of adaptive memory at 25M scale"
+  },
+  "dataset": {
+    "source_data_fingerprint": "inherited-from-stage-c-v1-and-required-at-run-time",
+    "subset_manifest_fingerprint": "ordered-stream-manifest-sha256-required-at-run-time",
+    "eligibility": "unchanged E. coli plus Escherichia train-only selection from Stage C v1",
+    "balance": "unchanged clade and GC balancing from Stage C v1",
+    "isolation": "validation accessions remain excluded from fitting and compact model selection"
+  },
+  "tokenizer": {
+    "name": "frozen nonoverlap_6mer_v1 selected by Stage C v1",
+    "artifact_fingerprint": "required-at-run-time",
+    "normalization": "unchanged from the frozen Stage C stream manifest"
+  },
+  "configurations": {
+    "paper_deep_memory": {
+      "equation": "L_t=0.5*||M(k_t)-v_t||_2^2; S_t=eta_t*S_(t-1)-theta_t*grad(L_t); M_t=(1-alpha_t)*M_(t-1)+S_t",
+      "module": "M(x)=x+LayerNorm(W_out*GELU(W_in*x))",
+      "depth": 2,
+      "expansion_factor": 4,
+      "projections": "causal depthwise Q/K/V convolution, kernel 4; L2-normalized Q and K",
+      "gates": "input-dependent alpha, eta, theta vectors per memory layer output channel",
+      "backend": "exact accelerated functional update with exact-reference parity"
+    },
+    "paper_exact": {
+      "associative_loss_reduction": "sum",
+      "gradient_conditioning": "none",
+      "surprise_cap": null,
+      "theta_max": 1.0
+    },
+    "stabilized_rms_v1": {
+      "associative_loss_reduction": "mean",
+      "gradient_rms_limit": "10 times current fast-weight RMS",
+      "surprise_cap": null,
+      "theta_max": 0.5
+    },
+    "compact_t4": {
+      "block_count": 4,
+      "d_model": 128,
+      "num_heads": 4,
+      "persistent_tokens": 4,
+      "gradient_horizon": 3,
+      "activation": "float32"
+    },
+    "medium_25m_after_gate": {
+      "block_count": 12,
+      "d_model": 256,
+      "num_heads": 8,
+      "persistent_tokens": 4,
+      "gradient_horizon": 3,
+      "expected_parameters_at_vocab_4098": 24785920,
+      "functional_memory_state_bytes_per_stream_fp32": 50577408,
+      "status": "ineligible until compact stability and behavior gates pass"
+    },
+    "mac_fp64_oracle": {
+      "block_count": 1,
+      "d_model": 8,
+      "num_heads": 2,
+      "gradient_horizon": 1,
+      "dtype": "float64"
+    }
+  },
+  "run_matrix": {
+    "deep_mac_fp64_oracle": {
+      "phase": "engineering",
+      "evidence_tier": "engineering"
+    },
+    "deep_t4_smoke_exact": {
+      "phase": "smoke",
+      "max_optimizer_steps": 2,
+      "memory_mode": "adaptive",
+      "memory_architecture": "paper_residual_mlp_v2",
+      "memory_recurrence_policy": "paper_exact"
+    },
+    "deep_t4_smoke_stabilized": {
+      "phase": "smoke",
+      "max_optimizer_steps": 2,
+      "memory_mode": "adaptive",
+      "memory_architecture": "paper_residual_mlp_v2",
+      "memory_recurrence_policy": "stabilized_rms_v1"
+    },
+    "deep_t4_soak_exact_500": {
+      "phase": "stability",
+      "max_optimizer_steps": 500,
+      "memory_mode": "adaptive",
+      "memory_architecture": "paper_residual_mlp_v2",
+      "memory_recurrence_policy": "paper_exact"
+    },
+    "deep_t4_soak_stabilized_500": {
+      "phase": "stability",
+      "max_optimizer_steps": 500,
+      "memory_mode": "adaptive",
+      "memory_architecture": "paper_residual_mlp_v2",
+      "memory_recurrence_policy": "stabilized_rms_v1"
+    },
+    "compact_deep_adaptive_1m": {
+      "phase": "behavior",
+      "budget_bases": 1000000,
+      "memory_mode": "adaptive",
+      "memory_architecture": "paper_residual_mlp_v2"
+    },
+    "compact_deep_frozen_1m": {
+      "phase": "control",
+      "budget_bases": 1000000,
+      "memory_mode": "frozen_memory",
+      "memory_architecture": "paper_residual_mlp_v2"
+    },
+    "compact_no_memory_1m": {
+      "phase": "control",
+      "budget_bases": 1000000,
+      "memory_mode": "no_memory",
+      "memory_architecture": "paper_residual_mlp_v2"
+    },
+    "compact_shallow_adaptive_1m": {
+      "phase": "control",
+      "budget_bases": 1000000,
+      "memory_mode": "adaptive",
+      "memory_architecture": "legacy_mlp_v1",
+      "memory_depth": 1
+    },
+    "deep_memory_trace_analysis": {
+      "phase": "analysis",
+      "evidence_tier": "exploratory"
+    },
+    "deep_controlled_behavior": {
+      "phase": "analysis",
+      "evidence_tier": "exploratory"
+    }
+  },
+  "decision_gates": {
+    "mathematical": "FP64 one-step recurrence, channel broadcasting, causal convolution history, and reference/accelerated parity tests all pass.",
+    "stability": "All losses, fast weights, surprise states, projection histories, and gradients remain finite for 500 steps; checkpoint reload/resume verification passes.",
+    "policy_selection": "Prefer paper_exact if its stability and resume gates pass; otherwise use stabilized_rms_v1 and report every conditioning intervention.",
+    "behavior": "Proceed to medium adaptive discovery only if deep adaptive shows a favorable held-out BPB trajectory or delayed-association gain and its memory traces are non-degenerate.",
+    "stop": "Do not scale if adaptive deep memory is non-finite, indistinguishable from controls within compact uncertainty, or represented only by stream position/GC baselines."
+  },
+  "outcomes": {
+    "confirmatory": [
+      "finite 500-step trajectories",
+      "checkpoint/resume state consistency",
+      "reference versus exact-accelerated numerical parity"
+    ],
+    "exploratory": [
+      "held-out BPB trajectory",
+      "retrieval, surprise, drift, gate, and conditioning trajectories",
+      "PCA of hidden and fast-memory state summaries",
+      "controlled delayed-association performance",
+      "associations with GC, clade, accession, and stream position"
+    ]
+  },
+  "prohibited_inferences": [
+    "A compact behavior gain is not a final adaptive-memory benefit claim.",
+    "Memory-state separability is not evidence of biological function.",
+    "Generation plausibility is not promoter, gene, or fitness validation.",
+    "No 25M or anomaly-detection claim is permitted without the separate matched-control protocol."
+  ],
+  "evidence_requirements": [
+    "deep_t4_soak_exact_500",
+    "deep_t4_soak_stabilized_500",
+    "compact_deep_adaptive_1m",
+    "compact_deep_frozen_1m",
+    "compact_no_memory_1m",
+    "compact_shallow_adaptive_1m"
+  ]
+}
