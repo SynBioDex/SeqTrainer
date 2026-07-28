@@ -17,7 +17,11 @@ from seqtrainer.torch.titans_paper_mac_stage_c.capacity_cli import (  # noqa: E4
     parse_args as parse_capacity_args,
 )
 from seqtrainer.torch.titans_paper_mac_stage_c.evaluate_cli import main as evaluate_main  # noqa: E402
-from seqtrainer.torch.titans_paper_mac_stage_c.memory_trace_cli import _pca  # noqa: E402
+from seqtrainer.torch.titans_paper_mac_stage_c.memory_trace_cli import (  # noqa: E402
+    _pca,
+    _scatter_svg,
+    _taxonomy_labels,
+)
 from seqtrainer.torch.titans_paper_mac_stage_c.resume_verify_cli import (  # noqa: E402
     main as resume_verify_main,
 )
@@ -36,6 +40,30 @@ def test_memory_trace_pca_uses_numpy_singular_values_correctly() -> None:
     assert len(variance) == 2
     assert all(0.0 <= value <= 1.0 for value in variance)
     assert sum(variance) <= 1.0
+
+
+def test_embedding_taxonomy_labels_and_svg_are_explicit(tmp_path) -> None:
+    manifest = tmp_path / "accession_manifest.csv"
+    manifest.write_text(
+        "accession,gtdb_taxonomy\n"
+        "GCF_1,d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Enterobacterales;f__Enterobacteriaceae;g__Escherichia;s__Escherichia_coli\n"
+        "GCF_2,d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Enterobacterales;f__Enterobacteriaceae;g__Escherichia;s__Escherichia_albertii\n",
+        encoding="utf-8",
+    )
+
+    labels = _taxonomy_labels(manifest, "species")
+    svg = _scatter_svg(
+        np.array([[0.0, 0.0], [1.0, 1.0]]),
+        [labels["GCF_1"], labels["GCF_2"]],
+        [0.75, 0.25],
+        title="Contextual sequence-embedding PCA",
+        color_label="GTDB species",
+    )
+
+    assert labels == {"GCF_1": "Escherichia coli", "GCF_2": "Escherichia albertii"}
+    assert "Contextual sequence-embedding PCA" in svg
+    assert "GTDB species" in svg
+    assert "Escherichia coli" in svg
 
 
 def test_colab_wrapper_persists_streamed_log_manifest_and_failure_marker(tmp_path) -> None:

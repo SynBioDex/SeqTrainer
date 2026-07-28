@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 import numpy as np
+import pandas as pd
 import torch
 from torch import Tensor
 
@@ -32,6 +33,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-streams", type=int, default=8)
     parser.add_argument("--max-segments", type=int, default=128)
     parser.add_argument("--samples-per-tensor", type=int, default=8)
+    parser.add_argument("--taxonomy-manifest", type=Path)
+    parser.add_argument(
+        "--taxonomy-rank",
+        choices=("domain", "phylum", "class", "order", "family", "genus", "species"),
+        default="species",
+    )
     parser.add_argument("--device", default="auto")
     parser.add_argument("--protocol", type=Path)
     parser.add_argument("--protocol-amendment", type=Path, action="append", default=[])
@@ -44,6 +51,35 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     if min(args.max_streams, args.max_segments, args.samples_per_tensor) <= 0:
         parser.error("trace limits must be positive")
     return args
+
+
+def _taxonomy_value(taxonomy: object, rank: str) -> str:
+    ranks = ("domain", "phylum", "class", "order", "family", "genus", "species")
+    values = str(taxonomy or "").split(";")
+    index = ranks.index(rank)
+    if index >= len(values):
+        return "unclassified"
+    value = values[index].split("__", 1)[-1].replace("_", " ").strip()
+    return value or "unclassified"
+
+
+def _taxonomy_labels(path: Path, rank: str) -> dict[str, str]:
+    """Load one GTDB rank per accession from the source manifest."""
+
+    frame = pd.read_parquet(path) if path.suffix == ".parquet" else pd.read_csv(path)
+    if "accession" not in frame:
+        raise ValueError("taxonomy manifest is missing accession")
+    if frame["accession"].isna().any() or frame["accession"].duplicated().any():
+        raise ValueError("taxonomy manifest accessions must be unique and non-null")
+    if rank in frame:
+        labels = frame[rank].fillna("unclassified").astype(str)
+    elif "gtdb_taxonomy" in frame:
+        labels = frame["gtdb_taxonomy"].map(lambda value: _taxonomy_value(value, rank))
+    else:
+        raise ValueError(
+            f"taxonomy manifest needs {rank!r} or 'gtdb_taxonomy' for taxonomy coloring"
+        )
+    return dict(zip(frame["accession"].astype(str), labels.astype(str)))
 
 
 def _load_checkpoint(path: Path, device: torch.device) -> Mapping[str, object]:
@@ -108,28 +144,53 @@ def _correlation(left: np.ndarray, right: np.ndarray) -> float:
     return float(np.corrcoef(left, right)[0, 1])
 
 
-def _scatter_svg(points: np.ndarray, rows: list[dict[str, object]], variance: list[float]) -> str:
+def _scatter_svg(
+    points: np.ndarray,
+    labels: list[str],
+    variance: list[float],
+    *,
+    title: str,
+    color_label: str,
+) -> str:
     width, height, margin = 900, 620, 70
     x, y = points[:, 0], points[:, 1]
     xspan = max(float(x.max() - x.min()), 1e-9)
     yspan = max(float(y.max() - y.min()), 1e-9)
-    colors = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2"]
-    clades = {name: colors[index % len(colors)] for index, name in enumerate(sorted({str(row["clade_group"]) for row in rows}))}
+    colors = [
+        "#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2",
+        "#be123c", "#4f46e5", "#65a30d", "#a16207", "#0f766e", "#c026d3",
+    ]
+    groups = sorted(set(labels))
+    palette = {name: colors[index % len(colors)] for index, name in enumerate(groups)}
     circles = []
-    for index, row in enumerate(rows):
+    for index, label in enumerate(labels):
         px = margin + (float(x[index] - x.min()) / xspan) * (width - 2 * margin)
         py = height - margin - (float(y[index] - y.min()) / yspan) * (height - 2 * margin)
         circles.append(
-            f'<circle cx="{px:.2f}" cy="{py:.2f}" r="4" fill="{clades[str(row["clade_group"])]}" opacity="0.72"/>'
+            f'<circle cx="{px:.2f}" cy="{py:.2f}" r="4" fill="{palette[label]}" opacity="0.72"/>'
+        )
+    legend = [f'<text x="{width - 260}" y="54" font-family="sans-serif" font-size="13">{color_label}</text>']
+    for index, group in enumerate(groups[:12]):
+        y_position = 76 + 20 * index
+        legend.extend(
+            (
+                f'<rect x="{width - 260}" y="{y_position - 10}" width="10" height="10" fill="{palette[group]}"/>',
+                f'<text x="{width - 244}" y="{y_position}" font-family="sans-serif" font-size="11">{group}</text>',
+            )
+        )
+    if len(groups) > 12:
+        legend.append(
+            f'<text x="{width - 260}" y="{76 + 20 * 12}" font-family="sans-serif" font-size="11">+ {len(groups) - 12} more groups</text>'
         )
     return "\n".join(
         [
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
             '<rect width="100%" height="100%" fill="white"/>',
-            '<text x="24" y="32" font-family="sans-serif" font-size="20">Deep-memory and hidden-state PCA</text>',
+            f'<text x="24" y="32" font-family="sans-serif" font-size="20">{title}</text>',
             f'<text x="{width / 2}" y="{height - 18}" text-anchor="middle" font-family="sans-serif">PC1 ({100 * variance[0]:.1f}%)</text>',
             f'<text x="18" y="{height / 2}" transform="rotate(-90 18 {height / 2})" text-anchor="middle" font-family="sans-serif">PC2 ({100 * variance[1]:.1f}%)</text>',
             *circles,
+            *legend,
             "</svg>",
         ]
     )
@@ -151,6 +212,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         else args.device
     )
     dataset = TokenStreamDataset(args.dataset_dir, verify_checksums=True)
+    taxonomy_by_accession = (
+        _taxonomy_labels(args.taxonomy_manifest, args.taxonomy_rank)
+        if args.taxonomy_manifest
+        else None
+    )
     payload = _load_checkpoint(args.checkpoint, device)
     fingerprint = hashlib.sha256(
         (args.dataset_dir / "token_stream_manifest.json").read_bytes()
@@ -166,6 +232,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     model.eval()
     rows: list[dict[str, object]] = []
     vectors: list[list[float]] = []
+    embedding_vectors: dict[str, list[np.ndarray]] = {}
+    embedding_metadata: dict[str, dict[str, object]] = {}
     streams = dataset.streams(split=args.split)
     for stream_number, stream_id in enumerate(sorted(streams)):
         if stream_number >= args.max_streams or len(rows) >= args.max_segments:
@@ -184,8 +252,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             if output.loss_sum is None or output.hidden_states is None:
                 raise RuntimeError("trace forward did not produce losses and hidden states")
             hidden = output.hidden_states[0][tensors["valid_mask"][0]]
+            hidden_mean = hidden.detach().float().mean(dim=0).cpu().numpy()
             vector = [
-                *hidden.detach().float().mean(dim=0).cpu().tolist(),
+                *hidden_mean.tolist(),
                 *hidden.detach().float().std(dim=0, unbiased=False).cpu().tolist(),
                 *_state_features(output.states[0], args.samples_per_tensor),
             ]
@@ -213,6 +282,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             }
             rows.append(row)
             vectors.append(vector)
+            embedding_vectors.setdefault(segment.stream_id, []).append(hidden_mean)
+            embedding_metadata.setdefault(
+                segment.stream_id,
+                {
+                    "stream_id": segment.stream_id,
+                    "accession": segment.accession,
+                    "contig_id": segment.contig_id,
+                    "clade_group": segment.clade_group,
+                    "taxonomy_label": (
+                        taxonomy_by_accession[segment.accession]
+                        if taxonomy_by_accession and segment.accession in taxonomy_by_accession
+                        else segment.clade_group
+                    ),
+                },
+            )
             states = detach_stream_states(output.states[0])
     if len(rows) < 2:
         raise ValueError("memory trace requires at least two evaluated segments")
@@ -223,8 +307,46 @@ def main(argv: Sequence[str] | None = None) -> int:
         row["pc2"] = float(point[1])
     gc = np.asarray([float(row["gc_fraction"]) for row in rows])
     position = np.asarray([float(row["segment_index"]) for row in rows])
+    missing_taxonomy = (
+        sorted(
+            {str(row["accession"]) for row in rows}
+            - set(taxonomy_by_accession)
+        )
+        if taxonomy_by_accession
+        else []
+    )
+    if missing_taxonomy:
+        raise ValueError(
+            "taxonomy manifest does not cover traced accessions: "
+            + ", ".join(missing_taxonomy[:8])
+        )
+    embedding_rows: list[dict[str, object]] = []
+    for stream_id in sorted(embedding_vectors):
+        row = dict(embedding_metadata[stream_id])
+        row["segments_aggregated"] = len(embedding_vectors[stream_id])
+        embedding_rows.append(row)
+    if len(embedding_rows) < 2:
+        raise ValueError("embedding PCA requires at least two traced streams")
+    embedding_matrix = np.stack(
+        [np.mean(embedding_vectors[str(row["stream_id"])], axis=0) for row in embedding_rows]
+    )
+    embedding_points, embedding_variance = _pca(embedding_matrix)
+    for row, point in zip(embedding_rows, embedding_points):
+        row["pc1"] = float(point[0])
+        row["pc2"] = float(point[1])
+    embedding_summary = {
+        "classification": "contextual_sequence_embedding_pca",
+        "unit": "held-out stream mean of final-layer valid-token hidden states",
+        "taxonomy_manifest": str(args.taxonomy_manifest) if args.taxonomy_manifest else None,
+        "taxonomy_rank": args.taxonomy_rank if args.taxonomy_manifest else None,
+        "coloring": "GTDB taxonomy" if args.taxonomy_manifest else "clade_group fallback",
+        "streams": len(embedding_rows),
+        "embedding_dimension": int(embedding_matrix.shape[1]),
+        "pca_explained_variance": embedding_variance,
+        "rows": embedding_rows,
+    }
     summary = {
-        "format_version": 1,
+        "format_version": 2,
         "checkpoint": str(args.checkpoint),
         "checkpoint_sha256": hashlib.sha256(args.checkpoint.read_bytes()).hexdigest(),
         "model_config": config.to_dict(),
@@ -239,6 +361,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "mean_bits_per_base": float(np.mean([float(row["bits_per_base"]) for row in rows])),
         "mean_memory_update_norm": float(np.mean([float(row["memory_update_norm"]) for row in rows])),
         "mean_surprise_norm": float(np.mean([float(row["surprise_norm"]) for row in rows])),
+        "embedding_pca": {key: value for key, value in embedding_summary.items() if key != "rows"},
         "rows": rows,
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -251,7 +374,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         writer.writeheader()
         writer.writerows(rows)
     (args.output_dir / "memory_pca.svg").write_text(
-        _scatter_svg(points, rows, variance),
+        _scatter_svg(
+            points,
+            [str(row["clade_group"]) for row in rows],
+            variance,
+            title="Deep-memory and hidden-state PCA",
+            color_label="clade group",
+        ),
+        encoding="utf-8",
+    )
+    (args.output_dir / "embedding_pca.json").write_text(
+        json.dumps(embedding_summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (args.output_dir / "embedding_taxonomy_pca.svg").write_text(
+        _scatter_svg(
+            embedding_points,
+            [str(row["taxonomy_label"]) for row in embedding_rows],
+            embedding_variance,
+            title="Contextual sequence-embedding PCA",
+            color_label=(f"GTDB {args.taxonomy_rank}" if args.taxonomy_manifest else "clade group"),
+        ),
         encoding="utf-8",
     )
     print(json.dumps({key: value for key, value in summary.items() if key != "rows"}, indent=2, sort_keys=True))
