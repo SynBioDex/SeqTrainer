@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import sys
 
+import numpy as np
 import pytest
 
 torch = pytest.importorskip("torch")
@@ -16,10 +17,25 @@ from seqtrainer.torch.titans_paper_mac_stage_c.capacity_cli import (  # noqa: E4
     parse_args as parse_capacity_args,
 )
 from seqtrainer.torch.titans_paper_mac_stage_c.evaluate_cli import main as evaluate_main  # noqa: E402
+from seqtrainer.torch.titans_paper_mac_stage_c.memory_trace_cli import _pca  # noqa: E402
 from seqtrainer.torch.titans_paper_mac_stage_c.resume_verify_cli import (  # noqa: E402
     main as resume_verify_main,
 )
 from seqtrainer.torch.titans_paper_mac_stage_c.train_cli import main as train_main  # noqa: E402
+
+
+def test_memory_trace_pca_uses_numpy_singular_values_correctly() -> None:
+    features = np.array(
+        [[1.0, 0.0, 1.0], [2.0, 1.0, 0.0], [3.0, 0.0, -1.0]],
+        dtype=float,
+    )
+
+    points, variance = _pca(features)
+
+    assert points.shape == (3, 2)
+    assert len(variance) == 2
+    assert all(0.0 <= value <= 1.0 for value in variance)
+    assert sum(variance) <= 1.0
 
 
 def test_colab_wrapper_persists_streamed_log_manifest_and_failure_marker(tmp_path) -> None:

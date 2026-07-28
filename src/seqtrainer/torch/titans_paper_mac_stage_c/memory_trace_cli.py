@@ -87,7 +87,10 @@ def _pca(features: np.ndarray) -> tuple[np.ndarray, list[float]]:
     standardized = centered / np.where(scale > 1e-12, scale, 1.0)
     left, singular, _ = np.linalg.svd(standardized, full_matrices=False)
     components = left[:, :2] * singular[:2]
-    variance = singular.square()
+    # ``singular`` is a NumPy array (not a torch.Tensor), so use NumPy's
+    # elementwise square operation.  This is the usual PCA variance identity
+    # and preserves the existing explained-variance calculation exactly.
+    variance = np.square(singular)
     fractions = (
         (variance[:2] / variance.sum()).tolist()
         if variance.sum() > 0
