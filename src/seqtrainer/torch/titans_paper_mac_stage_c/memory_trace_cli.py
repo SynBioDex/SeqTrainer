@@ -16,6 +16,7 @@ import torch
 from torch import Tensor
 
 from seqtrainer.data.bacteria_titan import TokenStreamDataset
+from seqtrainer.data.bacteria_titan.stage_c_streams import ACCESSION_PATTERN
 
 from .config import MemoryMode, StageCModelConfig
 from .model import BlockStates, StageCPaperMACForCausalLM, detach_stream_states
@@ -63,14 +64,23 @@ def _taxonomy_value(taxonomy: object, rank: str) -> str:
     return value or "unclassified"
 
 
+def _canonical_accession(value: object) -> str:
+    """Recover the exact NCBI assembly accession used by Stage C streams."""
+
+    match = ACCESSION_PATTERN.search(str(value))
+    return match.group(0) if match else str(value).strip()
+
+
 def _taxonomy_labels(path: Path, rank: str) -> dict[str, str]:
     """Load one GTDB rank per accession from the source manifest."""
 
     frame = pd.read_parquet(path) if path.suffix == ".parquet" else pd.read_csv(path)
-    if "accession" not in frame:
+    accession_column = "assembly_accession" if "assembly_accession" in frame else "accession"
+    if accession_column not in frame:
         raise ValueError("taxonomy manifest is missing accession")
-    if frame["accession"].isna().any() or frame["accession"].duplicated().any():
-        raise ValueError("taxonomy manifest accessions must be unique and non-null")
+    canonical_accessions = frame[accession_column].map(_canonical_accession)
+    if canonical_accessions.eq("").any() or canonical_accessions.duplicated().any():
+        raise ValueError("taxonomy manifest canonical assembly accessions must be unique and non-null")
     if rank in frame:
         labels = frame[rank].fillna("unclassified").astype(str)
     elif "gtdb_taxonomy" in frame:
@@ -79,7 +89,7 @@ def _taxonomy_labels(path: Path, rank: str) -> dict[str, str]:
         raise ValueError(
             f"taxonomy manifest needs {rank!r} or 'gtdb_taxonomy' for taxonomy coloring"
         )
-    return dict(zip(frame["accession"].astype(str), labels.astype(str)))
+    return dict(zip(canonical_accessions, labels.astype(str)))
 
 
 def _load_checkpoint(path: Path, device: torch.device) -> Mapping[str, object]:
@@ -338,6 +348,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "classification": "contextual_sequence_embedding_pca",
         "unit": "held-out stream mean of final-layer valid-token hidden states",
         "taxonomy_manifest": str(args.taxonomy_manifest) if args.taxonomy_manifest else None,
+        "taxonomy_manifest_sha256": (
+            hashlib.sha256(args.taxonomy_manifest.read_bytes()).hexdigest()
+            if args.taxonomy_manifest
+            else None
+        ),
         "taxonomy_rank": args.taxonomy_rank if args.taxonomy_manifest else None,
         "coloring": "GTDB taxonomy" if args.taxonomy_manifest else "clade_group fallback",
         "streams": len(embedding_rows),

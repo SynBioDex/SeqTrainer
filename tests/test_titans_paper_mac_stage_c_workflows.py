@@ -66,6 +66,19 @@ def test_embedding_taxonomy_labels_and_svg_are_explicit(tmp_path) -> None:
     assert "Escherichia coli" in svg
 
 
+def test_embedding_taxonomy_uses_the_canonical_stage_c_assembly_accession(tmp_path) -> None:
+    manifest = tmp_path / "source_accession_manifest.csv"
+    manifest.write_text(
+        "accession,assembly_accession,gtdb_taxonomy\n"
+        "GB_GCA_000249155.2,GCA_000249155.2,d__Bacteria;p__Pseudomonadota;c__Gammaproteobacteria;o__Enterobacterales;f__Enterobacteriaceae;g__Escherichia;s__Escherichia_coli\n",
+        encoding="utf-8",
+    )
+
+    assert _taxonomy_labels(manifest, "species") == {
+        "GCA_000249155.2": "Escherichia coli"
+    }
+
+
 def test_colab_wrapper_persists_streamed_log_manifest_and_failure_marker(tmp_path) -> None:
     run_dir = tmp_path / "run"
     assert colab_main(
