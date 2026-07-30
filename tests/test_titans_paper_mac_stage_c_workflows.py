@@ -17,6 +17,13 @@ from seqtrainer.torch.titans_paper_mac_stage_c.capacity_cli import (  # noqa: E4
     parse_args as parse_capacity_args,
 )
 from seqtrainer.torch.titans_paper_mac_stage_c.evaluate_cli import main as evaluate_main  # noqa: E402
+from seqtrainer.torch.titans_paper_mac_stage_c.generation_cli import (  # noqa: E402
+    _find_orfs,
+    _jensen_shannon,
+    _kmer_counts,
+    _sequence_metrics,
+    generate_continuation,
+)
 from seqtrainer.torch.titans_paper_mac_stage_c.memory_trace_cli import (  # noqa: E402
     _pca,
     _scatter_svg,
@@ -26,6 +33,56 @@ from seqtrainer.torch.titans_paper_mac_stage_c.resume_verify_cli import (  # noq
     main as resume_verify_main,
 )
 from seqtrainer.torch.titans_paper_mac_stage_c.train_cli import main as train_main  # noqa: E402
+from seqtrainer.torch.titans_paper_mac_stage_c.config import StageCModelConfig  # noqa: E402
+from seqtrainer.torch.titans_paper_mac_stage_c.model import (  # noqa: E402
+    StageCPaperMACForCausalLM,
+)
+
+
+def test_generation_distribution_and_orf_diagnostics_are_deterministic() -> None:
+    reference = "ACGT" * 30
+    divergent = "A" * 120
+
+    assert _jensen_shannon(_kmer_counts([reference], 3), _kmer_counts([reference], 3)) == 0.0
+    assert _jensen_shannon(_kmer_counts([reference], 3), _kmer_counts([divergent], 3)) > 0.0
+    metrics = _sequence_metrics("example", reference, "reference")
+    assert metrics["gc_fraction"] == 0.5
+    assert metrics["max_homopolymer"] == 1
+
+    coding = "ATG" + "AAA" * 29 + "TAA"
+    orfs = _find_orfs(coding)
+    assert any(record["length"] == 93 for record in orfs)
+
+
+def test_generation_preserves_the_inner_surprise_gradient() -> None:
+    tokenizer = SeqTrainerBaseTokenizer()
+    config = StageCModelConfig.paper_deep(
+        vocab_size=tokenizer.spec.vocab_size,
+        pad_token_id=tokenizer.spec.pad_token_id,
+        tokenizer_name=tokenizer.spec.name,
+        tokenizer_checksum=tokenizer.spec.checksum,
+        recurrence_policy="paper_exact",
+        block_count=1,
+        d_model=4,
+        num_heads=2,
+        persistent_tokens=2,
+        gradient_horizon=1,
+    )
+    model = StageCPaperMACForCausalLM(config).eval()
+
+    generated, diagnostics = generate_continuation(
+        model,
+        [2, 3],
+        new_tokens=2,
+        temperature=1.0,
+        top_k=2,
+        top_p=1.0,
+        seed=17,
+        device=torch.device("cpu"),
+    )
+
+    assert len(generated) == 2
+    assert all(np.isfinite(value) for value in diagnostics.values())
 
 
 def test_memory_trace_pca_uses_numpy_singular_values_correctly() -> None:

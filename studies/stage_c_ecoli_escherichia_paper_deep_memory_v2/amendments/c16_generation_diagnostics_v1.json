@@ -1,0 +1,16 @@
+{
+  "amendment_id": "c16_generation_diagnostics_v1",
+  "changes": {
+    "run_matrix_additions": {
+      "adaptive_exploration_5m_generation": {
+        "phase": "analysis"
+      }
+    }
+  },
+  "classification": "exploratory",
+  "created_at": "2026-07-30T00:00:00+00:00",
+  "expected_impact": "Adds conditional sequence-distribution, ORF, and gene-caller diagnostics for the completed c16 checkpoint. It cannot establish biological function or an adaptive-memory benefit.",
+  "format_version": 1,
+  "preceding_protocol_hash": "41587632b18790f761e9412617f284646098ae843701f6b2113991831ccc439e",
+  "rationale": "Generation diagnostics are needed before allocating the remaining Colab compute budget to a larger paper-deep model."
+}
