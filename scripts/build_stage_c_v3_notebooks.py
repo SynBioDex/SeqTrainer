@@ -71,6 +71,13 @@ def run_logged(root,label,command):
         for path in (root/'FAILED.txt',root/'logs'/f'{label}.log'):
             if path.exists(): print(path.read_text(errors='replace')[-20000:])
         raise
+def record_once(run_id,artifact,tier):
+    marker=STUDY_ROOT/'record_markers'/f'{run_id}.json'
+    if marker.exists():
+        print('Ledger record already exists:',marker); return
+    subprocess.run(['seqtrainer-titans-stage-c-study','record','--protocol',str(PROTOCOL),'--study-root',str(STUDY_ROOT),'--run-id',run_id,'--evidence-tier',tier,'--artifact',str(artifact)],check=True)
+    marker.parent.mkdir(parents=True,exist_ok=True)
+    marker.write_text(json.dumps({'run_id':run_id,'artifact':str(artifact)},indent=2)+'\\n')
 """
 
 DEEP_FLAGS = """deep_flags=['--memory-architecture','paper_residual_mlp_v2','--memory-depth','2','--memory-expansion-factor','4','--memory-projection-convolution-kernel','4','--memory-normalize-queries-and-keys','--memory-gate-granularity','per_layer_channel','--memory-recurrence-policy','paper_exact','--memory-surprise-clip-norm','none','--memory-alpha-initial','0.001','--memory-eta-initial','0.9','--memory-theta-initial','0.001','--memory-associative-loss-reduction','sum','--memory-max-gradient-rms','none','--memory-max-gradient-rms-ratio','none','--memory-theta-max','1.0']
@@ -88,6 +95,7 @@ if not (panels/'panel_summary.json').is_file():
     run_logged(panels,'freeze_ecoli_panels',['seqtrainer-titans-stage-c-panel','freeze','--dataset-dir',str(dataset),'--accession-manifest',ACCESSION_MANIFEST,'--ani-membership',ANI_MEMBERSHIP,'--ani-pairs',ANI_PAIRS,'--output-dir',str(panels)])
 for name in ('e25','e100','e250','e100_additions','validation','test'):
     subprocess.run(['seqtrainer-titans-stage-c-panel','validate','--dataset-dir',str(dataset),'--panel-manifest',str(panels/f'{name}.json')],check=True)
+record_once('ecoli_panel_freeze_v1',panels,'engineering')
 print((panels/'panel_summary.json').read_text())
 """,
         """import torch
@@ -98,6 +106,7 @@ run_logged(baseline,'evaluate_c16',['seqtrainer-titans-stage-c-evaluate','--data
 if not shutil.which('prodigal'):
     subprocess.run(['apt-get','update'],check=True); subprocess.run(['apt-get','install','-y','prodigal'],check=True)
 run_logged(baseline,'generate_c16',['seqtrainer-titans-stage-c-generate','--dataset-dir',str(dataset),'--panel-manifest',str(panels/'validation.json'),'--taxonomy-manifest',TAXONOMY_MANIFEST,'--checkpoint',str(c16),'--output-dir',str(baseline/'generation_t0p6'),'--split','val','--species','Escherichia coli','--prompts','4','--prompt-tokens','128','--new-tokens','1024','--temperatures','0.6','--top-k','1024','--top-p','0.99','--device','cuda','--memory-mode','adaptive','--prodigal',shutil.which('prodigal'),'--protocol',str(PROTOCOL),'--run-id','c16_broad_ecoli_baseline_v1'])
+record_once('c16_broad_ecoli_baseline_v1',baseline,'exploratory')
 print('SHARE THIS DIRECTORY:',baseline)
 """,
     ],
@@ -123,6 +132,7 @@ if not eligible: raise RuntimeError('No qualified activation; do not run 03l.')
 best=max(eligible,key=lambda x:x['bases_per_second'])
 selection={'format_version':1,'passed':True,'activation':{'exact_sdpa_fp32':'float32','exact_sdpa_bfloat16':'bfloat16'}[best['variant']],'batch_size':1,'selected':best,'total_gpu_bytes':total}
 (root/'qualification_selection.json').write_text(json.dumps(selection,indent=2,sort_keys=True)+'\\n')
+record_once('medium_a100_qualification_v1',root,'engineering')
 print(json.dumps(selection,indent=2)); print('SHARE THIS DIRECTORY:',root)
 """,
     ],
@@ -146,6 +156,7 @@ command=['seqtrainer-titans-stage-c-train','--dataset-dir',str(dataset),'--panel
 run_logged(root,'train_e25',command)
 run_logged(root,'architecture_e25',['seqtrainer-titans-stage-c-architecture','--checkpoint',str(root/'latest.pt'),'--output-dir',str(root)])
 run_logged(root,'resume_verify_e25',['seqtrainer-titans-stage-c-resume-verify','--dataset-dir',str(dataset),'--panel-manifest',str(panels/PANEL),'--checkpoint',str(root/'latest.pt'),'--output',str(root/'resume_verification.json'),'--device','cuda'])
+record_once(RUN_ID,root,'exploratory')
 print((root/'MODEL_ARCHITECTURE.txt').read_text()); print('SHARE THIS DIRECTORY:',root)
 """,
     ],
@@ -170,6 +181,7 @@ if not shutil.which('prodigal'):
 run_logged(out,'generation_e25',['seqtrainer-titans-stage-c-generate','--dataset-dir',str(dataset),'--panel-manifest',str(panels/'validation.json'),'--taxonomy-manifest',TAXONOMY_MANIFEST,'--checkpoint',str(checkpoint),'--output-dir',str(out/'generation_t0p6'),'--split','val','--species','Escherichia coli','--prompts','4','--prompt-tokens','128','--new-tokens','1024','--temperatures','0.6','--top-k','1024','--top-p','0.99','--device','cuda','--memory-mode','adaptive','--prodigal',shutil.which('prodigal'),'--protocol',str(PROTOCOL),'--run-id',RUN_ID])
 baseline=Path(DRIVE_ROOT)/'runs'/BASELINE_RUN
 subprocess.run(['seqtrainer-titans-stage-c-scale-gate','--stage',STAGE,'--baseline-evaluation',str(baseline/'evaluation/evaluation.json'),'--baseline-name','c16','--candidate-evaluation',str(out/'evaluation/evaluation.json'),'--candidate-name','adaptive','--memory-behavior',str(out/'memory_behavior.json'),'--baseline-generation',str(baseline/'generation_t0p6/generation_evaluation.json'),'--candidate-generation',str(out/'generation_t0p6/generation_evaluation.json'),'--output-dir',str(out/'gate')],check=True)
+record_once(RUN_ID,out,'exploratory')
 print((out/'gate/SCALE_GATE.md').read_text()); print('SHARE THIS DIRECTORY:',out)
 """,
     ],
@@ -190,6 +202,7 @@ parent=Path(DRIVE_ROOT)/'runs/c19_v3_medium_adaptive_e25/latest.pt'; root=Path(D
 command=['seqtrainer-titans-stage-c-train','--dataset-dir',str(dataset),'--panel-manifest',str(panels/'e100_additions.json'),'--validation-panel-manifest',str(panels/'validation.json'),'--run-dir',str(root),'--warm-start-checkpoint',str(parent),'--no-resume','--memory-mode','adaptive','--horizon','3','--batch-size',str(q['batch_size']),'--require-panel-completion','--scheduler-policy','stateful_rotation','--scheduler-burst-segments','96','--checkpoint-every','250','--learning-rate','3e-5','--min-learning-rate','3e-6','--lr-warmup-bases','2000000','--lr-decay-bases','100000000','--weight-decay','0.1','--gradient-clip-norm','0.5','--activation',q['activation'],'--block-count','12','--d-model','256','--num-heads','8','--persistent-tokens','4',*deep_flags,'--protocol',str(PROTOCOL),'--run-id',RUN_ID]
 run_logged(root,'train_e100_increment',command)
 run_logged(root,'resume_verify_e100',['seqtrainer-titans-stage-c-resume-verify','--dataset-dir',str(dataset),'--panel-manifest',str(panels/'e100_additions.json'),'--checkpoint',str(root/'latest.pt'),'--output',str(root/'resume_verification.json'),'--device','cuda'])
+record_once(RUN_ID,root,'exploratory')
 print('SHARE THIS DIRECTORY:',root)
 """,
     ],
@@ -211,6 +224,7 @@ if not shutil.which('prodigal'):
 run_logged(out,'generation_e100',['seqtrainer-titans-stage-c-generate','--dataset-dir',str(dataset),'--panel-manifest',str(panels/'validation.json'),'--taxonomy-manifest',TAXONOMY_MANIFEST,'--checkpoint',str(checkpoint),'--output-dir',str(out/'generation_t0p6'),'--split','val','--species','Escherichia coli','--prompts','4','--prompt-tokens','128','--new-tokens','1024','--temperatures','0.6','--top-k','1024','--top-p','0.99','--device','cuda','--memory-mode','adaptive','--prodigal',shutil.which('prodigal'),'--protocol',str(PROTOCOL),'--run-id',RUN_ID])
 e25=Path(DRIVE_ROOT)/'runs/c19_v3_medium_adaptive_e25/scale_analysis_v1'
 subprocess.run(['seqtrainer-titans-stage-c-scale-gate','--stage',STAGE,'--baseline-evaluation',str(e25/'evaluation/evaluation.json'),'--baseline-name','adaptive','--candidate-evaluation',str(out/'evaluation/evaluation.json'),'--candidate-name','adaptive','--memory-behavior',str(out/'memory_behavior.json'),'--baseline-generation',str(e25/'generation_t0p6/generation_evaluation.json'),'--candidate-generation',str(out/'generation_t0p6/generation_evaluation.json'),'--output-dir',str(out/'gate')],check=True)
+record_once(RUN_ID,out,'exploratory')
 print((out/'gate/SCALE_GATE.md').read_text())
 print('A PROCEED result authorizes planning matched no-memory/frozen/second-seed controls; it does not itself prove a memory benefit.')
 print('SHARE THIS DIRECTORY:',out)
