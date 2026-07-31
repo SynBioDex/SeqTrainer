@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import math
 import random
 import time
-from typing import Callable, Mapping, Sequence
+from typing import Callable, Mapping, Protocol, Sequence
 
 import torch
 from torch import Tensor
@@ -47,6 +48,7 @@ class TrainingStepRecord:
     written_state_gradient_norm: float
     elapsed_seconds: float
     bases_per_second: float
+    learning_rate: float = 0.0
     past_surprise_rms_max: float = 0.0
     momentary_surprise_rms_max: float = 0.0
     combined_surprise_rms_max: float = 0.0
@@ -59,6 +61,51 @@ class TrainingStepRecord:
 
 class NonFiniteTrainingError(RuntimeError):
     """Stop a run before non-finite model state can contaminate its evidence."""
+
+
+class StageCScheduler(Protocol):
+    """Checkpointable ordered-stream scheduler contract."""
+
+    @property
+    def exhausted(self) -> bool: ...
+
+    def next_batch(self) -> tuple[StreamSegment, ...]: ...
+
+    def to_state_dict(self) -> dict[str, object]: ...
+
+    def load_state_dict(self, payload: Mapping[str, object]) -> None: ...
+
+
+@dataclass(frozen=True)
+class BaseCosineLRSchedule:
+    """Warm up and cosine-decay by cumulative predictable DNA bases."""
+
+    peak_lr: float
+    minimum_lr: float
+    warmup_bases: int
+    decay_bases: int
+
+    def __post_init__(self) -> None:
+        if not 0 < self.minimum_lr <= self.peak_lr:
+            raise ValueError("learning-rate bounds must satisfy 0 < minimum <= peak")
+        if self.warmup_bases < 0 or self.decay_bases <= self.warmup_bases:
+            raise ValueError("decay_bases must exceed non-negative warmup_bases")
+
+    def __call__(self, processed_bases: int) -> float:
+        if processed_bases < 0:
+            raise ValueError("processed_bases cannot be negative")
+        if self.warmup_bases and processed_bases < self.warmup_bases:
+            return self.peak_lr * max(processed_bases, 1) / self.warmup_bases
+        progress = min(
+            1.0,
+            max(
+                0.0,
+                (processed_bases - self.warmup_bases)
+                / (self.decay_bases - self.warmup_bases),
+            ),
+        )
+        cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
+        return self.minimum_lr + (self.peak_lr - self.minimum_lr) * cosine
 
 
 class StreamBatchScheduler:
@@ -171,6 +218,202 @@ class StreamBatchScheduler:
         self.segments_yielded = int(payload.get("segments_yielded", 0))
 
 
+class StatefulRotationScheduler:
+    """Rotate contiguous accession bursts while retaining private stream state."""
+
+    FORMAT_VERSION = 2
+    POLICY = "stateful_rotation"
+
+    def __init__(
+        self,
+        streams: Mapping[str, Sequence[StreamSegment]],
+        *,
+        batch_size: int,
+        burst_segments: int = 96,
+        seed: int = 17,
+        shuffle: bool = True,
+    ) -> None:
+        if batch_size <= 0 or burst_segments <= 0:
+            raise ValueError("batch_size and burst_segments must be positive")
+        self.streams = dict(streams)
+        if not self.streams or any(not value for value in self.streams.values()):
+            raise ValueError("scheduler requires non-empty streams")
+        accessions: dict[str, list[str]] = {}
+        for stream_id, segments in self.streams.items():
+            first, last = segments[0], segments[-1]
+            if (
+                first.stream_id != stream_id
+                or last.stream_id != stream_id
+                or first.segment_index != 0
+                or last.segment_index != len(segments) - 1
+                or not first.start_of_stream
+                or not last.end_of_stream
+            ):
+                raise ValueError("rotation scheduler requires complete ordered streams")
+            accessions.setdefault(first.accession, []).append(stream_id)
+        self.accession_streams = {
+            accession: sorted(
+                stream_ids,
+                key=lambda stream_id: (-len(self.streams[stream_id]), stream_id),
+            )
+            for accession, stream_ids in accessions.items()
+        }
+        self.batch_size = batch_size
+        self.burst_segments = burst_segments
+        self.seed = seed
+        self.shuffle = shuffle
+        self.accession_order = sorted(self.accession_streams)
+        if shuffle:
+            random.Random(seed).shuffle(self.accession_order)
+        self.ready = list(self.accession_order)
+        self.active: list[str | None] = [None] * batch_size
+        self.active_bursts = [0] * batch_size
+        self.stream_cursors = {stream_id: 0 for stream_id in self.streams}
+        self.accession_stream_cursors = {
+            accession: 0 for accession in self.accession_streams
+        }
+        self.segments_yielded = 0
+        for slot in range(batch_size):
+            self._fill(slot)
+
+    def _fill(self, slot: int) -> None:
+        self.active[slot] = self.ready.pop(0) if self.ready else None
+        self.active_bursts[slot] = 0
+
+    def _current_stream(self, accession: str) -> str:
+        index = self.accession_stream_cursors[accession]
+        return self.accession_streams[accession][index]
+
+    @property
+    def exhausted(self) -> bool:
+        return not self.ready and all(item is None for item in self.active)
+
+    def next_batch(self) -> tuple[StreamSegment, ...]:
+        if self.exhausted:
+            raise StopIteration
+        batch: list[StreamSegment] = []
+        rotate_slots: list[int] = []
+        for slot, accession in enumerate(self.active):
+            if accession is None:
+                continue
+            stream_id = self._current_stream(accession)
+            cursor = self.stream_cursors[stream_id]
+            segment = self.streams[stream_id][cursor]
+            batch.append(segment)
+            self.segments_yielded += 1
+            self.active_bursts[slot] += 1
+            cursor += 1
+            self.stream_cursors[stream_id] = cursor
+            if cursor == len(self.streams[stream_id]):
+                next_stream = self.accession_stream_cursors[accession] + 1
+                self.accession_stream_cursors[accession] = next_stream
+                if next_stream == len(self.accession_streams[accession]):
+                    self.active[slot] = None
+                    self.active_bursts[slot] = 0
+                else:
+                    self.active_bursts[slot] = 0
+            elif self.active_bursts[slot] == self.burst_segments:
+                rotate_slots.append(slot)
+        for slot in rotate_slots:
+            accession = self.active[slot]
+            if accession is not None:
+                self.ready.append(accession)
+                self.active[slot] = None
+                self.active_bursts[slot] = 0
+        for slot, accession in enumerate(self.active):
+            if accession is None:
+                self._fill(slot)
+        return tuple(batch)
+
+    def to_state_dict(self) -> dict[str, object]:
+        return {
+            "format_version": self.FORMAT_VERSION,
+            "policy": self.POLICY,
+            "batch_size": self.batch_size,
+            "burst_segments": self.burst_segments,
+            "seed": self.seed,
+            "shuffle": self.shuffle,
+            "stream_ids": sorted(self.streams),
+            "accession_order": list(self.accession_order),
+            "accession_streams": {
+                key: list(value) for key, value in sorted(self.accession_streams.items())
+            },
+            "ready": list(self.ready),
+            "active": list(self.active),
+            "active_bursts": list(self.active_bursts),
+            "stream_cursors": dict(sorted(self.stream_cursors.items())),
+            "accession_stream_cursors": dict(
+                sorted(self.accession_stream_cursors.items())
+            ),
+            "segments_yielded": self.segments_yielded,
+        }
+
+    def load_state_dict(self, payload: Mapping[str, object]) -> None:
+        if (
+            payload.get("format_version") != self.FORMAT_VERSION
+            or payload.get("policy") != self.POLICY
+        ):
+            raise ValueError("unsupported stateful-rotation scheduler state")
+        expected = {
+            "batch_size": self.batch_size,
+            "burst_segments": self.burst_segments,
+            "seed": self.seed,
+            "shuffle": self.shuffle,
+            "stream_ids": sorted(self.streams),
+            "accession_streams": {
+                key: list(value) for key, value in sorted(self.accession_streams.items())
+            },
+        }
+        for key, value in expected.items():
+            if payload.get(key) != value:
+                raise ValueError(f"rotation scheduler {key} changed across resume")
+        active = payload.get("active")
+        bursts = payload.get("active_bursts")
+        ready = payload.get("ready")
+        stream_cursors = payload.get("stream_cursors")
+        accession_cursors = payload.get("accession_stream_cursors")
+        if (
+            not isinstance(active, list)
+            or len(active) != self.batch_size
+            or not isinstance(bursts, list)
+            or len(bursts) != self.batch_size
+            or not isinstance(ready, list)
+            or not isinstance(stream_cursors, Mapping)
+            or not isinstance(accession_cursors, Mapping)
+        ):
+            raise ValueError("rotation scheduler cursor payload is invalid")
+        known_accessions = set(self.accession_streams)
+        active_values = [None if value is None else str(value) for value in active]
+        if (
+            any(value not in known_accessions for value in active_values if value)
+            or any(str(value) not in known_accessions for value in ready)
+        ):
+            raise ValueError("rotation scheduler references an unknown accession")
+        restored_stream_cursors = {
+            str(key): int(value) for key, value in stream_cursors.items()
+        }
+        if set(restored_stream_cursors) != set(self.streams) or any(
+            not 0 <= value <= len(self.streams[key])
+            for key, value in restored_stream_cursors.items()
+        ):
+            raise ValueError("rotation scheduler stream cursor is invalid")
+        restored_accession_cursors = {
+            str(key): int(value) for key, value in accession_cursors.items()
+        }
+        if set(restored_accession_cursors) != known_accessions or any(
+            not 0 <= value <= len(self.accession_streams[key])
+            for key, value in restored_accession_cursors.items()
+        ):
+            raise ValueError("rotation scheduler accession cursor is invalid")
+        self.accession_order = [str(value) for value in payload["accession_order"]]
+        self.ready = [str(value) for value in ready]
+        self.active = active_values
+        self.active_bursts = [int(value) for value in bursts]
+        self.stream_cursors = restored_stream_cursors
+        self.accession_stream_cursors = restored_accession_cursors
+        self.segments_yielded = int(payload.get("segments_yielded", 0))
+
+
 class StageCTrainer:
     """Train the Stage C LM while separating state persistence from gradients."""
 
@@ -263,12 +506,13 @@ class StageCTrainer:
 
     def train(
         self,
-        scheduler: StreamBatchScheduler,
+        scheduler: StageCScheduler,
         *,
         max_valid_bases: int | None = None,
         max_optimizer_steps: int | None = None,
         memory_mode: MemoryMode | str | None = None,
         on_step: Callable[[TrainingStepRecord], None] | None = None,
+        learning_rate_schedule: Callable[[int], float] | None = None,
     ) -> tuple[TrainingStepRecord, ...]:
         """Train to an explicit valid-base or optimizer-step budget."""
 
@@ -330,6 +574,12 @@ class StageCTrainer:
             gradient_norm_tensor = torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(), self.gradient_clip_norm
             )
+            if learning_rate_schedule is not None:
+                scheduled_lr = float(learning_rate_schedule(self.processed_bases))
+                for group in self.optimizer.param_groups:
+                    group["lr"] = scheduled_lr
+            else:
+                scheduled_lr = float(self.optimizer.param_groups[0]["lr"])
             written_squares = [
                 tensor.grad.detach().square().sum()
                 for tensor in written_state_tensors
@@ -387,6 +637,7 @@ class StageCTrainer:
                 written_state_gradient_norm=written_gradient_norm,
                 elapsed_seconds=elapsed,
                 bases_per_second=accumulation_bases / elapsed if elapsed else 0.0,
+                learning_rate=scheduled_lr,
                 past_surprise_rms_max=memory_gradient_statistics[
                     "past_surprise_rms_max"
                 ],

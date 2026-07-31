@@ -82,6 +82,8 @@ seqtrainer-titans-stage-c-memory-trace = "seqtrainer.torch.titans_paper_mac_stag
 seqtrainer-titans-stage-c-memory-behavior = "seqtrainer.torch.titans_paper_mac_stage_c.memory_behavior_cli:main"
 seqtrainer-titans-stage-c-architecture = "seqtrainer.torch.titans_paper_mac_stage_c.architecture_cli:main"
 seqtrainer-titans-stage-c-generate = "seqtrainer.torch.titans_paper_mac_stage_c.generation_cli:main"
+seqtrainer-titans-stage-c-panel = "seqtrainer.torch.titans_paper_mac_stage_c.panel_cli:main"
+seqtrainer-titans-stage-c-scale-gate = "seqtrainer.torch.titans_paper_mac_stage_c.scale_gate_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/SynBioDex/SeqTrainer"

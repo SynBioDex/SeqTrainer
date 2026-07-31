@@ -18,8 +18,13 @@ from typing import Iterable, Mapping, Sequence
 import numpy as np
 import torch
 
-from seqtrainer.data.bacteria_titan import TokenStreamDataset
+from seqtrainer.data.bacteria_titan import (
+    StageCPanelManifest,
+    TokenStreamDataset,
+    validate_panel_against_dataset,
+)
 
+from .checkpoints import checkpoint_parent_dataset_fingerprint
 from .config import MemoryMode, StageCModelConfig
 from .memory_trace_cli import _taxonomy_labels
 from .model import BlockStates, StageCPaperMACForCausalLM, detach_stream_states
@@ -44,6 +49,7 @@ def _optional_positive_int(value: str) -> int | None:
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, required=True)
+    parser.add_argument("--panel-manifest", type=Path)
     parser.add_argument("--taxonomy-manifest", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -69,8 +75,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         parser.error("--protocol-amendment requires --protocol and --run-id")
     if args.prompts <= 0 or args.new_tokens <= 0:
         parser.error("--prompts and --new-tokens must be positive")
-    if not 1 <= args.prompt_tokens <= 32:
-        parser.error("--prompt-tokens must be between 1 and 32")
+    if args.prompt_tokens <= 0:
+        parser.error("--prompt-tokens must be positive")
     if not 0.0 < args.top_p <= 1.0:
         parser.error("--top-p must be in (0, 1]")
     try:
@@ -281,11 +287,24 @@ def generate_continuation(
 ) -> tuple[list[int], dict[str, float]]:
     """Generate without writing overlapping prefixes repeatedly into memory."""
 
-    if not prompt_tokens or len(prompt_tokens) > model.config.segment_length:
-        raise ValueError("prompt_tokens must contain one partial or complete segment")
+    if not prompt_tokens:
+        raise ValueError("prompt_tokens cannot be empty")
     generator = torch.Generator(device=device.type).manual_seed(seed)
     states = model.initial_states(f"generation-{seed}")
-    current = list(map(int, prompt_tokens))
+    width = model.config.segment_length
+    prompt = list(map(int, prompt_tokens))
+    chunks = [prompt[index : index + width] for index in range(0, len(prompt), width)]
+    for chunk in chunks[:-1]:
+        output = _forward_prefix(
+            model,
+            states,
+            chunk,
+            device=device,
+            memory_mode=memory_mode,
+        )
+        states = detach_stream_states(output.states[0])
+        del output
+    current = chunks[-1]
     generated: list[int] = []
     diagnostics: dict[str, list[float]] = defaultdict(list)
     while len(generated) < new_tokens:
@@ -346,9 +365,13 @@ def _select_prompt_streams(
     count: int,
     minimum_tokens: int,
     seed: int,
+    stream_ids: Iterable[str] | None = None,
 ) -> list[tuple[str, Sequence[object]]]:
     by_accession: dict[str, list[tuple[str, Sequence[object]]]] = defaultdict(list)
-    for stream_id, stream in dataset.streams(split=split).items():
+    for stream_id, stream in dataset.streams(
+        split=split,
+        stream_ids=stream_ids,
+    ).items():
         first = stream[0]
         if taxonomy.get(first.accession) == species and len(stream) * 32 >= minimum_tokens:
             by_accession[first.accession].append((stream_id, stream))
@@ -541,11 +564,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         else args.device
     )
     dataset = TokenStreamDataset(args.dataset_dir, verify_checksums=True)
+    panel = (
+        StageCPanelManifest.from_path(args.panel_manifest)
+        if args.panel_manifest
+        else None
+    )
+    if panel:
+        validate_panel_against_dataset(panel, dataset)
+        if panel.payload["split"] != args.split:
+            raise ValueError("generation panel split does not match --split")
     payload = _load_checkpoint(args.checkpoint, device)
     dataset_fingerprint = hashlib.sha256(
         (args.dataset_dir / "token_stream_manifest.json").read_bytes()
     ).hexdigest()
-    if payload.get("dataset_fingerprint") != dataset_fingerprint:
+    if checkpoint_parent_dataset_fingerprint(payload) != dataset_fingerprint:
         raise ValueError("checkpoint and generation dataset fingerprints differ")
     raw_config = payload.get("model_config")
     if not isinstance(raw_config, Mapping):
@@ -573,6 +605,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         count=args.prompts,
         minimum_tokens=required_tokens,
         seed=args.seed,
+        stream_ids=panel.stream_ids if panel else None,
     )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     prompt_records: dict[str, str] = {}

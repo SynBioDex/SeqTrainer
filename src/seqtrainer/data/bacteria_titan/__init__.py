@@ -33,6 +33,14 @@ from .stage_c_streams import (
     split_clade_groups,
 )
 from .token_shards import TokenShardDataset, regenerate_fasta_shards, tokenize_fasta_shards
+from .stage_c_panels import (
+    PANEL_FORMAT_VERSION,
+    StageCPanelManifest,
+    dataset_fingerprint,
+    freeze_ecoli_panels,
+    sha256_file,
+    validate_panel_against_dataset,
+)
 
 __all__ = [
     "GTDB_R220_METADATA_URL",
@@ -72,4 +80,10 @@ __all__ = [
     "validate_accession_manifest",
     "write_table",
     "write_dataset_metadata",
+    "PANEL_FORMAT_VERSION",
+    "StageCPanelManifest",
+    "dataset_fingerprint",
+    "freeze_ecoli_panels",
+    "sha256_file",
+    "validate_panel_against_dataset",
 ]

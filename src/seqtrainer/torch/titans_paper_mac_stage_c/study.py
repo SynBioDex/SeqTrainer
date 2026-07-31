@@ -24,6 +24,7 @@ SUPPORTED_STUDY_IDS = frozenset(
     {
         STUDY_ID,
         "stage_c_ecoli_escherichia_paper_deep_memory_v2",
+        "stage_c_ecoli_medium_deep_memory_v3",
     }
 )
 PROTOCOL_FILENAME = "protocol.json"

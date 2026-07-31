@@ -12,7 +12,11 @@ from typing import Sequence
 
 import torch
 
-from seqtrainer.data.bacteria_titan import TokenStreamDataset
+from seqtrainer.data.bacteria_titan import (
+    StageCPanelManifest,
+    TokenStreamDataset,
+    validate_panel_against_dataset,
+)
 from seqtrainer.torch.titans_paper_mac_stage_b import (
     ActivationDType,
     AttentionBackend,
@@ -39,6 +43,8 @@ VARIANTS = {
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, required=True)
+    parser.add_argument("--panel-manifest", type=Path)
+    parser.add_argument("--validation-panel-manifest", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--require", choices=("T4", "A100"), required=True)
     parser.add_argument("--horizons", type=int, nargs="+", choices=(1, 2, 3, 4), required=True)
@@ -167,13 +173,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.require.upper() not in device_name.upper():
         raise RuntimeError(f"required {args.require}, found {device_name}")
     dataset = TokenStreamDataset(args.dataset_dir, verify_checksums=True)
-    streams = dataset.streams(split="train")
-    validation_streams = dataset.streams(split="val")
-    train_predictable_bases = sum(
-        item.base_count
-        - int(dataset.base_lengths[item.shard_index][item.token_offset])
-        for item in dataset.index
-        if item.split == "train"
+    panel = (
+        StageCPanelManifest.from_path(args.panel_manifest)
+        if args.panel_manifest
+        else None
+    )
+    validation_panel = (
+        StageCPanelManifest.from_path(args.validation_panel_manifest)
+        if args.validation_panel_manifest
+        else None
+    )
+    for selected, split in ((panel, "train"), (validation_panel, "val")):
+        if selected:
+            validate_panel_against_dataset(selected, dataset)
+            if selected.payload["split"] != split:
+                raise ValueError(f"{split} panel has the wrong split")
+    streams = dataset.streams(
+        split="train",
+        stream_ids=panel.stream_ids if panel else None,
+    )
+    validation_streams = dataset.streams(
+        split="val",
+        stream_ids=validation_panel.stream_ids if validation_panel else None,
+    )
+    train_predictable_bases = (
+        int(panel.payload["predictable_bases"])
+        if panel
+        else sum(
+            item.base_count
+            - int(dataset.base_lengths[item.shard_index][item.token_offset])
+            for item in dataset.index
+            if item.split == "train"
+        )
     )
     tokenizer = dataset.manifest["tokenizer"]
     dataset_fingerprint = hashlib.sha256(

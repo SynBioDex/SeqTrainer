@@ -827,11 +827,17 @@ class TokenStreamDataset:
             self.tokens.append(np.load(token_path, mmap_mode="r", allow_pickle=False))
             self.base_lengths.append(np.load(length_path, mmap_mode="r", allow_pickle=False))
 
-    def streams(self, *, split: str) -> dict[str, LazyTokenStream]:
+    def streams(
+        self,
+        *,
+        split: str,
+        stream_ids: Iterable[str] | None = None,
+    ) -> dict[str, LazyTokenStream]:
         if split not in {"train", "val", "test"}:
             raise ValueError("split must be train, val, or test")
+        selected = set(map(str, stream_ids)) if stream_ids is not None else None
         pad_token_id = int(self.manifest["tokenizer"]["pad_token_id"])
-        return {
+        streams = {
             item.stream_id: LazyTokenStream(
                 item,
                 self.tokens[item.shard_index],
@@ -839,5 +845,13 @@ class TokenStreamDataset:
                 pad_token_id=pad_token_id,
             )
             for item in self.index
-            if item.split == split
+            if item.split == split and (selected is None or item.stream_id in selected)
         }
+        if selected is not None:
+            missing = selected - set(streams)
+            if missing:
+                raise ValueError(
+                    f"selected stream IDs are absent from split {split!r}: "
+                    + ", ".join(sorted(missing)[:5])
+                )
+        return streams

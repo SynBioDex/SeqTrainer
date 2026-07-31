@@ -15,10 +15,15 @@ import pandas as pd
 import torch
 from torch import Tensor
 
-from seqtrainer.data.bacteria_titan import TokenStreamDataset
+from seqtrainer.data.bacteria_titan import (
+    StageCPanelManifest,
+    TokenStreamDataset,
+    validate_panel_against_dataset,
+)
 from seqtrainer.data.bacteria_titan.stage_c_streams import ACCESSION_PATTERN
 
 from .config import MemoryMode, StageCModelConfig
+from .checkpoints import checkpoint_parent_dataset_fingerprint
 from .model import BlockStates, StageCPaperMACForCausalLM, detach_stream_states
 from .study import StudyProtocol
 from .trainer import StageCTrainer
@@ -27,6 +32,7 @@ from .trainer import StageCTrainer
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, required=True)
+    parser.add_argument("--panel-manifest", type=Path)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--split", choices=("train", "val", "test"), default="val")
@@ -222,6 +228,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         else args.device
     )
     dataset = TokenStreamDataset(args.dataset_dir, verify_checksums=True)
+    panel = (
+        StageCPanelManifest.from_path(args.panel_manifest)
+        if args.panel_manifest
+        else None
+    )
+    if panel:
+        validate_panel_against_dataset(panel, dataset)
+        if panel.payload["split"] != args.split:
+            raise ValueError("trace panel split does not match --split")
     taxonomy_by_accession = (
         _taxonomy_labels(args.taxonomy_manifest, args.taxonomy_rank)
         if args.taxonomy_manifest
@@ -231,7 +246,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     fingerprint = hashlib.sha256(
         (args.dataset_dir / "token_stream_manifest.json").read_bytes()
     ).hexdigest()
-    if payload.get("dataset_fingerprint") != fingerprint:
+    if checkpoint_parent_dataset_fingerprint(payload) != fingerprint:
         raise ValueError("checkpoint and trace dataset fingerprints differ")
     config_payload = payload.get("model_config")
     if not isinstance(config_payload, Mapping):
@@ -244,7 +259,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     vectors: list[list[float]] = []
     embedding_vectors: dict[str, list[np.ndarray]] = {}
     embedding_metadata: dict[str, dict[str, object]] = {}
-    streams = dataset.streams(split=args.split)
+    streams = dataset.streams(
+        split=args.split,
+        stream_ids=panel.stream_ids if panel else None,
+    )
     for stream_number, stream_id in enumerate(sorted(streams)):
         if stream_number >= args.max_streams or len(rows) >= args.max_segments:
             break

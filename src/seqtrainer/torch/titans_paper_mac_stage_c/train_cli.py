@@ -13,7 +13,11 @@ from typing import Sequence
 
 import torch
 
-from seqtrainer.data.bacteria_titan import TokenStreamDataset
+from seqtrainer.data.bacteria_titan import (
+    StageCPanelManifest,
+    TokenStreamDataset,
+    validate_panel_against_dataset,
+)
 from seqtrainer.torch.titans_paper_mac_stage_b import (
     ActivationDType,
     AttentionBackend,
@@ -21,12 +25,21 @@ from seqtrainer.torch.titans_paper_mac_stage_b import (
     StageBBackendConfig,
 )
 
-from .checkpoints import load_stage_c_checkpoint, save_stage_c_checkpoint
+from .checkpoints import (
+    load_stage_c_checkpoint,
+    save_stage_c_checkpoint,
+    warm_start_stage_c_checkpoint,
+)
 from .config import MemoryMode, StageCModelConfig
 from .evaluation import evaluate_ordered_streams
 from .model import StageCPaperMACForCausalLM
 from .reporting import write_training_history
-from .trainer import StageCTrainer, StreamBatchScheduler
+from .trainer import (
+    BaseCosineLRSchedule,
+    StageCTrainer,
+    StatefulRotationScheduler,
+    StreamBatchScheduler,
+)
 from .study import StudyProtocol, sha256_file
 
 
@@ -61,6 +74,8 @@ def _device(value: str) -> torch.device:
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, required=True)
+    parser.add_argument("--panel-manifest", type=Path)
+    parser.add_argument("--validation-panel-manifest", type=Path)
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--memory-mode", choices=[mode.value for mode in MemoryMode], default="adaptive")
     parser.add_argument("--horizon", type=int, choices=(1, 2, 3, 4), default=2)
@@ -71,6 +86,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-valid-bases", type=int)
     parser.add_argument("--max-optimizer-steps", type=int)
     parser.add_argument("--checkpoint-every", type=int, default=100)
+    parser.add_argument(
+        "--scheduler-policy",
+        choices=("stream_to_completion", "stateful_rotation"),
+        default="stream_to_completion",
+    )
+    parser.add_argument("--scheduler-burst-segments", type=int, default=96)
+    parser.add_argument("--require-panel-completion", action="store_true")
     parser.add_argument("--validation-streams", type=int, default=16)
     parser.add_argument("--validation-segments", type=int, default=512)
     parser.add_argument("--seed", type=int, default=20260741)
@@ -116,6 +138,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--memory-alpha-initial", type=float)
     parser.add_argument("--memory-eta-initial", type=float)
     parser.add_argument("--no-resume", action="store_true")
+    parser.add_argument("--warm-start-checkpoint", type=Path)
+    parser.add_argument("--lr-warmup-bases", type=int, default=0)
+    parser.add_argument("--lr-decay-bases", type=int, default=0)
+    parser.add_argument("--min-learning-rate", type=float, default=3e-6)
     parser.add_argument("--verify-dataset", action="store_true")
     parser.add_argument("--protocol", type=Path, help="frozen Stage C study protocol")
     parser.add_argument(
@@ -127,8 +153,31 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--run-id", help="protocol run-matrix identifier")
     args = parser.parse_args(argv)
-    if args.max_valid_bases is None and args.max_optimizer_steps is None:
-        parser.error("set --max-valid-bases or --max-optimizer-steps")
+    if (
+        args.max_valid_bases is None
+        and args.max_optimizer_steps is None
+        and not args.require_panel_completion
+    ):
+        parser.error(
+            "set --max-valid-bases, --max-optimizer-steps, or --require-panel-completion"
+        )
+    if args.require_panel_completion and (
+        args.max_valid_bases is not None or args.max_optimizer_steps is not None
+    ):
+        parser.error("--require-panel-completion cannot be combined with a stop cap")
+    if args.require_panel_completion and args.panel_manifest is None:
+        parser.error("--require-panel-completion requires --panel-manifest")
+    if args.scheduler_burst_segments <= 0:
+        parser.error("--scheduler-burst-segments must be positive")
+    if args.warm_start_checkpoint and not args.no_resume:
+        parser.error("--warm-start-checkpoint requires --no-resume")
+    if args.lr_decay_bases:
+        if args.lr_decay_bases <= args.lr_warmup_bases:
+            parser.error("--lr-decay-bases must exceed --lr-warmup-bases")
+        if not 0 < args.min_learning_rate <= args.learning_rate:
+            parser.error("--min-learning-rate must be in (0, --learning-rate]")
+    elif args.lr_warmup_bases:
+        parser.error("--lr-warmup-bases requires --lr-decay-bases")
     if bool(args.protocol) != bool(args.run_id):
         parser.error("--protocol and --run-id must be supplied together")
     if args.protocol_amendment and not args.protocol:
@@ -173,6 +222,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "memory_depth": args.memory_depth,
                 "memory_architecture": args.memory_architecture,
                 "memory_recurrence_policy": args.memory_recurrence_policy,
+                "scheduler_policy": args.scheduler_policy,
+                "scheduler_burst_segments": args.scheduler_burst_segments,
+                "require_panel_completion": args.require_panel_completion,
+                "lr_warmup_bases": args.lr_warmup_bases,
+                "lr_decay_bases": args.lr_decay_bases,
+                "minimum_learning_rate": args.min_learning_rate,
             },
             amendment_paths=args.protocol_amendment,
         )
@@ -183,6 +238,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         torch.backends.cudnn.allow_tf32 = True
     torch.set_float32_matmul_precision("high")
     dataset = TokenStreamDataset(args.dataset_dir, verify_checksums=args.verify_dataset)
+    train_panel = (
+        StageCPanelManifest.from_path(args.panel_manifest)
+        if args.panel_manifest
+        else None
+    )
+    validation_panel = (
+        StageCPanelManifest.from_path(args.validation_panel_manifest)
+        if args.validation_panel_manifest
+        else None
+    )
+    if train_panel:
+        validate_panel_against_dataset(train_panel, dataset)
+        if train_panel.payload["split"] != "train":
+            raise ValueError("training panel must select the train split")
+    if validation_panel:
+        validate_panel_against_dataset(validation_panel, dataset)
+        if validation_panel.payload["split"] != "val":
+            raise ValueError("validation panel must select the val split")
     tokenizer = dataset.manifest["tokenizer"]
     activation = ActivationDType(args.activation)
     backend = StageBBackendConfig(
@@ -225,23 +298,41 @@ def main(argv: Sequence[str] | None = None) -> int:
         lr=args.learning_rate,
         weight_decay=args.weight_decay,
     )
-    train_streams = dataset.streams(split="train")
-    validation_streams = dataset.streams(split="val")
+    train_streams = dataset.streams(
+        split="train",
+        stream_ids=train_panel.stream_ids if train_panel else None,
+    )
+    validation_streams = dataset.streams(
+        split="val",
+        stream_ids=validation_panel.stream_ids if validation_panel else None,
+    )
+    selected_train_ids = set(train_streams)
     train_corpus_bases = sum(
-        item.base_count for item in dataset.index if item.split == "train"
+        item.base_count
+        for item in dataset.index
+        if item.split == "train" and item.stream_id in selected_train_ids
     )
     train_predictable_bases = sum(
         item.base_count
         - int(dataset.base_lengths[item.shard_index][item.token_offset])
         for item in dataset.index
-        if item.split == "train"
+        if item.split == "train" and item.stream_id in selected_train_ids
     )
-    scheduler = StreamBatchScheduler(
-        train_streams,
-        batch_size=args.batch_size,
-        seed=args.seed,
-        shuffle=True,
-    )
+    if args.scheduler_policy == "stateful_rotation":
+        scheduler = StatefulRotationScheduler(
+            train_streams,
+            batch_size=args.batch_size,
+            burst_segments=args.scheduler_burst_segments,
+            seed=args.seed,
+            shuffle=True,
+        )
+    else:
+        scheduler = StreamBatchScheduler(
+            train_streams,
+            batch_size=args.batch_size,
+            seed=args.seed,
+            shuffle=True,
+        )
     trainer = StageCTrainer(
         model,
         optimizer,
@@ -251,6 +342,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args.run_dir.mkdir(parents=True, exist_ok=True)
     progress_path = args.run_dir / "LIVE_STATUS.json"
     latest_record: dict[str, object] | None = None
+    starting_bases = 0
+    starting_steps = 0
 
     def write_status(*, state: str, latest: dict[str, object] | None = None, error: BaseException | None = None) -> None:
         payload: dict[str, object] = {
@@ -258,11 +351,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             "state": state,
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "processed_bases": trainer.processed_bases,
+            "run_processed_bases": trainer.processed_bases - starting_bases,
             "requested_max_valid_bases": args.max_valid_bases,
             "optimizer_steps": trainer.optimizer_step,
             "latest": latest,
         }
-        if args.max_valid_bases:
+        if args.require_panel_completion:
+            payload["progress_fraction"] = min(
+                1.0,
+                (trainer.processed_bases - starting_bases)
+                / max(train_predictable_bases, 1),
+            )
+        elif args.max_valid_bases:
             payload["progress_fraction"] = min(1.0, trainer.processed_bases / args.max_valid_bases)
         if error is not None:
             payload["error_type"] = type(error).__name__
@@ -270,11 +370,26 @@ def main(argv: Sequence[str] | None = None) -> int:
             payload["traceback"] = traceback.format_exc()
         _write_json(progress_path, payload)
 
-    write_status(state="starting")
     latest = args.run_dir / "latest.pt"
     manifest_path = args.dataset_dir / "token_stream_manifest.json"
-    dataset_fingerprint = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    fingerprint_payload = {
+        "dataset": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "train_panel": train_panel.hash if train_panel else None,
+        "validation_panel": validation_panel.hash if validation_panel else None,
+    }
+    dataset_fingerprint = (
+        hashlib.sha256(
+            json.dumps(
+                fingerprint_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+        if train_panel or validation_panel
+        else str(fingerprint_payload["dataset"])
+    )
     commit = _git_commit()
+    warm_start_payload: dict[str, object] | None = None
     if latest.exists() and not args.no_resume:
         load_stage_c_checkpoint(
             latest,
@@ -283,6 +398,44 @@ def main(argv: Sequence[str] | None = None) -> int:
             dataset_fingerprint=dataset_fingerprint,
             trusted=True,
         )
+    elif args.warm_start_checkpoint:
+        warm_start_payload = warm_start_stage_c_checkpoint(
+            args.warm_start_checkpoint,
+            trainer,
+            trusted=True,
+        )
+    run_start_path = args.run_dir / "RUN_START.json"
+    if run_start_path.exists() and warm_start_payload is None:
+        run_start = json.loads(run_start_path.read_text(encoding="utf-8"))
+        starting_bases = int(run_start["starting_processed_bases"])
+        starting_steps = int(run_start["starting_optimizer_steps"])
+    else:
+        starting_bases = trainer.processed_bases
+        starting_steps = trainer.optimizer_step
+        _write_json(
+            run_start_path,
+            {
+                "format_version": 1,
+                "starting_processed_bases": starting_bases,
+                "starting_optimizer_steps": starting_steps,
+                "warm_start_checkpoint": (
+                    str(args.warm_start_checkpoint)
+                    if args.warm_start_checkpoint
+                    else None
+                ),
+            },
+        )
+    learning_rate_schedule = (
+        BaseCosineLRSchedule(
+            peak_lr=args.learning_rate,
+            minimum_lr=args.min_learning_rate,
+            warmup_bases=args.lr_warmup_bases,
+            decay_bases=args.lr_decay_bases,
+        )
+        if args.lr_decay_bases
+        else None
+    )
+    write_status(state="starting")
 
     def on_step(record) -> None:
         nonlocal latest_record
@@ -297,6 +450,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 scheduler,
                 dataset_fingerprint=dataset_fingerprint,
                 code_commit=commit,
+                dataset_components=fingerprint_payload,
             )
 
     try:
@@ -305,6 +459,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_valid_bases=args.max_valid_bases,
             max_optimizer_steps=args.max_optimizer_steps,
             on_step=on_step,
+            learning_rate_schedule=learning_rate_schedule,
         )
     except BaseException as error:
         write_status(state="failed", latest=latest_record, error=error)
@@ -316,6 +471,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         scheduler,
         dataset_fingerprint=dataset_fingerprint,
         code_commit=commit,
+        dataset_components=fingerprint_payload,
     )
     max_validation = None if args.validation_streams == 0 else args.validation_streams
     max_validation_segments = None if args.validation_segments == 0 else args.validation_segments
@@ -335,6 +491,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         "format_version": 1,
         "model_config": config.to_dict(),
         "dataset_fingerprint": dataset_fingerprint,
+        "dataset_components": fingerprint_payload,
+        "train_panel": (
+            {
+                "path": str(args.panel_manifest),
+                "sha256": sha256_file(args.panel_manifest),
+                "panel_hash": train_panel.hash,
+                "panel_id": train_panel.payload["panel_id"],
+            }
+            if train_panel
+            else None
+        ),
+        "validation_panel": (
+            {
+                "path": str(args.validation_panel_manifest),
+                "sha256": sha256_file(args.validation_panel_manifest),
+                "panel_hash": validation_panel.hash,
+                "panel_id": validation_panel.payload["panel_id"],
+            }
+            if validation_panel
+            else None
+        ),
         "code_commit": commit,
         "protocol": {
             "path": str(args.protocol) if args.protocol else None,
@@ -348,16 +525,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         "device_name": torch.cuda.get_device_name(device) if device.type == "cuda" else "CPU",
         "parameter_count": model.count_parameters(),
         "processed_bases": trainer.processed_bases,
+        "run_processed_bases": trainer.processed_bases - starting_bases,
+        "starting_processed_bases": starting_bases,
+        "starting_optimizer_steps": starting_steps,
         "train_corpus_bases": train_corpus_bases,
         "train_predictable_bases": train_predictable_bases,
         "observed_corpus_passes": (
-            trainer.processed_bases / train_predictable_bases
+            (trainer.processed_bases - starting_bases) / train_predictable_bases
             if train_predictable_bases
             else 0.0
         ),
         "requested_max_valid_bases": args.max_valid_bases,
         "requested_max_optimizer_steps": args.max_optimizer_steps,
+        "require_panel_completion": args.require_panel_completion,
         "learning_rate": args.learning_rate,
+        "minimum_learning_rate": args.min_learning_rate,
+        "lr_warmup_bases": args.lr_warmup_bases,
+        "lr_decay_bases": args.lr_decay_bases,
         "weight_decay": args.weight_decay,
         "gradient_clip_norm": args.gradient_clip_norm,
         "memory_surprise_clip_norm": args.memory_surprise_clip_norm,
@@ -367,8 +551,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         "memory_theta_max": args.memory_theta_max,
         "memory_theta_initial": args.memory_theta_initial,
         "scheduler_exhausted": scheduler.exhausted,
+        "scheduler_policy": args.scheduler_policy,
+        "scheduler_burst_segments": args.scheduler_burst_segments,
+        "warm_start": (
+            {
+                "path": str(args.warm_start_checkpoint),
+                "sha256": sha256_file(args.warm_start_checkpoint),
+                "parent_dataset_fingerprint": warm_start_payload.get(
+                    "dataset_fingerprint"
+                ),
+                "parent_code_commit": warm_start_payload.get("code_commit"),
+            }
+            if args.warm_start_checkpoint and warm_start_payload
+            else None
+        ),
         "stop_reason": (
-            "corpus_exhausted"
+            "panel_exhausted"
+            if scheduler.exhausted and args.require_panel_completion
+            else "corpus_exhausted"
             if scheduler.exhausted
             else "valid_base_budget"
             if args.max_valid_bases is not None and trainer.processed_bases >= args.max_valid_bases

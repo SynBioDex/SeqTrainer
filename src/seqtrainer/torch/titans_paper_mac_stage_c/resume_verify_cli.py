@@ -13,12 +13,16 @@ from typing import Mapping, Sequence
 import numpy as np
 import torch
 
-from seqtrainer.data.bacteria_titan import TokenStreamDataset
+from seqtrainer.data.bacteria_titan import (
+    StageCPanelManifest,
+    TokenStreamDataset,
+    validate_panel_against_dataset,
+)
 
 from .checkpoints import SUPPORTED_CHECKPOINT_FORMAT_VERSIONS, load_stage_c_checkpoint
 from .config import StageCModelConfig
 from .model import StageCPaperMACForCausalLM
-from .trainer import StageCTrainer, StreamBatchScheduler
+from .trainer import StageCTrainer, StatefulRotationScheduler, StreamBatchScheduler
 
 
 def _sha256(path: Path) -> str:
@@ -112,6 +116,7 @@ def _run_continuation(
     device: torch.device,
     gradient_clip_norm: float,
     expected_step: int | None,
+    stream_ids: frozenset[str] | None,
 ) -> dict[str, object]:
     payload = _read_owned_checkpoint(checkpoint, device)
     raw_config = payload.get("model_config")
@@ -121,13 +126,22 @@ def _run_continuation(
     config = StageCModelConfig.from_dict(raw_config)
     model = StageCPaperMACForCausalLM(config)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
-    streams = dataset.streams(split="train")
-    scheduler = StreamBatchScheduler(
-        streams,
-        batch_size=int(raw_scheduler["batch_size"]),
-        seed=int(raw_scheduler["seed"]),
-        shuffle=bool(raw_scheduler["shuffle"]),
-    )
+    streams = dataset.streams(split="train", stream_ids=stream_ids)
+    if raw_scheduler.get("policy") == StatefulRotationScheduler.POLICY:
+        scheduler = StatefulRotationScheduler(
+            streams,
+            batch_size=int(raw_scheduler["batch_size"]),
+            burst_segments=int(raw_scheduler["burst_segments"]),
+            seed=int(raw_scheduler["seed"]),
+            shuffle=bool(raw_scheduler["shuffle"]),
+        )
+    else:
+        scheduler = StreamBatchScheduler(
+            streams,
+            batch_size=int(raw_scheduler["batch_size"]),
+            seed=int(raw_scheduler["seed"]),
+            shuffle=bool(raw_scheduler["shuffle"]),
+        )
     trainer = StageCTrainer(
         model,
         optimizer,
@@ -193,6 +207,7 @@ def _run_continuation(
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, required=True)
+    parser.add_argument("--panel-manifest", type=Path)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--device", default="auto")
@@ -220,8 +235,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     checkpoint = args.checkpoint.resolve()
     before_hash = _sha256(checkpoint)
     manifest_path = args.dataset_dir / "token_stream_manifest.json"
-    dataset_fingerprint = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
     dataset = TokenStreamDataset(args.dataset_dir)
+    panel = (
+        StageCPanelManifest.from_path(args.panel_manifest)
+        if args.panel_manifest
+        else None
+    )
+    if panel:
+        validate_panel_against_dataset(panel, dataset)
+        if panel.payload["split"] != "train":
+            raise ValueError("resume-verification panel must select train streams")
+    parent_fingerprint = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    source_payload = _read_owned_checkpoint(checkpoint, device)
+    if panel:
+        components = source_payload.get("dataset_components")
+        if (
+            not isinstance(components, Mapping)
+            or components.get("dataset") != parent_fingerprint
+            or components.get("train_panel") != panel.hash
+        ):
+            raise ValueError("checkpoint, dataset, and training panel do not match")
+        dataset_fingerprint = str(source_payload["dataset_fingerprint"])
+    else:
+        dataset_fingerprint = parent_fingerprint
     first = _run_continuation(
         checkpoint,
         dataset,
@@ -229,6 +265,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         device=device,
         gradient_clip_norm=args.gradient_clip_norm,
         expected_step=args.expected_step,
+        stream_ids=panel.stream_ids if panel else None,
     )
     gc.collect()
     if device.type == "cuda":
@@ -240,6 +277,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         device=device,
         gradient_clip_norm=args.gradient_clip_norm,
         expected_step=args.expected_step,
+        stream_ids=panel.stream_ids if panel else None,
     )
     after_hash = _sha256(checkpoint)
     deterministic = first["component_hashes"] == second["component_hashes"]

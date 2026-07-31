@@ -11,8 +11,13 @@ from typing import Mapping, Sequence
 
 import torch
 
-from seqtrainer.data.bacteria_titan import TokenStreamDataset
+from seqtrainer.data.bacteria_titan import (
+    StageCPanelManifest,
+    TokenStreamDataset,
+    validate_panel_against_dataset,
+)
 
+from .checkpoints import checkpoint_parent_dataset_fingerprint
 from .config import MemoryMode, StageCModelConfig
 from .evaluation import EvaluationResult, evaluate_ordered_streams
 from .model import StageCPaperMACForCausalLM
@@ -57,6 +62,7 @@ def _bootstrap_difference(
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, required=True)
+    parser.add_argument("--panel-manifest", type=Path)
     parser.add_argument("--run", action="append", required=True, help="NAME=/path/to/latest.pt")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--split", choices=("val", "test"), default="val")
@@ -64,6 +70,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-segments", type=int, default=0)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--seed", type=int, default=20260747)
+    parser.add_argument(
+        "--comparison-mode",
+        choices=("full", "partial"),
+        default="full",
+    )
     parser.add_argument("--protocol", type=Path, help="frozen Stage C study protocol")
     parser.add_argument("--run-id", help="protocol run-matrix identifier for this analysis")
     return parser.parse_args(argv)
@@ -81,7 +92,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         else args.device
     )
     dataset = TokenStreamDataset(args.dataset_dir, verify_checksums=True)
-    streams = dataset.streams(split=args.split)
+    panel = (
+        StageCPanelManifest.from_path(args.panel_manifest)
+        if args.panel_manifest
+        else None
+    )
+    if panel:
+        validate_panel_against_dataset(panel, dataset)
+        if panel.payload["split"] != args.split:
+            raise ValueError("evaluation panel split does not match --split")
+    streams = dataset.streams(
+        split=args.split,
+        stream_ids=panel.stream_ids if panel else None,
+    )
     fingerprint = hashlib.sha256(
         (args.dataset_dir / "token_stream_manifest.json").read_bytes()
     ).hexdigest()
@@ -101,13 +124,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         "no_memory": MemoryMode.NONE,
     }
     missing = set(required_modes) - set(run_paths)
-    if missing:
+    if missing and args.comparison_mode == "full":
         raise ValueError(f"evaluation requires separately trained runs: {sorted(missing)}")
     if len(set(run_paths.values())) != len(run_paths):
         raise ValueError("every evaluation condition requires a distinct checkpoint path")
     for name, checkpoint_path in run_paths.items():
         payload = _load_payload(checkpoint_path, device)
-        if payload.get("dataset_fingerprint") != fingerprint:
+        if checkpoint_parent_dataset_fingerprint(payload) != fingerprint:
             raise ValueError(f"dataset fingerprint mismatch for run {name}")
         config_payload = payload.get("model_config")
         if not isinstance(config_payload, Mapping):

@@ -13,11 +13,20 @@ import torch
 from seqtrainer.torch.titans_paper_mac import PaperMACStreamState
 
 from .model import BlockStates
-from .trainer import StageCTrainer, StreamBatchScheduler, TrainingStepRecord
+from .trainer import StageCScheduler, StageCTrainer, TrainingStepRecord
 
 
 CHECKPOINT_FORMAT_VERSION = 2
 SUPPORTED_CHECKPOINT_FORMAT_VERSIONS = frozenset({1, 2})
+
+
+def checkpoint_parent_dataset_fingerprint(payload: Mapping[str, object]) -> str:
+    """Return the immutable token dataset hash, excluding optional panel hashes."""
+
+    components = payload.get("dataset_components")
+    if isinstance(components, Mapping) and components.get("dataset"):
+        return str(components["dataset"])
+    return str(payload.get("dataset_fingerprint", ""))
 
 
 def _cpu_byte_rng_state(value: object, *, name: str) -> torch.Tensor:
@@ -57,10 +66,11 @@ def _restore_states(
 def save_stage_c_checkpoint(
     path: str | Path,
     trainer: StageCTrainer,
-    scheduler: StreamBatchScheduler,
+    scheduler: StageCScheduler,
     *,
     dataset_fingerprint: str,
     code_commit: str,
+    dataset_components: Mapping[str, object] | None = None,
 ) -> Path:
     """Atomically save only at the trainer's detached optimizer boundary."""
 
@@ -83,6 +93,7 @@ def save_stage_c_checkpoint(
             "torch_cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
         },
         "dataset_fingerprint": dataset_fingerprint,
+        "dataset_components": dict(dataset_components or {}),
         "code_commit": code_commit,
     }
     temporary = destination.with_suffix(destination.suffix + ".partial")
@@ -94,7 +105,7 @@ def save_stage_c_checkpoint(
 def load_stage_c_checkpoint(
     path: str | Path,
     trainer: StageCTrainer,
-    scheduler: StreamBatchScheduler,
+    scheduler: StageCScheduler,
     *,
     dataset_fingerprint: str,
     trusted: bool = False,
@@ -138,6 +149,57 @@ def load_stage_c_checkpoint(
     if not isinstance(raw_history, list):
         raise ValueError("checkpoint history is invalid")
     trainer.history = [TrainingStepRecord(**row) for row in raw_history if isinstance(row, Mapping)]
+    rng = payload.get("rng")
+    if not isinstance(rng, Mapping):
+        raise ValueError("checkpoint RNG state is invalid")
+    random.setstate(rng["python"])
+    np.random.set_state(rng["numpy"])
+    torch.set_rng_state(_cpu_byte_rng_state(rng.get("torch_cpu"), name="torch_cpu"))
+    raw_cuda_rng = rng.get("torch_cuda", [])
+    if torch.cuda.is_available() and raw_cuda_rng:
+        if not isinstance(raw_cuda_rng, (list, tuple)):
+            raise ValueError("checkpoint torch_cuda RNG state is invalid")
+        torch.cuda.set_rng_state_all(
+            [_cpu_byte_rng_state(value, name="torch_cuda") for value in raw_cuda_rng]
+        )
+    return dict(payload)
+
+
+def warm_start_stage_c_checkpoint(
+    path: str | Path,
+    trainer: StageCTrainer,
+    *,
+    trusted: bool = False,
+) -> dict[str, object]:
+    """Continue slow weights/optimizer/RNG while starting a new stream panel."""
+
+    if not trusted:
+        raise ValueError("Stage C checkpoints contain Python RNG state; pass trusted=True")
+    source = Path(path)
+    try:
+        payload = torch.load(source, map_location=trainer.device, weights_only=False)
+    except TypeError:
+        payload = torch.load(source, map_location=trainer.device)
+    if (
+        not isinstance(payload, Mapping)
+        or payload.get("format_version") not in SUPPORTED_CHECKPOINT_FORMAT_VERSIONS
+    ):
+        raise ValueError("unsupported Stage C checkpoint format")
+    if payload.get("model_config") != trainer.model.config.to_dict():
+        raise ValueError("model/tokenizer/backend configuration changed across warm start")
+    trainer.model.load_state_dict(payload["model_state"])
+    trainer.optimizer.load_state_dict(payload["optimizer_state"])
+    raw_trainer = payload.get("trainer_state")
+    if not isinstance(raw_trainer, Mapping):
+        raise ValueError("checkpoint is missing trainer state")
+    trainer.optimizer_step = int(raw_trainer.get("optimizer_step", 0))
+    trainer.processed_segments = int(raw_trainer.get("processed_segments", 0))
+    trainer.processed_tokens = int(raw_trainer.get("processed_tokens", 0))
+    trainer.processed_bases = int(raw_trainer.get("processed_bases", 0))
+    # A warm start is a new exposure event, so old functional stream state and
+    # step history are deliberately not imported.
+    trainer.stream_states = {}
+    trainer.history = []
     rng = payload.get("rng")
     if not isinstance(rng, Mapping):
         raise ValueError("checkpoint RNG state is invalid")
