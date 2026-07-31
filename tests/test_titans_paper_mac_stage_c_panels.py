@@ -119,6 +119,35 @@ def test_complete_ecoli_panels_are_nested_hashed_and_dataset_linked(tmp_path) ->
     assert summary["panels"]["e25"]["sha256"]
 
 
+def test_panel_order_covers_ani99_groups_before_balanced_repeats(tmp_path) -> None:
+    dataset_dir, accessions, membership, pairs = _panel_fixture(tmp_path)
+    train = accessions["accession"].isin([_accession(index) for index in range(1, 7)])
+    replacement = {
+        _accession(index): f"ani99_train_{index % 2}" for index in range(1, 7)
+    }
+    membership.loc[membership["accession"].isin(replacement), "ani_cluster_99"] = (
+        membership.loc[membership["accession"].isin(replacement), "accession"].map(
+            replacement
+        )
+    )
+    accessions.loc[train, "ani_cluster_99"] = accessions.loc[train, "accession"].map(
+        replacement
+    )
+    paths = freeze_ecoli_panels(
+        dataset_dir=dataset_dir,
+        accession_manifest=accessions,
+        ani_membership=membership,
+        ani_pairs=pairs,
+        output_dir=tmp_path / "panels",
+        targets={"e25": 180, "e100": 360, "e250": 540},
+        seed=31,
+    )
+    panel = StageCPanelManifest.from_path(paths["e250"])
+    groups = [row["ani_cluster_99"] for row in panel.payload["selection_order"]]
+    assert len(set(groups[:2])) == 2
+    assert len(groups) > len(set(groups))
+
+
 def test_panel_freeze_rejects_draft_or_low_quality_assemblies(tmp_path) -> None:
     dataset_dir, accessions, membership, pairs = _panel_fixture(tmp_path)
     accessions["assembly_level"] = "Scaffold"

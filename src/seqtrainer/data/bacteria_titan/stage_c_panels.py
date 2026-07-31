@@ -194,7 +194,7 @@ def _predictable_bases(dataset: TokenStreamDataset, stream_ids: Iterable[str]) -
     return total
 
 
-def _representatives(
+def _ranked_assemblies(
     candidates: pd.DataFrame,
     membership: pd.DataFrame,
     dataset: TokenStreamDataset,
@@ -275,7 +275,20 @@ def _representatives(
         ascending=[True, False, False, False, True, True],
         kind="stable",
     )
-    return frame.groupby("ani_cluster_99", sort=True, as_index=False).first()
+    # Consolidate after wide source-manifest joins so group selection does not
+    # inherit a highly fragmented pandas block layout.
+    return frame.copy()
+
+
+def _representatives(
+    candidates: pd.DataFrame,
+    membership: pd.DataFrame,
+    dataset: TokenStreamDataset,
+    *,
+    split: str,
+) -> pd.DataFrame:
+    ranked = _ranked_assemblies(candidates, membership, dataset, split=split)
+    return ranked.groupby("ani_cluster_99", sort=True, as_index=False).first()
 
 
 def _group_order(
@@ -341,6 +354,36 @@ def _group_order(
         if phylogroup_column:
             seen_phylogroups.add(str(frame.loc[selected, phylogroup_column]))
     return chosen
+
+
+def _balanced_accession_order(
+    representatives: pd.DataFrame,
+    ranked_assemblies: pd.DataFrame,
+    representative_order: Sequence[str],
+) -> list[str]:
+    """Cover ANI99 representatives, then draw extra assemblies round-robin."""
+
+    representative_groups = representatives.set_index("accession")["ani_cluster_99"]
+    group_order = [str(representative_groups.loc[item]) for item in representative_order]
+    queues: dict[str, list[str]] = {}
+    representative_set = set(representative_order)
+    for group in group_order:
+        queues[group] = [
+            str(accession)
+            for accession in ranked_assemblies.loc[
+                ranked_assemblies["ani_cluster_99"].astype(str).eq(group),
+                "accession",
+            ]
+            if str(accession) not in representative_set
+        ]
+    ordered = list(representative_order)
+    while any(queues.values()):
+        for group in group_order:
+            if queues[group]:
+                ordered.append(queues[group].pop(0))
+    if len(ordered) != ranked_assemblies["accession"].nunique():
+        raise ValueError("balanced ANI99 ordering did not cover every eligible assembly")
+    return ordered
 
 
 def _panel_payload(
@@ -429,13 +472,21 @@ def freeze_ecoli_panels(
         & normalized["contamination"].le(2.0)
         & normalized["assembly_level"].astype(str).str.casefold().eq("complete genome")
     ].copy()
-    representatives = _representatives(
+    ranked_assemblies = _ranked_assemblies(
         candidates,
         ani_membership,
         dataset,
         split="train",
     )
-    selection = _group_order(representatives, ani_pairs, seed=seed)
+    representatives = ranked_assemblies.groupby(
+        "ani_cluster_99", sort=True, as_index=False
+    ).first()
+    representative_order = _group_order(representatives, ani_pairs, seed=seed)
+    selection = _balanced_accession_order(
+        representatives,
+        ranked_assemblies,
+        representative_order,
+    )
     parent_fingerprint = dataset_fingerprint(dataset_dir)
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
@@ -452,8 +503,17 @@ def freeze_ecoli_panels(
             ],
         ) < target:
             if len(selected) >= len(selection):
+                eligible_bases = _predictable_bases(
+                    dataset,
+                    [
+                        item.stream_id
+                        for item in dataset.index
+                        if item.accession in set(selection) and item.split == "train"
+                    ],
+                )
                 raise ValueError(
-                    f"complete E. coli representatives provide insufficient bases for {name}"
+                    f"eligible complete E. coli assemblies provide {eligible_bases} "
+                    f"predictable bases, insufficient for {name} target {target}"
                 )
             selected.append(selection[len(selected)])
         payload = _panel_payload(
@@ -463,7 +523,7 @@ def freeze_ecoli_panels(
             dataset=dataset,
             parent_fingerprint=parent_fingerprint,
             accessions=selected,
-            representatives=representatives,
+            representatives=ranked_assemblies,
             target_bases=target,
             seed=seed,
             source_provenance=source_provenance,
@@ -485,7 +545,7 @@ def freeze_ecoli_panels(
             dataset=dataset,
             parent_fingerprint=parent_fingerprint,
             accessions=additions,
-            representatives=representatives,
+            representatives=ranked_assemblies,
             target_bases=max(
                 1, targets["e100"] - targets["e25"]
             ),
@@ -544,6 +604,7 @@ def freeze_ecoli_panels(
         "selection_seed": seed,
         "source_provenance": dict(source_provenance or {}),
         "selection_order": selection,
+        "representative_order": representative_order,
         "panels": {
             name: {
                 "path": path.name,
