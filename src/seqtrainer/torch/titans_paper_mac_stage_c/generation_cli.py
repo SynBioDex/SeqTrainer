@@ -32,6 +32,15 @@ START_CODONS = frozenset(("ATG", "GTG", "TTG"))
 STOP_CODONS = frozenset(("TAA", "TAG", "TGA"))
 
 
+def _optional_positive_int(value: str) -> int | None:
+    if value.lower() in {"none", "unrestricted"}:
+        return None
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("value must be positive or 'none'")
+    return parsed
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, required=True)
@@ -44,7 +53,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--prompt-tokens", type=int, default=32)
     parser.add_argument("--new-tokens", type=int, default=1024)
     parser.add_argument("--temperatures", default="0.8,1.0,1.2")
-    parser.add_argument("--top-k", type=int, default=128)
+    parser.add_argument("--top-k", type=_optional_positive_int, default=128)
     parser.add_argument("--top-p", type=float, default=0.95)
     parser.add_argument("--seed", type=int, default=20260781)
     parser.add_argument("--device", default="auto")
@@ -62,8 +71,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         parser.error("--prompts and --new-tokens must be positive")
     if not 1 <= args.prompt_tokens <= 32:
         parser.error("--prompt-tokens must be between 1 and 32")
-    if args.top_k <= 0 or not 0.0 < args.top_p <= 1.0:
-        parser.error("--top-k must be positive and --top-p must be in (0, 1]")
+    if not 0.0 < args.top_p <= 1.0:
+        parser.error("--top-p must be in (0, 1]")
     try:
         args.temperatures = tuple(float(item) for item in args.temperatures.split(","))
     except ValueError as error:
@@ -139,6 +148,12 @@ def _sequence_metrics(sequence_id: str, sequence: str, group: str) -> dict[str, 
     gc = normalized.count("G") + normalized.count("C")
     sixmers = _kmer_counts((normalized,), 6)
     possible = max(1, len(normalized) - 5)
+    aligned_sixmers = [
+        normalized[offset : offset + 6]
+        for offset in range(0, len(normalized) - 5, 6)
+        if set(normalized[offset : offset + 6]).issubset(DNA)
+    ]
+    orfs = _find_orfs(normalized)
     return {
         "sequence_id": sequence_id,
         "group": group,
@@ -148,6 +163,14 @@ def _sequence_metrics(sequence_id: str, sequence: str, group: str) -> dict[str, 
         "base_entropy_bits": _base_entropy(normalized),
         "max_homopolymer": _max_homopolymer(normalized),
         "unique_6mer_fraction": len(sixmers) / possible,
+        "aligned_unique_6mer_fraction": (
+            len(set(aligned_sixmers)) / max(len(aligned_sixmers), 1)
+        ),
+        "heuristic_orfs_at_least_90bp": len(orfs),
+        "heuristic_longest_orf_bases": max(
+            (int(record["length"]) for record in orfs),
+            default=0,
+        ),
     }
 
 
@@ -186,7 +209,7 @@ def _sample_token(
     logits: torch.Tensor,
     *,
     temperature: float,
-    top_k: int,
+    top_k: int | None,
     top_p: float,
     generator: torch.Generator,
     forbidden_ids: Sequence[int],
@@ -195,7 +218,7 @@ def _sample_token(
     for token_id in forbidden_ids:
         if 0 <= token_id < values.numel():
             values[token_id] = -torch.inf
-    if top_k < values.numel():
+    if top_k is not None and top_k < values.numel():
         threshold = torch.topk(values, top_k).values[-1]
         values = values.masked_fill(values < threshold, -torch.inf)
     if top_p < 1.0:
@@ -250,7 +273,7 @@ def generate_continuation(
     *,
     new_tokens: int,
     temperature: float,
-    top_k: int,
+    top_k: int | None,
     top_p: float,
     seed: int,
     device: torch.device,
@@ -470,6 +493,9 @@ def _mean_metrics(rows: Sequence[Mapping[str, object]], group: str) -> dict[str,
             "base_entropy_bits",
             "max_homopolymer",
             "unique_6mer_fraction",
+            "aligned_unique_6mer_fraction",
+            "heuristic_orfs_at_least_90bp",
+            "heuristic_longest_orf_bases",
         )
     }
 
@@ -746,12 +772,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "",
         "## Distribution summary",
         "",
-        "| Group | Mean bases | GC | N | entropy | max homopolymer | unique 6-mer fraction |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| Group | Mean bases | GC | entropy | max homopolymer | overlapping 6-mer diversity | aligned 6-mer diversity | ORFs >=90 bp | longest ORF |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
         *[
-            "| {group} | {bases:.1f} | {gc_fraction:.4f} | {n_fraction:.4f} | "
+            "| {group} | {bases:.1f} | {gc_fraction:.4f} | "
             "{base_entropy_bits:.4f} | {max_homopolymer:.2f} | "
-            "{unique_6mer_fraction:.4f} |".format(
+            "{unique_6mer_fraction:.4f} | {aligned_unique_6mer_fraction:.4f} | "
+            "{heuristic_orfs_at_least_90bp:.2f} | "
+            "{heuristic_longest_orf_bases:.2f} |".format(
                 group=group, **distribution_summary[group]
             )
             for group in labels

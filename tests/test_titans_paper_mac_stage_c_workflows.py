@@ -23,6 +23,7 @@ from seqtrainer.torch.titans_paper_mac_stage_c.generation_cli import (  # noqa: 
     _kmer_counts,
     _sequence_metrics,
     generate_continuation,
+    parse_args as parse_generation_args,
 )
 from seqtrainer.torch.titans_paper_mac_stage_c.memory_trace_cli import (  # noqa: E402
     _pca,
@@ -48,10 +49,33 @@ def test_generation_distribution_and_orf_diagnostics_are_deterministic() -> None
     metrics = _sequence_metrics("example", reference, "reference")
     assert metrics["gc_fraction"] == 0.5
     assert metrics["max_homopolymer"] == 1
+    assert metrics["aligned_unique_6mer_fraction"] == 0.1
 
     coding = "ATG" + "AAA" * 29 + "TAA"
     orfs = _find_orfs(coding)
     assert any(record["length"] == 93 for record in orfs)
+    coding_metrics = _sequence_metrics("coding", coding, "reference")
+    assert coding_metrics["heuristic_orfs_at_least_90bp"] >= 1
+    assert coding_metrics["heuristic_longest_orf_bases"] >= 93
+
+
+def test_generation_cli_accepts_an_unrestricted_top_k(tmp_path) -> None:
+    args = parse_generation_args(
+        [
+            "--dataset-dir",
+            str(tmp_path / "dataset"),
+            "--taxonomy-manifest",
+            str(tmp_path / "taxonomy.csv"),
+            "--checkpoint",
+            str(tmp_path / "latest.pt"),
+            "--output-dir",
+            str(tmp_path / "output"),
+            "--top-k",
+            "none",
+        ]
+    )
+
+    assert args.top_k is None
 
 
 def test_generation_preserves_the_inner_surprise_gradient() -> None:

@@ -1,0 +1,16 @@
+{
+  "amendment_id": "c16_decoding_ablation_v1",
+  "changes": {
+    "run_matrix_additions": {
+      "adaptive_exploration_5m_decoding_ablation": {
+        "phase": "analysis"
+      }
+    }
+  },
+  "classification": "exploratory",
+  "created_at": "2026-07-30T00:00:00+00:00",
+  "expected_impact": "Separates temperature, top-k, and top-p effects on c16 sequence diversity and realism without changing model weights. It adds temperature 0.6 and cannot establish biological function or adaptive-memory benefit.",
+  "format_version": 1,
+  "preceding_protocol_hash": "41587632b18790f761e9412617f284646098ae843701f6b2113991831ccc439e",
+  "rationale": "The first c16 generation study showed severe tokenizer-aligned 6-mer concentration under top-k 128. A factorized decoding screen is needed before attributing the concentration to training or allocating A100 compute."
+}
