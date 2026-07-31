@@ -45,7 +45,7 @@ DATASET_NAME='nonoverlap_6mer_v1'
 TAXONOMY_MANIFEST=f'{{DRIVE_ROOT}}/stage_c_dataset/manifests/accession_manifest.parquet'
 ACCESSION_MANIFEST=TAXONOMY_MANIFEST
 ANI_MEMBERSHIP=f'{{DRIVE_ROOT}}/stage_c_dataset/manifests/ani99_membership.parquet'
-ANI_PAIRS=f'{{DRIVE_ROOT}}/stage_c_dataset/manifests/skani_triangle.tsv'
+ANI_PAIRS=f'{{DRIVE_ROOT}}/inputs/ecoli_skani_triangle.tsv'
 """
 
 BOOTSTRAP = """from pathlib import Path
