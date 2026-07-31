@@ -41,11 +41,13 @@ CONFIG = f"""# USER CONFIGURATION
 REPO_URL='https://github.com/Gonza10V/SeqTrainer.git'
 GIT_REF='{PIN}'
 DRIVE_ROOT='/content/drive/MyDrive/SeqTrainerStageC'
+SOURCE_ROOT='/content/drive/MyDrive/bacteria_titan_v1_ecoli_related_15gbp'
 DATASET_NAME='nonoverlap_6mer_v1'
 TAXONOMY_MANIFEST=f'{{DRIVE_ROOT}}/stage_c_dataset/manifests/accession_manifest.parquet'
 ACCESSION_MANIFEST=TAXONOMY_MANIFEST
 ANI_MEMBERSHIP=f'{{DRIVE_ROOT}}/stage_c_dataset/manifests/ani99_membership.parquet'
 ANI_PAIRS=f'{{DRIVE_ROOT}}/inputs/ecoli_skani_triangle.tsv'
+NCBI_ZIP_DIR=f'{{SOURCE_ROOT}}/raw/ncbi_dataset_zips'
 """
 
 BOOTSTRAP = """from pathlib import Path
@@ -91,8 +93,10 @@ write(
         BOOTSTRAP,
         """for path in map(Path,(ACCESSION_MANIFEST,ANI_MEMBERSHIP,ANI_PAIRS)):
     if not path.is_file(): raise FileNotFoundError(path)
+if not Path(NCBI_ZIP_DIR).is_dir():
+    raise FileNotFoundError('Add the bacteria_titan_v1_ecoli_related_15gbp shared-folder shortcut to My Drive: '+NCBI_ZIP_DIR)
 if not (panels/'panel_summary.json').is_file():
-    run_logged(panels,'freeze_ecoli_panels',['seqtrainer-titans-stage-c-panel','freeze','--dataset-dir',str(dataset),'--accession-manifest',ACCESSION_MANIFEST,'--ani-membership',ANI_MEMBERSHIP,'--ani-pairs',ANI_PAIRS,'--output-dir',str(panels)])
+    run_logged(panels,'freeze_ecoli_panels',['seqtrainer-titans-stage-c-panel','freeze','--dataset-dir',str(dataset),'--accession-manifest',ACCESSION_MANIFEST,'--ani-membership',ANI_MEMBERSHIP,'--ani-pairs',ANI_PAIRS,'--ncbi-zip-dir',NCBI_ZIP_DIR,'--output-dir',str(panels)])
 for name in ('e25','e100','e250','e100_additions','validation','test'):
     subprocess.run(['seqtrainer-titans-stage-c-panel','validate','--dataset-dir',str(dataset),'--panel-manifest',str(panels/f'{name}.json')],check=True)
 record_once('ecoli_panel_freeze_v1',panels,'engineering')
