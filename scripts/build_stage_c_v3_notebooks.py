@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).parents[1] / "notebooks" / "titans_stage_c"
-PIN = "__PINNED_COMMIT__"
+PIN = "df20b8614ca3165d365dd945948ca24d9495d27e"
 
 
 def cell(source: str, kind: str = "code") -> dict[str, object]:
