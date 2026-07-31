@@ -44,6 +44,9 @@ def _panel_fixture(tmp_path):
                     "contamination": 0.2,
                     "assembly_level": "Complete Genome",
                     "gtdb_representative": "t",
+                    # The production normalized manifest retains this derived
+                    # field in addition to the separately frozen membership.
+                    "ani_cluster_99": f"ani99_{index:06d}",
                 }
             )
             membership.append(

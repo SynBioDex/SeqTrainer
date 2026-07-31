@@ -205,6 +205,27 @@ def _representatives(
         raise ValueError("ANI membership requires accession and ani_cluster_99")
     membership = membership.copy()
     membership["accession"] = membership["accession"].map(_accession)
+    membership = membership[["accession", "ani_cluster_99"]].drop_duplicates()
+    conflicting = membership.groupby("accession")["ani_cluster_99"].nunique().gt(1)
+    if conflicting.any():
+        raise ValueError("ANI membership assigns an accession to multiple ANI99 groups")
+    membership = membership.drop_duplicates("accession")
+    if "ani_cluster_99" in candidates:
+        comparison = candidates[["accession", "ani_cluster_99"]].merge(
+            membership,
+            on="accession",
+            how="inner",
+            suffixes=("_manifest", "_membership"),
+        )
+        populated = comparison["ani_cluster_99_manifest"].notna()
+        disagreement = populated & comparison["ani_cluster_99_manifest"].astype(
+            str
+        ).ne(comparison["ani_cluster_99_membership"].astype(str))
+        if disagreement.any():
+            accession = comparison.loc[disagreement, "accession"].iloc[0]
+            raise ValueError(
+                "accession manifest and ANI membership disagree for " f"{accession}"
+            )
     indexed = pd.DataFrame(
         {
             "accession": [item.accession for item in dataset.index if item.split == split],
@@ -222,7 +243,14 @@ def _representatives(
         )
         .reset_index()
     )
-    frame = candidates.merge(membership[["accession", "ani_cluster_99"]], on="accession")
+    # The normalized source manifest may already carry these derived fields.
+    # Recompute them from the frozen membership and token index after checking
+    # that any duplicated ANI assignment agrees.
+    base_candidates = candidates.drop(
+        columns=["ani_cluster_99", "stream_count", "indexed_bases", "gc_fraction"],
+        errors="ignore",
+    )
+    frame = base_candidates.merge(membership, on="accession")
     frame = frame.merge(assembly, on="accession")
     if frame.empty:
         raise ValueError("no complete E. coli train assemblies overlap the token dataset")
