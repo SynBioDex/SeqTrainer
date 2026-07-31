@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).parents[1] / "notebooks" / "titans_stage_c"
-PIN = "df20b8614ca3165d365dd945948ca24d9495d27e"
+PIN = "4b35abbc6a0970fcbbff47b6b1f814f01e668bf1"
 
 
 def cell(source: str, kind: str = "code") -> dict[str, object]:
