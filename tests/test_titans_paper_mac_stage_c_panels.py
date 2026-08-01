@@ -115,8 +115,50 @@ def test_complete_ecoli_panels_are_nested_hashed_and_dataset_linked(tmp_path) ->
     )
     assert len(validation.payload["accessions"]) == 8
     assert len(test.payload["accessions"]) == 8
+    assert validation.payload["eligibility"]["selected_assembly_level_counts"] == {
+        "Complete Genome": 8
+    }
+    assert set(e100.payload["ani99_groups"]).isdisjoint(
+        validation.payload["ani99_groups"]
+    )
+    assert set(e100.payload["ani99_groups"]).isdisjoint(test.payload["ani99_groups"])
     summary = json.loads(paths["summary"].read_text(encoding="utf-8"))
     assert summary["panels"]["e25"]["sha256"]
+    assert summary["split_policy"]["training"] == "complete high-quality E. coli only"
+
+
+def test_heldout_panels_prefer_complete_but_allow_high_quality_drafts(tmp_path) -> None:
+    dataset_dir, accessions, membership, pairs = _panel_fixture(tmp_path)
+    for split_start in (101, 201):
+        drafts = [_accession(index) for index in range(split_start + 2, split_start + 8)]
+        accessions.loc[
+            accessions["accession"].isin(drafts), "assembly_level"
+        ] = "Scaffold"
+
+    paths = freeze_ecoli_panels(
+        dataset_dir=dataset_dir,
+        accession_manifest=accessions,
+        ani_membership=membership,
+        ani_pairs=pairs,
+        output_dir=tmp_path / "panels",
+        targets={"e25": 180, "e100": 360, "e250": 540},
+        seed=31,
+    )
+    validation = StageCPanelManifest.from_path(paths["validation"])
+    test = StageCPanelManifest.from_path(paths["test"])
+    for panel in (validation, test):
+        assert len(panel.payload["accessions"]) == 8
+        assert panel.payload["eligibility"]["selected_assembly_level_counts"] == {
+            "Complete Genome": 2,
+            "Scaffold": 6,
+        }
+        assert panel.payload["eligibility"]["training_eligibility_unchanged"] == (
+            "Complete Genome only"
+        )
+        assert all(
+            row["completeness"] >= 95.0 and row["contamination"] <= 2.0
+            for row in panel.payload["selection_order"]
+        )
 
 
 def test_panel_order_covers_ani99_groups_before_balanced_repeats(tmp_path) -> None:

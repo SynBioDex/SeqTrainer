@@ -288,7 +288,12 @@ def _representatives(
     split: str,
 ) -> pd.DataFrame:
     ranked = _ranked_assemblies(candidates, membership, dataset, split=split)
-    return ranked.groupby("ani_cluster_99", sort=True, as_index=False).first()
+    # ``ranked`` intentionally retains source metadata for provenance.  On the
+    # production manifest that makes it wide enough for groupby.first() to
+    # trigger pandas fragmentation warnings.  Stable sorting has already put
+    # the preferred representative first, so drop_duplicates is equivalent
+    # here and does not repeatedly insert result columns.
+    return ranked.drop_duplicates("ani_cluster_99", keep="first").reset_index(drop=True)
 
 
 def _group_order(
@@ -398,6 +403,7 @@ def _panel_payload(
     target_bases: int,
     seed: int,
     source_provenance: Mapping[str, object] | None = None,
+    eligibility: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     selected = set(accessions)
     rows = [
@@ -412,6 +418,9 @@ def _panel_payload(
             "accession": accession,
             "ani_cluster_99": str(lookup.loc[accession, "ani_cluster_99"]),
             "gc_fraction": float(lookup.loc[accession, "gc_fraction"]),
+            "assembly_level": str(lookup.loc[accession, "assembly_level"]),
+            "completeness": float(lookup.loc[accession, "completeness"]),
+            "contamination": float(lookup.loc[accession, "contamination"]),
             "streams": sum(item.accession == accession for item in rows),
             "bases": sum(item.base_count for item in rows if item.accession == accession),
         }
@@ -431,14 +440,87 @@ def _panel_payload(
         "stream_ids": stream_ids,
         "selection_order": order,
         "source_provenance": dict(source_provenance or {}),
-        "eligibility": {
+        "eligibility": dict(eligibility or {
             "scope": "ecoli_species",
             "assembly_level": "Complete Genome",
             "minimum_completeness": 95.0,
             "maximum_contamination": 2.0,
             "one_representative_per_ani99_before_repeats": True,
-        },
+        }),
     }
+
+
+def _heldout_panels(
+    *,
+    candidates: pd.DataFrame,
+    membership: pd.DataFrame,
+    pairs: pd.DataFrame,
+    dataset: TokenStreamDataset,
+    seed: int,
+    minimum_representatives: int = 8,
+    maximum_representatives: int = 12,
+) -> dict[str, tuple[pd.DataFrame, list[str]]]:
+    """Select disjoint held-out ANI99 representatives from native val/test.
+
+    Complete assemblies are preferred within every ANI99 group.  When a
+    frozen source split does not contain enough complete assemblies, a
+    high-quality scaffold/chromosome representative is an evaluation-only
+    fallback.  Training eligibility remains complete-genome-only.
+    """
+
+    selected_groups: set[str] = set()
+    result: dict[str, tuple[pd.DataFrame, list[str]]] = {}
+    for offset, split in enumerate(("val", "test"), start=1):
+        split_accessions = {
+            item.accession for item in dataset.index if item.split == split
+        }
+        split_candidates = candidates.loc[
+            candidates["accession"].isin(split_accessions)
+        ].copy()
+        ranked = _ranked_assemblies(
+            split_candidates,
+            membership,
+            dataset,
+            split=split,
+        )
+        ranked["rank_complete"] = ranked["assembly_level"].astype(
+            str
+        ).str.casefold().eq("complete genome").astype(int)
+        ranked = ranked.sort_values(
+            [
+                "ani_cluster_99",
+                "rank_complete",
+                "rank_refseq",
+                "rank_representative",
+                "quality_score",
+                "stream_count",
+                "accession",
+            ],
+            ascending=[True, False, False, False, False, True, True],
+            kind="stable",
+        )
+        representatives = ranked.drop_duplicates(
+            "ani_cluster_99", keep="first"
+        ).reset_index(drop=True)
+        representatives = representatives.loc[
+            ~representatives["ani_cluster_99"].astype(str).isin(selected_groups)
+        ].reset_index(drop=True)
+        if len(representatives) < minimum_representatives:
+            complete = int(representatives["rank_complete"].sum())
+            raise ValueError(
+                f"{split} has only {len(representatives)} high-quality E. coli "
+                f"ANI99 representatives ({complete} complete); at least "
+                f"{minimum_representatives} are required after cross-heldout "
+                "ANI99 isolation"
+            )
+        order = _group_order(representatives, pairs, seed=seed + offset)
+        selected = order[: min(maximum_representatives, len(order))]
+        selected_frame = representatives.loc[
+            representatives["accession"].isin(selected)
+        ].copy()
+        selected_groups.update(selected_frame["ani_cluster_99"].astype(str))
+        result[split] = (representatives, selected)
+    return result
 
 
 def freeze_ecoli_panels(
@@ -466,21 +548,48 @@ def freeze_ecoli_panels(
         accession_manifest,
         ncbi_zip_dir=Path(ncbi_zip_dir) if ncbi_zip_dir else None,
     )
-    candidates = normalized.loc[
+    quality_candidates = normalized.loc[
         normalized["scope"].eq("ecoli_species")
         & normalized["completeness"].ge(95.0)
         & normalized["contamination"].le(2.0)
-        & normalized["assembly_level"].astype(str).str.casefold().eq("complete genome")
     ].copy()
+    candidates = quality_candidates.loc[
+        quality_candidates["assembly_level"].astype(str).str.casefold().eq(
+            "complete genome"
+        )
+    ].copy()
+    normalized_membership = ani_membership.copy()
+    normalized_membership["accession"] = normalized_membership["accession"].map(
+        _accession
+    )
+    heldout = _heldout_panels(
+        candidates=quality_candidates,
+        membership=normalized_membership,
+        pairs=ani_pairs,
+        dataset=dataset,
+        seed=seed,
+    )
+    heldout_groups = {
+        str(row["ani_cluster_99"])
+        for representatives_frame, selected_accessions in heldout.values()
+        for _, row in representatives_frame.loc[
+            representatives_frame["accession"].isin(selected_accessions)
+        ].iterrows()
+    }
     ranked_assemblies = _ranked_assemblies(
         candidates,
-        ani_membership,
+        normalized_membership,
         dataset,
         split="train",
     )
-    representatives = ranked_assemblies.groupby(
-        "ani_cluster_99", sort=True, as_index=False
-    ).first()
+    ranked_assemblies = ranked_assemblies.loc[
+        ~ranked_assemblies["ani_cluster_99"].astype(str).isin(heldout_groups)
+    ].reset_index(drop=True)
+    if ranked_assemblies.empty:
+        raise ValueError("held-out ANI99 isolation removed every eligible train assembly")
+    representatives = ranked_assemblies.drop_duplicates(
+        "ani_cluster_99", keep="first"
+    ).reset_index(drop=True)
     representative_order = _group_order(representatives, ani_pairs, seed=seed)
     selection = _balanced_accession_order(
         representatives,
@@ -555,30 +664,15 @@ def freeze_ecoli_panels(
         path = output / "e100_additions.json"
         path.write_text(canonical_json(payload) + "\n", encoding="utf-8")
         paths["e100_additions"] = path
-    normalized_membership = ani_membership.copy()
-    normalized_membership["accession"] = normalized_membership["accession"].map(
-        _accession
-    )
     for split, role in (("val", "validation"), ("test", "test")):
-        split_accessions = {
-            item.accession for item in dataset.index if item.split == split
-        }
-        split_candidates = candidates.loc[
-            candidates["accession"].isin(split_accessions)
+        split_representatives, selected_heldout = heldout[split]
+        selected_rows = split_representatives.loc[
+            split_representatives["accession"].isin(selected_heldout)
         ]
-        split_representatives = _representatives(
-            split_candidates,
-            normalized_membership,
-            dataset,
-            split=split,
-        )
-        if len(split_representatives) < 8:
-            raise ValueError(
-                f"{split} has only {len(split_representatives)} eligible complete "
-                "E. coli ANI99 representatives; at least 8 are required"
-            )
-        split_order = _group_order(split_representatives, ani_pairs, seed=seed + 1)
-        selected_heldout = split_order[: min(12, len(split_order))]
+        assembly_counts = {
+            str(level): int(count)
+            for level, count in selected_rows["assembly_level"].value_counts().items()
+        }
         payload = _panel_payload(
             panel_id=f"stage_c_v3_{role}",
             role=role,
@@ -594,6 +688,15 @@ def freeze_ecoli_panels(
             ),
             seed=seed,
             source_provenance=source_provenance,
+            eligibility={
+                "scope": "ecoli_species",
+                "assembly_level": "Complete Genome preferred; high-quality evaluation-only fallback",
+                "selected_assembly_level_counts": assembly_counts,
+                "minimum_completeness": 95.0,
+                "maximum_contamination": 2.0,
+                "one_representative_per_ani99": True,
+                "training_eligibility_unchanged": "Complete Genome only",
+            },
         )
         path = output / f"{role}.json"
         path.write_text(canonical_json(payload) + "\n", encoding="utf-8")
@@ -605,6 +708,12 @@ def freeze_ecoli_panels(
         "source_provenance": dict(source_provenance or {}),
         "selection_order": selection,
         "representative_order": representative_order,
+        "split_policy": {
+            "training": "complete high-quality E. coli only",
+            "heldout": "native val/test high-quality E. coli; complete preferred within ANI99",
+            "ani99_isolation": "selected validation/test ANI99 groups excluded from every train panel",
+            "heldout_ani99_groups": sorted(heldout_groups),
+        },
         "panels": {
             name: {
                 "path": path.name,
