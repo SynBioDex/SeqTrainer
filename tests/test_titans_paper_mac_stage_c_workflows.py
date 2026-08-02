@@ -589,6 +589,12 @@ def test_v3_training_and_evaluation_notebooks_preserve_resume_paths() -> None:
     assert "RUN_FULL_A100=False" in baseline
     assert "c17_v3_c16_broad_baseline_resumable" in baseline
 
+    e25 = source("03l_stage_c_v3_medium_adaptive_e25.ipynb")
+    assert "RUN_SEED=str(RUN_SPEC['seed'])" in e25
+    assert "'--seed',RUN_SEED" in e25
+
     e100 = source("03n_stage_c_v3_medium_adaptive_e100_increment.ipynb")
     assert "startup=[] if resume_checkpoint.is_file()" in e100
     assert "else ['--warm-start-checkpoint',str(parent),'--no-resume']" in e100
+    assert "RUN_SEED=str(RUN_SPEC['seed'])" in e100
+    assert "'--seed',RUN_SEED" in e100
