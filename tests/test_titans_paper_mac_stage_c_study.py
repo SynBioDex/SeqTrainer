@@ -29,6 +29,15 @@ PAPER_DEEP_PROTOCOL = (
 PAPER_DEEP_ADAPTIVE_5M_AMENDMENT = (
     PAPER_DEEP_PROTOCOL.parent / "amendments" / "adaptive_exploration_5m_v1.json"
 )
+V3_PROTOCOL = (
+    Path(__file__).parents[1]
+    / "studies"
+    / "stage_c_ecoli_medium_deep_memory_v3"
+    / "protocol.json"
+)
+V3_RESUMABLE_BASELINE_AMENDMENT = (
+    V3_PROTOCOL.parent / "amendments" / "c16_resumable_baseline_v1.json"
+)
 
 
 def test_frozen_protocol_is_valid_and_canonical_hash_is_deterministic() -> None:
@@ -118,6 +127,26 @@ def test_record_accepts_a_source_controlled_exploratory_addition(tmp_path: Path)
 
     assert event["run_id"] == "adaptive_exploration_5m"
     assert event["evidence_tier"] == "exploratory"
+
+
+def test_v3_resumable_pilot_is_linked_and_frozen() -> None:
+    protocol = validate_protocol(V3_PROTOCOL)
+    protocol.validate_run_config(
+        "c16_broad_ecoli_pilot_v1",
+        {
+            "phase": "analysis",
+            "evidence_tier": "exploratory",
+            "max_segments_per_accession": 256,
+            "resumable": True,
+        },
+        amendment_paths=[V3_RESUMABLE_BASELINE_AMENDMENT],
+    )
+    with pytest.raises(ValueError, match="conflicts"):
+        protocol.validate_run_config(
+            "c16_broad_ecoli_pilot_v1",
+            {"max_segments_per_accession": 512},
+            amendment_paths=[V3_RESUMABLE_BASELINE_AMENDMENT],
+        )
 
 
 def test_failed_runs_remain_visible_and_block_final_report(tmp_path: Path) -> None:

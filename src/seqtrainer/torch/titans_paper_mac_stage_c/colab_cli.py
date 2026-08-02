@@ -89,6 +89,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         "log": str(log_path.relative_to(run_dir)),
     }
     steps = list(prior["steps"])
+    for prior_step in steps:
+        if (
+            isinstance(prior_step, dict)
+            and prior_step.get("label") == args.label
+            and prior_step.get("status") == "running"
+        ):
+            prior_step.update(
+                {
+                    "status": "interrupted",
+                    "finished_at": started,
+                    "interruption_reason": (
+                        "a new invocation of the same label started before the prior "
+                        "wrapper recorded completion; resume artifacts remain authoritative"
+                    ),
+                }
+            )
     steps.append(step)
     manifest = {"format_version": 1, "environment": environment, "steps": steps}
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")

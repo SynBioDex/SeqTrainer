@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 import sys
@@ -9,8 +10,14 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from seqtrainer.data.bacteria_titan import materialize_token_stream_dataset  # noqa: E402
-from seqtrainer.torch.titans_paper_mac_stage_c import SeqTrainerBaseTokenizer  # noqa: E402
+from seqtrainer.data.bacteria_titan import (  # noqa: E402
+    TokenStreamDataset,
+    materialize_token_stream_dataset,
+)
+from seqtrainer.torch.titans_paper_mac_stage_c import (  # noqa: E402
+    SeqTrainerBaseTokenizer,
+    evaluate_ordered_streams,
+)
 from seqtrainer.torch.titans_paper_mac_stage_c.colab_cli import main as colab_main  # noqa: E402
 from seqtrainer.torch.titans_paper_mac_stage_c.capacity_cli import (  # noqa: E402
     _write_capacity_artifacts,
@@ -57,6 +64,112 @@ def test_generation_distribution_and_orf_diagnostics_are_deterministic() -> None
     coding_metrics = _sequence_metrics("coding", coding, "reference")
     assert coding_metrics["heuristic_orfs_at_least_90bp"] >= 1
     assert coding_metrics["heuristic_longest_orf_bases"] >= 93
+
+
+def test_evaluation_is_accession_balanced_resumable_and_contract_locked(tmp_path) -> None:
+    dataset_dir = tmp_path / "dataset"
+    tokenizer = SeqTrainerBaseTokenizer()
+    records = [
+        {
+            "accession": accession,
+            "contig_id": "chromosome",
+            "sequence": sequence,
+            "split": "val",
+            "clade_group": f"ani99:{accession}",
+        }
+        for accession, sequence in (
+            ("val-a", "ACGT" * 150),
+            ("val-b", "TGCA" * 150),
+        )
+    ]
+    materialize_token_stream_dataset(records, tokenizer, dataset_dir, tokens_per_shard=512)
+    streams = TokenStreamDataset(dataset_dir).streams(split="val")
+    config = StageCModelConfig(
+        vocab_size=tokenizer.spec.vocab_size,
+        pad_token_id=tokenizer.spec.pad_token_id,
+        tokenizer_name=tokenizer.spec.name,
+        tokenizer_checksum=tokenizer.spec.checksum,
+        block_count=1,
+        d_model=4,
+        num_heads=2,
+        persistent_tokens=2,
+        memory_depth=1,
+        gradient_horizon=1,
+    )
+    base = StageCPaperMACForCausalLM(config)
+    uninterrupted_model = copy.deepcopy(base)
+    resumed_model = copy.deepcopy(base)
+    common = {
+        "device": torch.device("cpu"),
+        "max_segments_per_accession": 3,
+        "checkpoint_every_segments": 1,
+        "progress_every_segments": 1,
+        "resume_contract": {"fixture": "balanced-v1"},
+    }
+    expected = evaluate_ordered_streams(
+        uninterrupted_model,
+        streams,
+        progress_path=tmp_path / "expected_status.json",
+        run_label="expected",
+        **common,
+    )
+    checkpoint = tmp_path / "resume" / "evaluation.pt"
+    original_forward = resumed_model.forward_segment
+    calls = 0
+
+    def interrupted_forward(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("simulated Colab disconnect")
+        return original_forward(*args, **kwargs)
+
+    resumed_model.forward_segment = interrupted_forward  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError, match="simulated Colab disconnect"):
+        evaluate_ordered_streams(
+            resumed_model,
+            streams,
+            resume_checkpoint=checkpoint,
+            progress_path=tmp_path / "resumed_status.json",
+            run_label="resumed",
+            **common,
+        )
+    interrupted_status = json.loads(
+        (tmp_path / "resumed_status.json").read_text(encoding="utf-8")
+    )
+    assert interrupted_status["state"] == "interrupted"
+    assert interrupted_status["completed_segments"] == 1
+    assert checkpoint.is_file()
+
+    resumed_model.forward_segment = original_forward  # type: ignore[method-assign]
+    actual = evaluate_ordered_streams(
+        resumed_model,
+        streams,
+        resume_checkpoint=checkpoint,
+        progress_path=tmp_path / "resumed_status.json",
+        run_label="resumed",
+        **common,
+    )
+
+    assert actual.to_dict() == expected.to_dict()
+    assert actual.segments == 6
+    assert set(actual.per_accession_bpb) == {"val-a", "val-b"}
+    assert actual.per_accession_segments == {"val-a": 3, "val-b": 3}
+    completed_status = json.loads(
+        (tmp_path / "resumed_status.json").read_text(encoding="utf-8")
+    )
+    assert completed_status["state"] == "completed"
+    assert completed_status["resumed"] is True
+    assert completed_status["progress_fraction"] == pytest.approx(1.0)
+    with pytest.raises(ValueError, match="contract changed"):
+        evaluate_ordered_streams(
+            resumed_model,
+            streams,
+            resume_checkpoint=checkpoint,
+            resume_contract={"fixture": "different"},
+            max_segments_per_accession=3,
+            device="cpu",
+        )
 
 
 def test_generation_cli_accepts_an_unrestricted_top_k(tmp_path) -> None:
@@ -178,6 +291,28 @@ def test_colab_wrapper_persists_streamed_log_manifest_and_failure_marker(tmp_pat
     manifest = json.loads((run_dir / "colab_run_manifest.json").read_text(encoding="utf-8"))
     assert manifest["steps"][-1]["status"] == "passed"
     assert not (run_dir / "FAILED.txt").exists()
+
+    # A hard Colab disconnect cannot run the wrapper's finalizer.  On the next
+    # invocation, the stale same-label attempt must no longer remain "running".
+    manifest["steps"][-1]["status"] = "running"
+    (run_dir / "colab_run_manifest.json").write_text(
+        json.dumps(manifest), encoding="utf-8"
+    )
+    assert colab_main(
+        [
+            "--run-dir",
+            str(run_dir),
+            "--label",
+            "passing",
+            "--",
+            sys.executable,
+            "-c",
+            "print('resumed invocation')",
+        ]
+    ) == 0
+    manifest = json.loads((run_dir / "colab_run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["steps"][-2]["status"] == "interrupted"
+    assert manifest["steps"][-1]["status"] == "passed"
 
     with pytest.raises(SystemExit):
         colab_main(
@@ -360,6 +495,35 @@ def test_production_stream_dataset_trains_checkpoints_and_reports_on_cpu(tmp_pat
         == verification["second_continuation"]["continued_optimizer_step"]
         == 2
     )
+    evaluation_dir = tmp_path / "evaluation_partial"
+    assert evaluate_main(
+        [
+            "--dataset-dir",
+            str(dataset_dir),
+            "--output-dir",
+            str(evaluation_dir),
+            "--run",
+            f"c16={run_dir / 'latest.pt'}",
+            "--comparison-mode",
+            "partial",
+            "--max-segments-per-accession",
+            "1",
+            "--resume",
+            "--checkpoint-every-segments",
+            "1",
+            "--progress-every-segments",
+            "1",
+            "--device",
+            "cpu",
+        ]
+    ) == 0
+    evaluation = json.loads((evaluation_dir / "evaluation.json").read_text())
+    evaluation_status = json.loads((evaluation_dir / "c16_LIVE_STATUS.json").read_text())
+    assert evaluation["execution"]["resumable"] is True
+    assert evaluation["execution"]["max_segments_per_accession"] == 1
+    assert evaluation["results"]["c16"]["segments"] == 1
+    assert evaluation_status["state"] == "completed"
+    assert not (evaluation_dir / "resume" / "c16.evaluation.pt").exists()
     with pytest.raises(ValueError, match="separately trained runs"):
         evaluate_main(
             [
@@ -410,3 +574,21 @@ def test_stream_dataset_notebook_preserves_the_colab_numeric_abi_stack() -> None
     assert "pandas==2.2.2" not in source
     assert "pyarrow==18.1.0" not in source
     assert "[sys.executable,'-m','venv'" not in source
+
+
+def test_v3_training_and_evaluation_notebooks_preserve_resume_paths() -> None:
+    root = Path(__file__).parents[1] / "notebooks" / "titans_stage_c"
+
+    def source(name: str) -> str:
+        payload = json.loads((root / name).read_text(encoding="utf-8"))
+        return "\n".join("".join(cell.get("source", [])) for cell in payload["cells"])
+
+    baseline = source("03j_stage_c_v3_freeze_panels_and_c16_baseline.ipynb")
+    assert "--resume" in baseline
+    assert "PILOT_SEGMENTS_PER_ACCESSION=256" in baseline
+    assert "RUN_FULL_A100=False" in baseline
+    assert "c17_v3_c16_broad_baseline_resumable" in baseline
+
+    e100 = source("03n_stage_c_v3_medium_adaptive_e100_increment.ipynb")
+    assert "startup=[] if resume_checkpoint.is_file()" in e100
+    assert "else ['--warm-start-checkpoint',str(parent),'--no-resume']" in e100

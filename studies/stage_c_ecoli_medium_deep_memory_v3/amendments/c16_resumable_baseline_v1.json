@@ -1,0 +1,26 @@
+{
+  "amendment_id": "c16_resumable_baseline_v1",
+  "changes": {
+    "analysis_policy": {
+      "full_baseline_device": "A100 required by notebook policy",
+      "full_baseline_resumable": true,
+      "pilot_is_selection_ineligible": true,
+      "resume_contract": "checkpoint, dataset, panel, model configuration, memory mode, limits, and deterministic work-plan hashes must match",
+      "t4_pilot_segments_per_accession": 256
+    },
+    "run_matrix_additions": {
+      "c16_broad_ecoli_pilot_v1": {
+        "evidence_tier": "exploratory",
+        "max_segments_per_accession": 256,
+        "phase": "analysis",
+        "resumable": true
+      }
+    }
+  },
+  "classification": "engineering",
+  "created_at": "2026-08-01T00:00:00+00:00",
+  "expected_impact": "The bounded pilot provides an early balanced health check but cannot replace the uncapped held-out baseline or support model selection. Interrupted evaluation can restart from its last durable segment checkpoint without double-counting evidence.",
+  "format_version": 1,
+  "preceding_protocol_hash": "5775f349d2aa2ccb5c2f10987302fcbdefb9472ad2c26fb2cbce90bc8363b16c",
+  "rationale": "The original 03j evaluation traversed 41,615,672 held-out predictable bases with adaptive inner-loop memory updates, emitted no progress, and had no resume artifact. Colab interruptions could therefore discard many hours of work. A bounded accession-balanced T4 pilot and a resumable A100 full evaluation separate operational validation from the predeclared full baseline while preserving the frozen protocol."
+}

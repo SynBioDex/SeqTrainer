@@ -37,3 +37,25 @@ selected held-out ANI99 group is excluded from all training panels, and each
 manifest records the achieved assembly-level counts. This broadens the
 assembly-level scope of evaluation; it does not change training exposure or
 permit a whole-genome claim for draft-derived evaluation streams.
+
+## 2026-08-01 resumable c16 baseline amendment
+
+The original c16 baseline attempted all 41,615,672 predictable validation
+bases in one T4 process. Adaptive evaluation performs the neural-memory inner
+update with gradients on every segment, so this is not equivalent to a cheap
+forward-only Transformer pass. It also produced no durable cursor or progress
+artifact. A Colab disconnect could consequently erase many hours of work.
+
+Evaluation now freezes a deterministic segment plan and periodically writes an
+atomic checkpoint containing its next cursor, aggregate metrics, and the
+detached per-stream fast weights, surprise momentum, and projection histories.
+Resume is accepted only when the checkpoint, dataset, panel, model
+configuration, memory mode, limits, and work-plan hashes match. Replayed work
+starts from the last durable checkpoint and cannot be counted twice.
+
+Notebook 03j first runs an exploratory T4 pilot capped at 256 segments per
+validation accession. Equal segment caps avoid allowing one accession to
+dominate this operational check. The pilot is explicitly ineligible for model
+selection and cannot substitute for the uncapped baseline. The uncapped run is
+reserved for an A100 and remains the evidence associated with
+`c16_broad_ecoli_baseline_v1`.

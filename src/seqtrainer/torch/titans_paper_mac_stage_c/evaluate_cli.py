@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import random
 from typing import Mapping, Sequence
@@ -23,6 +24,21 @@ from .evaluation import EvaluationResult, evaluate_ordered_streams
 from .model import StageCPaperMACForCausalLM
 from .reporting import bar_svg
 from .study import StudyProtocol
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _atomic_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".partial")
+    temporary.write_text(content, encoding="utf-8")
+    os.replace(temporary, path)
 
 
 def _load_payload(path: Path, device: torch.device) -> Mapping[str, object]:
@@ -68,6 +84,19 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--split", choices=("val", "test"), default="val")
     parser.add_argument("--max-streams", type=int, default=0)
     parser.add_argument("--max-segments", type=int, default=0)
+    parser.add_argument(
+        "--max-segments-per-accession",
+        type=int,
+        default=0,
+        help="deterministic prefix cap applied independently to each accession",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="resume from an atomic checkpoint under OUTPUT_DIR/resume",
+    )
+    parser.add_argument("--checkpoint-every-segments", type=int, default=128)
+    parser.add_argument("--progress-every-segments", type=int, default=32)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--seed", type=int, default=20260747)
     parser.add_argument(
@@ -76,6 +105,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default="full",
     )
     parser.add_argument("--protocol", type=Path, help="frozen Stage C study protocol")
+    parser.add_argument("--protocol-amendment", type=Path, action="append", default=[])
     parser.add_argument("--run-id", help="protocol run-matrix identifier for this analysis")
     return parser.parse_args(argv)
 
@@ -84,8 +114,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     if bool(args.protocol) != bool(args.run_id):
         raise ValueError("--protocol and --run-id must be supplied together")
+    if args.protocol_amendment and not args.protocol:
+        raise ValueError("--protocol-amendment requires --protocol and --run-id")
+    if args.checkpoint_every_segments <= 0 or args.progress_every_segments <= 0:
+        raise ValueError("evaluation checkpoint/progress intervals must be positive")
     if args.protocol:
-        StudyProtocol.from_path(args.protocol).validate_run_config(args.run_id, {"phase": "analysis"})
+        StudyProtocol.from_path(args.protocol).validate_run_config(
+            args.run_id,
+            {
+                "phase": "analysis",
+                "max_segments_per_accession": args.max_segments_per_accession,
+                "resumable": args.resume,
+            },
+            amendment_paths=args.protocol_amendment,
+        )
     device = torch.device(
         "cuda" if args.device == "auto" and torch.cuda.is_available()
         else "cpu" if args.device == "auto"
@@ -108,8 +150,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     fingerprint = hashlib.sha256(
         (args.dataset_dir / "token_stream_manifest.json").read_bytes()
     ).hexdigest()
+    args.output_dir.mkdir(parents=True, exist_ok=True)
     results: dict[str, EvaluationResult] = {}
     run_paths: dict[str, Path] = {}
+    resume_paths: list[Path] = []
     for specification in args.run:
         if "=" not in specification:
             raise ValueError("--run must use NAME=/checkpoint/path")
@@ -143,6 +187,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         model = StageCPaperMACForCausalLM(config).to(device)
         model.load_state_dict(payload["model_state"])
+        checkpoint_sha256 = _sha256_file(checkpoint_path)
+        resume_path = args.output_dir / "resume" / f"{name}.evaluation.pt"
+        if args.resume:
+            resume_paths.append(resume_path)
         results[name] = evaluate_ordered_streams(
             model,
             streams,
@@ -150,6 +198,26 @@ def main(argv: Sequence[str] | None = None) -> int:
             memory_mode=config.memory_mode,
             max_streams=None if args.max_streams == 0 else args.max_streams,
             max_segments=None if args.max_segments == 0 else args.max_segments,
+            max_segments_per_accession=(
+                None
+                if args.max_segments_per_accession == 0
+                else args.max_segments_per_accession
+            ),
+            resume_checkpoint=resume_path if args.resume else None,
+            resume_contract={
+                "dataset_fingerprint": fingerprint,
+                "panel_sha256": None if panel is None else panel.hash,
+                "checkpoint_sha256": checkpoint_sha256,
+                "split": args.split,
+                "run_name": name,
+                "max_streams": args.max_streams,
+                "max_segments": args.max_segments,
+                "max_segments_per_accession": args.max_segments_per_accession,
+            },
+            checkpoint_every_segments=args.checkpoint_every_segments,
+            progress_every_segments=args.progress_every_segments,
+            progress_path=args.output_dir / f"{name}_LIVE_STATUS.json",
+            run_label=name,
         )
     comparisons = {}
     for control in ("frozen_memory", "no_memory"):
@@ -175,22 +243,38 @@ def main(argv: Sequence[str] | None = None) -> int:
         "format_version": 1,
         "split": args.split,
         "results": {name: result.to_dict() for name, result in results.items()},
+        "execution": {
+            "resumable": args.resume,
+            "checkpoint_every_segments": args.checkpoint_every_segments,
+            "progress_every_segments": args.progress_every_segments,
+            "max_streams": args.max_streams,
+            "max_segments": args.max_segments,
+            "max_segments_per_accession": args.max_segments_per_accession,
+            "panel_sha256": None if panel is None else panel.hash,
+            "panel_predictable_bases": (
+                None if panel is None else int(panel.payload["predictable_bases"])
+            ),
+            "coverage_fraction": {
+                name: (
+                    None
+                    if panel is None
+                    else result.valid_bases / int(panel.payload["predictable_bases"])
+                )
+                for name, result in results.items()
+            },
+        },
         "comparisons": comparisons,
         "full_corpus_gate_passed": gate_passed,
         "threshold_bpb": 0.01,
     }
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    (args.output_dir / "evaluation.json").write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    (args.output_dir / "evaluation_bpb.svg").write_text(
+    _atomic_text(
+        args.output_dir / "evaluation_bpb.svg",
         bar_svg(
             list(results),
             [result.bits_per_base for result in results.values()],
             title=f"Stage C held-out {args.split} BPB",
             x_label="Bits per base (lower is better)",
         ),
-        encoding="utf-8",
     )
     gc_labels = [
         f"{name}: {gc_bin.removeprefix('gc_')}"
@@ -202,16 +286,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         for result in results.values()
         for gc_bin in sorted(result.per_gc_bin_bpb)
     ]
-    (args.output_dir / "evaluation_gc_bpb.svg").write_text(
+    _atomic_text(
+        args.output_dir / "evaluation_gc_bpb.svg",
         bar_svg(
             gc_labels,
             gc_values,
             title=f"Stage C held-out {args.split} BPB by whole-contig GC bin",
             x_label="Bits per base (lower is better)",
         ),
-        encoding="utf-8",
     )
-    (args.output_dir / "evaluation_memory_diagnostics.svg").write_text(
+    _atomic_text(
+        args.output_dir / "evaluation_memory_diagnostics.svg",
         bar_svg(
             [
                 f"{name}: {metric}"
@@ -231,7 +316,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             title="Held-out memory behavior",
             x_label="Mean segment norm",
         ),
-        encoding="utf-8",
     )
     lines = [
         "# Stage C held-out evaluation",
@@ -266,7 +350,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             "The gate requires adaptive memory to improve by at least 0.01 BPB over both separately trained controls and paired accession bootstrap intervals to support the direction.",
         ]
     )
-    (args.output_dir / "EVALUATION_REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _atomic_text(args.output_dir / "EVALUATION_REPORT.md", "\n".join(lines) + "\n")
+    # This is the completion marker used by notebooks.  Write it atomically and
+    # only after every derivative artifact is durable.
+    _atomic_text(
+        args.output_dir / "evaluation.json",
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+    )
+    for resume_path in resume_paths:
+        resume_path.unlink(missing_ok=True)
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
 
