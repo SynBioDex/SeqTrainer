@@ -188,6 +188,28 @@ outputs\benchmarks\dnabert2_finetune_t4_seed42\
 |-- best_model.pt
 ~~~
 
+For the current `annotation-sbol3-labeled-promoters` branch, the verified
+local T4 bundle is stored here:
+
+~~~text
+outputs\validation\dnabert2_finetune_t4_seed42_bundle\
+|-- manifest.json
+|-- checkpoints\
+|-- best_model.pt
+~~~
+
+Check the bundle before starting annotation:
+
+~~~powershell
+Test-Path "outputs\validation\dnabert2_finetune_t4_seed42_bundle\manifest.json"
+Test-Path "outputs\validation\dnabert2_finetune_t4_seed42_bundle\checkpoints\best_model.pt"
+~~~
+
+Both commands must print `True`. A path such as
+`models\dnabert2_finetune_t4_seed42` is only valid after that directory has
+actually been created and populated with these two files. Relative paths are
+resolved from the repository directory shown by `Get-Location`.
+
 The checkpoint contains learned model weights. The manifest records the model
 preprocessing, sequence length, and validation-selected threshold. Both files
 must come from the same training run. Large checkpoints should remain in local
@@ -198,7 +220,7 @@ storage, Google Drive, or HPC storage rather than being committed to Git.
 The model-bundle option automatically finds the checkpoint and manifest:
 
 ~~~powershell
-seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --model-bundle models\dnabert2_finetune_t4_seed42 --step-size 25 --scan-both-strands --output outputs\annotations\pAN1717_dnabert2\annotated.gb --predictions-csv outputs\annotations\pAN1717_dnabert2\predictions.csv --manifest outputs\annotations\pAN1717_dnabert2\manifest.json --sbol-output outputs\annotations\pAN1717_dnabert2\annotated.nt --sbol2-output outputs\annotations\pAN1717_dnabert2\annotated.rdf --clean-output --open-output-folder
+seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --model-bundle outputs\validation\dnabert2_finetune_t4_seed42_bundle --step-size 25 --scan-both-strands --output outputs\annotations\pAN1717_dnabert2\annotated.gb --predictions-csv outputs\annotations\pAN1717_dnabert2\predictions.csv --manifest outputs\annotations\pAN1717_dnabert2\manifest.json --sbol-output outputs\annotations\pAN1717_dnabert2\annotated.nt --sbol2-output outputs\annotations\pAN1717_dnabert2\annotated.rdf --clean-output --open-output-folder
 ~~~
 
 Do not add --threshold for this run. The threshold comes from the validation
@@ -207,7 +229,7 @@ benchmark manifest and is not tuned on the plasmid.
 The equivalent explicit-path form is:
 
 ~~~powershell
-seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --checkpoint outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt --benchmark-manifest outputs\benchmarks\dnabert2_finetune_t4_seed42\manifest.json --step-size 25 --scan-both-strands --output outputs\annotations\pAN1717_dnabert2\annotated.gb --predictions-csv outputs\annotations\pAN1717_dnabert2\predictions.csv --manifest outputs\annotations\pAN1717_dnabert2\manifest.json --clean-output
+seqtrainer annotate promoters "C:\Users\Sgoff\Downloads\pAN1717_cyan.gb" --model-family dnabert2 --checkpoint "outputs\validation\dnabert2_finetune_t4_seed42_bundle\checkpoints\best_model.pt" --benchmark-manifest "outputs\validation\dnabert2_finetune_t4_seed42_bundle\manifest.json" --step-size 25 --scan-both-strands --output "outputs\annotations\pAN1717_dnabert2\annotated.gb" --predictions-csv "outputs\annotations\pAN1717_dnabert2\predictions.csv" --manifest "outputs\annotations\pAN1717_dnabert2\manifest.json" --sbol-output "outputs\annotations\pAN1717_dnabert2\annotated.nt" --sbol2-output "outputs\annotations\pAN1717_dnabert2\annotated.rdf" --clean-output
 ~~~
 
 ## 6. Optional Evaluation Against Existing Annotations
@@ -216,7 +238,7 @@ Evaluation requires a GenBank file containing explicit promoter annotations.
 Add an evaluation directory:
 
 ~~~powershell
-seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --model-bundle models\dnabert2_finetune_t4_seed42 --step-size 25 --scan-both-strands --evaluation-dir outputs\annotations\pAN1717_dnabert2\evaluation --promoter-label-mode labelled --annotation-completeness partial --iou-threshold 0.50 --output outputs\annotations\pAN1717_dnabert2\annotated.gb --predictions-csv outputs\annotations\pAN1717_dnabert2\predictions.csv --manifest outputs\annotations\pAN1717_dnabert2\manifest.json --sbol-output outputs\annotations\pAN1717_dnabert2\annotated.nt --sbol2-output outputs\annotations\pAN1717_dnabert2\annotated.rdf --clean-output --open-output-folder
+seqtrainer annotate promoters "C:\Users\Sgoff\Downloads\pAN1717_cyan.gb" --model-family dnabert2 --model-bundle "outputs\validation\dnabert2_finetune_t4_seed42_bundle" --step-size 25 --scan-both-strands --evaluation-dir "outputs\annotations\pAN1717_dnabert2\evaluation" --promoter-label-mode labelled --annotation-completeness partial --iou-threshold 0.50 --output "outputs\annotations\pAN1717_dnabert2\annotated.gb" --predictions-csv "outputs\annotations\pAN1717_dnabert2\predictions.csv" --manifest "outputs\annotations\pAN1717_dnabert2\manifest.json" --sbol-output "outputs\annotations\pAN1717_dnabert2\annotated.nt" --sbol2-output "outputs\annotations\pAN1717_dnabert2\annotated.rdf" --clean-output --open-output-folder
 ~~~
 
 The evaluator recognizes a gold promoter when:
@@ -378,8 +400,12 @@ python -m pip install -e ".[annotation,torch]"
 ~~~
 
 Model bundle directory not found means the path passed to --model-bundle is
-wrong. Model bundle is incomplete means the folder does not contain both a
-checkpoint and manifest.json.
+wrong or the command was launched outside the repository root. On the current
+SBOL branch, use
+`outputs\validation\dnabert2_finetune_t4_seed42_bundle`, or provide the
+explicit checkpoint and manifest paths shown above. Model bundle is incomplete
+when the folder does not contain both `checkpoints\best_model.pt` and
+`manifest.json`.
 
 Use one command line on Windows. PowerShell uses a backtick for continuation,
 while Command Prompt does not. Copying Linux multiline commands can cause
