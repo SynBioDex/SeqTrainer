@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="180" viewBox="0 0 560 180">
+<rect width="100%" height="100%" fill="white"/>
+<text x="20" y="28" font-family="sans-serif" font-size="16">Delayed recall accuracy (&gt;32 tokens)</text>
+<text x="20" y="65" font-family="sans-serif" font-size="13">adaptive</text>
+<rect x="185" y="48" width="320" height="22" fill="#e5e7eb"/>
+<rect x="185" y="48" width="320.0" height="22" fill="#18794e"/>
+<text x="513" y="65" font-family="sans-serif" font-size="13">1.000</text>
+<text x="20" y="103" font-family="sans-serif" font-size="13">frozen_memory</text>
+<rect x="185" y="86" width="320" height="22" fill="#e5e7eb"/>
+<rect x="185" y="86" width="40.0" height="22" fill="#6b7280"/>
+<text x="513" y="103" font-family="sans-serif" font-size="13">0.125</text>
+<text x="20" y="141" font-family="sans-serif" font-size="13">no_memory</text>
+<rect x="185" y="124" width="320" height="22" fill="#e5e7eb"/>
+<rect x="185" y="124" width="80.0" height="22" fill="#9ca3af"/>
+<text x="513" y="141" font-family="sans-serif" font-size="13">0.250</text>
+</svg>

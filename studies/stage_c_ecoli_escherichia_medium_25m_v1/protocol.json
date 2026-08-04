@@ -1,0 +1,35 @@
+{
+  "format_version": 1,
+  "study_id": "stage_c_ecoli_escherichia_medium_25m_v1",
+  "title": "Adaptive paper-MAC memory for bounded E. coli and Escherichia genomic language modeling",
+  "scientific_motivation": "Test whether a causal genomic language model with adaptive persistent memory improves held-out sequence prediction and predefined region-level diagnostics under matched compute and data controls.",
+  "hypotheses": {
+    "primary": "Adaptive memory improves held-out bits per base over matched no-memory and frozen-memory controls at equal data and optimizer budgets.",
+    "secondary": [
+      "Adaptive memory yields useful region-level anomaly detection at a fixed false-positive rate.",
+      "The learned memory state contains reproducible information beyond local sequence and GC composition."
+    ]
+  },
+  "scope_limitations": ["train-only E. coli and Escherichia eligibility", "no species-wide ecological generalization", "no functional assay"],
+  "claim_language": {"supported": "improves held-out prediction under the preregistered matched comparison", "not_supported": "functional biological activity or broad Gram-negative generalization"},
+  "dataset": {"source_data_fingerprint": "required-at-run-time", "subset_manifest_fingerprint": "required-at-run-time", "eligibility": "E. coli + Escherichia, train-only selection", "balance": "clade and GC balanced", "isolation": "validation and test accessions are excluded from fitting and subset selection"},
+  "tokenizer": {"name": "frozen Stage C tokenizer selected by equal-base CPU gate", "artifact_fingerprint": "required-at-run-time", "normalization": "uppercase ACGT with explicit non-ACGT policy"},
+  "configurations": {"medium": {"parameters": "25M-class paper-MAC configuration", "backend": "exact accelerated memory with SDPA attention", "memory_modes": ["adaptive", "reference", "frozen_memory", "no_memory"]}, "compact_t4": {"parameters": "compact T4 feasibility configuration", "backend": "exact correctness path", "memory_modes": ["adaptive", "no_memory"]}},
+  "run_matrix": {
+    "calibration_50k": {"phase": "calibration", "budget_bases": 50000},
+    "adaptive_discovery_25m": {"phase": "discovery", "budget_bases": 25000000, "memory_mode": "adaptive"},
+    "control_reference_equal_budget": {"phase": "control", "budget_bases": 25000000, "memory_mode": "reference"},
+    "control_frozen_equal_budget": {"phase": "control", "budget_bases": 25000000, "memory_mode": "frozen_memory"},
+    "control_none_equal_budget": {"phase": "control", "budget_bases": 25000000, "memory_mode": "no_memory"},
+    "replication_seed2": {"phase": "replication", "budget_bases": 25000000, "seed": 2},
+    "t4_side_study": {"phase": "t4", "budget_bases": 50000, "hardware": "NVIDIA T4"},
+    "reference_feasibility": {"phase": "feasibility", "evidence_tier": "engineering"},
+    "memory_analysis": {"phase": "analysis", "evidence_tier": "exploratory"},
+    "generation_analysis": {"phase": "analysis", "evidence_tier": "exploratory"},
+    "anomaly_evaluation": {"phase": "analysis", "evidence_tier": "confirmatory"}
+  },
+  "decision_gates": {"calibration": "finite loss and resume consistency", "primary": "paired clade/accession bootstrap interval", "anomaly": "fixed false-positive rate on held-out synthetic and natural regions", "replication": "same direction under second seed"},
+  "outcomes": {"confirmatory": ["held-out BPB", "paired clade/accession bootstrap intervals", "anomaly detection at fixed false-positive rate"], "exploratory": ["hidden-state and memory projections", "PCA/t-SNE", "generation distributions", "ORF/intergenic diagnostics", "motif analyses"]},
+  "prohibited_inferences": ["Generative plausibility is not a functional promoter or gene claim.", "The study does not support a broad Gram-negative claim.", "No memory-benefit claim without matched controls and second-seed replication."],
+  "evidence_requirements": ["adaptive_discovery_25m", "control_reference_equal_budget", "control_frozen_equal_budget", "control_none_equal_budget", "replication_seed2", "anomaly_evaluation"]
+}

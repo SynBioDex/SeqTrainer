@@ -1,0 +1,51 @@
+{
+  "classification": "engineering_with_scientific_impact",
+  "date": "2026-07-26",
+  "decision_id": "adaptive_memory_preconditioning_v1",
+  "evidence": {
+    "failed_run": "c9b_25m_adaptive_stability_500steps/adaptive",
+    "observations": [
+      "The unconditioned recurrence was finite through optimizer step 250.",
+      "At step 251 the aggregate surprise norm rose to 37.89587986469269 and the memory update norm rose to 65.03110909461975.",
+      "At step 252 the aggregate surprise norm rose to 1660372.7481193542 and state drift rose to 1601075.877773285.",
+      "The next forward pass failed at step 253 with a non-finite block-10 fast weight."
+    ]
+  },
+  "legacy_option": {
+    "configuration": "memory_surprise_clip_norm",
+    "default_for_this_experiment": null,
+    "status": "retained_optional_not_selected",
+    "warning": "The original exact-accelerated backend bypassed this option; adaptive_memory_preconditioning_v1 centralizes the recurrence and repairs backend parity."
+  },
+  "math": {
+    "associative_loss": "L_t = ||M_(t-1)(k_t) - v_t||_2^2 / (2 d_model)",
+    "conditioned_gradient": "g_tilde = g_t * min(1, c_t / max(rms(g_t), eps))",
+    "fast_weight_rms": "rms(M) = ||M||_2 / sqrt(N)",
+    "gradient_rms": "rms(g) = ||g||_2 / sqrt(N)",
+    "momentum": "S_t = eta_t S_(t-1) - theta_t g_tilde",
+    "relative_limit": "c_t = rho * rms(M_(t-1))",
+    "theta": "theta_t = theta_max * sigmoid(z_t)",
+    "write": "M_t = (1 - alpha_t) M_(t-1) + S_t"
+  },
+  "parameters": {
+    "associative_loss_reduction": "mean",
+    "legacy_surprise_clip_norm": null,
+    "max_gradient_rms": null,
+    "max_gradient_rms_ratio_rho": 10.0,
+    "theta_initial": 0.25,
+    "theta_max": 0.5
+  },
+  "rationale": [
+    "Dividing the squared-error objective by d_model makes the inner gradient invariant to the arbitrary choice of feature-count reduction.",
+    "The RMS trust ratio is dimensionless and scales the admissible inner gradient with the current fast-weight scale rather than imposing an architecture-specific absolute surprise norm.",
+    "Bounding theta limits the learned write rate while retaining token-dependent adaptation.",
+    "Raw preconditioning diagnostics remain available for anomaly analysis; only the state-writing gradient is conditioned."
+  ],
+  "scientific_constraints": [
+    "This is a stabilized Titans-style recurrence, not an unmodified reproduction of the published Titans update.",
+    "The 500-step run is an engineering and exploratory stability test, not evidence of an adaptive-memory benefit.",
+    "The selected rho and theta bounds remain hyperparameters and require intervention-frequency and held-out-BPB review before the 25M-base run.",
+    "Anomaly evaluation must use held-out data and fixed false-positive-rate thresholds; preconditioning telemetry alone is not an anomaly-utility result."
+  ],
+  "status": "selected_for_next_stability_soak"
+}

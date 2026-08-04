@@ -1,0 +1,189 @@
+{
+  "format_version": 3,
+  "study_id": "stage_c_ecoli_medium_deep_memory_v3",
+  "title": "Broad E. coli complete-replicon progression for a Medium paper-deep Titans model",
+  "parent_study": {
+    "study_id": "stage_c_ecoli_escherichia_paper_deep_memory_v2",
+    "protocol_hash": "41587632b18790f761e9412617f284646098ae843701f6b2113991831ccc439e"
+  },
+  "scientific_motivation": "Test whether a substantially larger exact paper-deep MAC model can progress from weak local E. coli sequence learning toward useful genome- and genetic-parts-scale statistics when exposure is complete-replicon, ANI99-separated, and accession-balanced.",
+  "hypotheses": {
+    "engineering": "A 12-block d256 paper-exact model remains finite under stateful whole-replicon rotation, exact resume, FP32 functional memory, and qualified FP32 or BF16 attention.",
+    "learning": "Complete-panel exposure improves broad held-out E. coli BPB over c16 across accessions rather than one chromosome.",
+    "generation": "Scaling reduces six-mer, GC, coding-density, gene-length, and intergenic calibration error without decoder-induced diversity collapse.",
+    "memory": "At least ten of twelve memory blocks retain immediate and delayed controlled association while long-stream states remain finite."
+  },
+  "scope_limitations": [
+    "Training is E. coli only; other Escherichia species are evaluation-only outgroups.",
+    "E25 and E100 are adaptive-only exploratory scale gates and cannot establish adaptive-memory benefit.",
+    "E100 is a documented warm-start continuation on E100-minus-E25 accessions, not an independent-from-scratch run.",
+    "Generated ORFs, gene calls, codon patterns, or upstream motifs are statistical diagnostics and not evidence of biological function, expression, viability, or safety."
+  ],
+  "claim_language": {
+    "supported_after_e25": "the Medium adaptive model is stable and improves broad held-out E. coli modeling sufficiently to justify E100",
+    "supported_after_e100": "the adaptive model is useful as an exploratory E. coli sequence model and merits matched controls",
+    "not_supported": "adaptive-memory superiority, functional genes, promoter activity, whole-chromosome generation, or broad bacterial generalization"
+  },
+  "dataset": {
+    "source_data_fingerprint": "inherited Stage C ordered-stream dataset hash required at run time",
+    "subset_manifest_fingerprint": "frozen E25, E100-additions, validation, and test panel hashes required at run time",
+    "eligibility": "train-split E. coli complete genomes only; CheckM completeness >=95 and contamination <=2; one representative per ANI99 group before repeats",
+    "continuity": "each chromosome or plasmid is an independent ordered stream; replicons are never concatenated",
+    "balance": "deterministic maximin ANI order with available phylogroup and GC-bin balancing",
+    "isolation": "complete ANI99 groups remain exclusive to train, validation, or test"
+  },
+  "tokenizer": {
+    "name": "nonoverlap_6mer_v1",
+    "artifact_fingerprint": "required at run time",
+    "normalization": "unchanged from the frozen Stage C ordered-stream dataset"
+  },
+  "configurations": {
+    "medium": {
+      "block_count": 12,
+      "d_model": 256,
+      "num_heads": 8,
+      "persistent_tokens": 4,
+      "gradient_horizon": 3,
+      "expected_parameters": 24787200
+    },
+    "paper_deep_memory": {
+      "memory_architecture": "paper_residual_mlp_v2",
+      "memory_depth": 2,
+      "memory_expansion_factor": 4,
+      "memory_projection_convolution_kernel": 4,
+      "memory_normalize_queries_and_keys": true,
+      "memory_gate_granularity": "per_layer_channel",
+      "memory_recurrence_policy": "paper_exact",
+      "memory_associative_loss_reduction": "sum",
+      "memory_surprise_clip_norm": null,
+      "memory_theta_max": 1.0,
+      "memory_alpha_initial": 0.001,
+      "memory_eta_initial": 0.9,
+      "memory_theta_initial": 0.001
+    },
+    "optimizer": {
+      "name": "AdamW",
+      "peak_learning_rate": 3e-05,
+      "minimum_learning_rate": 3e-06,
+      "warmup_bases": 2000000,
+      "decay_bases": 100000000,
+      "weight_decay": 0.1,
+      "gradient_clip_norm": 0.5
+    },
+    "scheduler": {
+      "policy": "stateful_rotation",
+      "burst_segments": 96,
+      "panel_completion_required": true
+    }
+  },
+  "run_matrix": {
+    "ecoli_panel_freeze_v1": {
+      "phase": "data",
+      "evidence_tier": "engineering"
+    },
+    "c16_broad_ecoli_baseline_v1": {
+      "phase": "analysis",
+      "evidence_tier": "exploratory"
+    },
+    "medium_a100_qualification_v1": {
+      "phase": "qualification",
+      "memory_mode": "adaptive",
+      "block_count": 12,
+      "d_model": 256,
+      "num_heads": 8,
+      "gradient_horizon": 3,
+      "memory_depth": 2,
+      "memory_architecture": "paper_residual_mlp_v2",
+      "memory_recurrence_policy": "paper_exact"
+    },
+    "medium_adaptive_e25_v1": {
+      "phase": "exploratory",
+      "memory_mode": "adaptive",
+      "seed": 20260751,
+      "block_count": 12,
+      "d_model": 256,
+      "num_heads": 8,
+      "gradient_horizon": 3,
+      "memory_depth": 2,
+      "memory_architecture": "paper_residual_mlp_v2",
+      "memory_recurrence_policy": "paper_exact",
+      "scheduler_policy": "stateful_rotation",
+      "scheduler_burst_segments": 96,
+      "require_panel_completion": true,
+      "lr_warmup_bases": 2000000,
+      "lr_decay_bases": 100000000,
+      "minimum_learning_rate": 3e-06
+    },
+    "medium_adaptive_e25_analysis_v1": {
+      "phase": "analysis",
+      "evidence_tier": "exploratory"
+    },
+    "medium_adaptive_e100_increment_v1": {
+      "phase": "exploratory",
+      "memory_mode": "adaptive",
+      "seed": 20260751,
+      "block_count": 12,
+      "d_model": 256,
+      "num_heads": 8,
+      "gradient_horizon": 3,
+      "memory_depth": 2,
+      "memory_architecture": "paper_residual_mlp_v2",
+      "memory_recurrence_policy": "paper_exact",
+      "scheduler_policy": "stateful_rotation",
+      "scheduler_burst_segments": 96,
+      "require_panel_completion": true,
+      "lr_warmup_bases": 2000000,
+      "lr_decay_bases": 100000000,
+      "minimum_learning_rate": 3e-06
+    },
+    "medium_adaptive_e100_analysis_v1": {
+      "phase": "analysis",
+      "evidence_tier": "exploratory"
+    }
+  },
+  "decision_gates": {
+    "data": "Every panel hash verifies; only complete high-quality E. coli assemblies are selected; panels are nested; held-out ANI99 groups do not overlap training.",
+    "qualification": "Exact resume passes; every tested tensor is finite; memory state is FP32; choose the highest-throughput FP32/BF16-attention batch using <=70% A100 memory and <=0.005 BPB parity error.",
+    "e25_prediction": "Median held-out accession BPB <=1.96, at least 0.02 below the broad-panel c16 baseline, paired-accession bootstrap upper 95% bound below zero, and at least 75% of accessions improve.",
+    "e25_memory": "Immediate and delayed controlled association are positive in at least ten of twelve blocks with zero paper-exact conditioning interventions.",
+    "e25_generation": "Aligned six-mer diversity remains within 0.95-1.05 of reference; six-mer JSD improves >=10%, GC error falls, and at least three predefined genome/parts metric families improve over c16.",
+    "e100": "Median held-out BPB <=1.92; at least ten of twelve accessions improve over E25; diversity does not collapse; at least four predefined genome/parts metric families improve.",
+    "stop": "Do not alter thresholds after observing results. Failed gates remain visible and stop the next training allocation."
+  },
+  "outcomes": {
+    "primary_exploratory": [
+      "held-out BPB by accession and ANI99 group",
+      "paired accession bootstrap versus c16 and E25",
+      "complete-panel exposure accounting"
+    ],
+    "memory": [
+      "finite fast weights and surprise",
+      "retrieval, update, drift, gate and gradient trajectories",
+      "immediate and delayed controlled association by block"
+    ],
+    "genome_and_parts": [
+      "GC and k-mer JSD through k=6",
+      "aligned six-mer diversity",
+      "ORF and Prodigal distributions",
+      "coding density, gene and intergenic lengths",
+      "codon usage, stop-codon frequency and frame periodicity"
+    ],
+    "representations": [
+      "embedding and memory projections with GC and coordinate controls",
+      "ANI99 and available phylogroup labels",
+      "held-out outgroup and anomaly scoring at fixed false-positive rate"
+    ]
+  },
+  "prohibited_inferences": [
+    "No adaptive-memory benefit claim without a matched no-memory E100 comparison.",
+    "No functional gene, promoter, operon, viability, fitness, pathogenicity, or safety claim from generation.",
+    "No taxonomic representation claim from PCA alone.",
+    "No broad Escherichia or bacterial claim from E. coli-only fitting."
+  ],
+  "evidence_requirements": [
+    "ecoli_panel_freeze_v1",
+    "medium_a100_qualification_v1",
+    "medium_adaptive_e25_v1",
+    "medium_adaptive_e25_analysis_v1"
+  ]
+}

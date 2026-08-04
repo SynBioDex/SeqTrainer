@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="320" viewBox="0 0 620 320">
+<rect width="100%" height="100%" fill="white"/>
+<text x="20" y="24" font-family="sans-serif" font-size="16">B5 stale-window speed–fidelity (lower error, higher speedup)</text>
+<line x1="80" y1="265" x2="560" y2="265" stroke="#374151"/>
+<line x1="80" y1="45" x2="80" y2="265" stroke="#374151"/>
+<text x="240" y="305" font-family="sans-serif" font-size="13">speedup over reference</text>
+<text x="8" y="55" font-family="sans-serif" font-size="12">relative</text>
+<text x="8" y="70" font-family="sans-serif" font-size="12">state error</text>
+<circle cx="516.4" cy="251.4" r="6" fill="#7c3aed"/>
+<text x="524.4" y="255.4" font-family="sans-serif" font-size="12">w=2</text>
+<circle cx="487.0" cy="65.0" r="6" fill="#7c3aed"/>
+<text x="495.0" y="69.0" font-family="sans-serif" font-size="12">w=4</text>
+<circle cx="461.9" cy="232.6" r="6" fill="#7c3aed"/>
+<text x="469.9" y="236.6" font-family="sans-serif" font-size="12">w=8</text>
+<circle cx="416.0" cy="245.3" r="6" fill="#7c3aed"/>
+<text x="424.0" y="249.3" font-family="sans-serif" font-size="12">w=16</text>
+<circle cx="333.7" cy="247.3" r="6" fill="#7c3aed"/>
+<text x="341.7" y="251.3" font-family="sans-serif" font-size="12">w=32</text>
+</svg>

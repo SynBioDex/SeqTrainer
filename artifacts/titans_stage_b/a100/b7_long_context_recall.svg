@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="340" viewBox="0 0 680 340">
+<rect width="100%" height="100%" fill="white"/>
+<text x="20" y="24" font-family="sans-serif" font-size="16">B7 controlled recall by context length</text>
+<line x1="75" y1="275" x2="575" y2="275" stroke="#374151"/>
+<line x1="75" y1="45" x2="75" y2="275" stroke="#374151"/>
+<text x="63.0" y="297" font-family="sans-serif" font-size="12">64</text>
+<text x="229.7" y="297" font-family="sans-serif" font-size="12">128</text>
+<text x="396.3" y="297" font-family="sans-serif" font-size="12">256</text>
+<text x="563.0" y="297" font-family="sans-serif" font-size="12">512</text>
+<polyline points="75.0,45.0 241.7,45.0 408.3,45.0 575.0,45.0" fill="none" stroke="#166534" stroke-width="2"/>
+<text x="590" y="60" font-family="sans-serif" font-size="12" fill="#166534">reference</text>
+<polyline points="75.0,45.0 241.7,45.0 408.3,45.0 575.0,45.0" fill="none" stroke="#7c3aed" stroke-width="2"/>
+<text x="590" y="82" font-family="sans-serif" font-size="12" fill="#7c3aed">approximate_w2</text>
+<polyline points="75.0,45.0 241.7,45.0 408.3,45.0 575.0,45.0" fill="none" stroke="#c026d3" stroke-width="2"/>
+<text x="590" y="104" font-family="sans-serif" font-size="12" fill="#c026d3">approximate_w32</text>
+<polyline points="75.0,275.0 241.7,275.0 408.3,275.0 575.0,275.0" fill="none" stroke="#6b7280" stroke-width="2"/>
+<text x="590" y="126" font-family="sans-serif" font-size="12" fill="#6b7280">frozen_memory</text>
+<polyline points="75.0,275.0 241.7,275.0 408.3,275.0 575.0,275.0" fill="none" stroke="#9ca3af" stroke-width="2"/>
+<text x="590" y="148" font-family="sans-serif" font-size="12" fill="#9ca3af">no_memory</text>
+<text x="245" y="325" font-family="sans-serif" font-size="13">context tokens</text>
+<text x="8" y="55" font-family="sans-serif" font-size="12">accuracy</text>
+</svg>

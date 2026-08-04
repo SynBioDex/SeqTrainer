@@ -1,0 +1,15 @@
+{
+  "affine_associativity_max_abs_error": 3.3306690738754696e-16,
+  "classification": "restricted_only",
+  "dtype": "float64",
+  "exact_scan_available": false,
+  "linear_gradient_max_abs_error": 2.6645352591003757e-15,
+  "linear_output_max_abs_error": 1.1102230246251565e-16,
+  "linear_state_max_abs_error": 4.440892098500626e-16,
+  "linear_surprise_max_abs_error": 0.0,
+  "nonlinear_stale_gradient_max_abs_error": 12.160467578401615,
+  "nonlinear_stale_output_max_abs_error": 0.9460702891544743,
+  "nonlinear_stale_state_max_abs_error": 1.4944059470878213,
+  "nonlinear_stale_surprise_max_abs_error": 0.7526411424403978,
+  "seed": 20260727
+}

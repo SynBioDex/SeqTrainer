@@ -1,0 +1,85 @@
+{
+  "host_platform": "Linux-6.6.122+-x86_64-with-glibc2.35",
+  "results": [
+    {
+      "device": "cuda",
+      "device_name": "NVIDIA A100-SXM4-40GB",
+      "dtype": "float32",
+      "exact_accelerated": {
+        "available": true,
+        "backend": "exact_accelerated",
+        "median_wall_time_seconds": 0.302568100000002,
+        "reason": "measured",
+        "runtime_metadata": {
+          "attention": {
+            "activation_dtype": "float32",
+            "implementation": "multihead_attention",
+            "memory_state_dtype": "unchanged_fp32_island_for_mixed_precision"
+          },
+          "gates": {
+            "convolution_kernel_size": null,
+            "implementation": "token_wise"
+          },
+          "memory": {
+            "accelerated_calls": 32,
+            "fallback_calls": 0,
+            "implementation": "exact_functional_loop",
+            "last_execution": "exact_functional_loop",
+            "stale_gradients": false,
+            "token_order_preserved": true
+          }
+        },
+        "state_payload_bytes": 9461760,
+        "tokens_per_second": 846.090516482069,
+        "wall_times_seconds": [
+          0.3009932150000054,
+          0.3796968260000142,
+          0.302568100000002
+        ]
+      },
+      "parameter_count": 9480216,
+      "reference": {
+        "available": true,
+        "backend": "reference",
+        "median_wall_time_seconds": 0.30649965699998916,
+        "reason": "measured",
+        "runtime_metadata": {
+          "attention": {
+            "activation_dtype": "float32",
+            "implementation": "multihead_attention",
+            "memory_state_dtype": "unchanged_fp32_island_for_mixed_precision"
+          },
+          "gates": {
+            "convolution_kernel_size": null,
+            "implementation": "token_wise"
+          },
+          "memory": {
+            "implementation": "reference"
+          }
+        },
+        "state_payload_bytes": 9461760,
+        "tokens_per_second": 835.2374763016751,
+        "wall_times_seconds": [
+          0.29320558300000243,
+          0.3634484429999816,
+          0.30649965699998916
+        ]
+      },
+      "repetitions": 3,
+      "scale": {
+        "block_count": 8,
+        "d_model": 384,
+        "memory_depth": 1,
+        "name": "a100_pilot",
+        "num_heads": 8,
+        "persistent_tokens": 4,
+        "segment_count": 1
+      },
+      "seed": 20260727,
+      "speedup": 1.0129939573933509,
+      "tensor_exact": true,
+      "warmup_runs": 1
+    }
+  ],
+  "torch_version": "2.11.0+cu128"
+}

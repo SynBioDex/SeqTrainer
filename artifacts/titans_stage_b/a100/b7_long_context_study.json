@@ -1,0 +1,1373 @@
+{
+  "causality": {
+    "passed": true,
+    "perturb_position": 17,
+    "variants": {
+      "approximate_w16": {
+        "passed": true,
+        "prefix_maximum_error": 0.0
+      },
+      "approximate_w2": {
+        "passed": true,
+        "prefix_maximum_error": 0.0
+      },
+      "approximate_w32": {
+        "passed": true,
+        "prefix_maximum_error": 0.0
+      },
+      "approximate_w4": {
+        "passed": true,
+        "prefix_maximum_error": 0.0
+      },
+      "approximate_w8": {
+        "passed": true,
+        "prefix_maximum_error": 0.0
+      },
+      "causal_convolution": {
+        "passed": true,
+        "prefix_maximum_error": 0.0
+      },
+      "exact_accelerated": {
+        "passed": true,
+        "prefix_maximum_error": 0.0
+      },
+      "frozen_memory": {
+        "passed": true,
+        "prefix_maximum_error": 0.0
+      },
+      "no_memory": {
+        "passed": true,
+        "prefix_maximum_error": 0.0
+      },
+      "reference": {
+        "passed": true,
+        "prefix_maximum_error": 0.0
+      },
+      "sdpa": {
+        "passed": true,
+        "prefix_maximum_error": 0.0
+      }
+    }
+  },
+  "classification": "synthetic_system_validation_not_biology_performance",
+  "controlled_long_recall": {
+    "approximate_w16": {
+      "delay_accuracy_by_context_tokens": {
+        "128": 1.0,
+        "256": 1.0,
+        "512": 1.0,
+        "64": 1.0
+      },
+      "loss_by_context_tokens": {
+        "128": 1.2730934619903564,
+        "256": 1.2730934619903564,
+        "512": 1.2730934619903564,
+        "64": 1.2730934619903564
+      },
+      "mean_bpb": 1.8366856242016494,
+      "mean_loss": 1.2730934619903564,
+      "overwrite_correctness": 1.0,
+      "reset_correctness": 1.0,
+      "task_memory_semantics": "approximate_w16"
+    },
+    "approximate_w2": {
+      "delay_accuracy_by_context_tokens": {
+        "128": 1.0,
+        "256": 1.0,
+        "512": 1.0,
+        "64": 1.0
+      },
+      "loss_by_context_tokens": {
+        "128": 1.2730934619903564,
+        "256": 1.2730934619903564,
+        "512": 1.2730934619903564,
+        "64": 1.2730934619903564
+      },
+      "mean_bpb": 1.8366856242016494,
+      "mean_loss": 1.2730934619903564,
+      "overwrite_correctness": 1.0,
+      "reset_correctness": 1.0,
+      "task_memory_semantics": "approximate_w2"
+    },
+    "approximate_w32": {
+      "delay_accuracy_by_context_tokens": {
+        "128": 1.0,
+        "256": 1.0,
+        "512": 1.0,
+        "64": 1.0
+      },
+      "loss_by_context_tokens": {
+        "128": 1.2730934619903564,
+        "256": 1.2730934619903564,
+        "512": 1.2730934619903564,
+        "64": 1.2730934619903564
+      },
+      "mean_bpb": 1.8366856242016494,
+      "mean_loss": 1.2730934619903564,
+      "overwrite_correctness": 1.0,
+      "reset_correctness": 1.0,
+      "task_memory_semantics": "approximate_w32"
+    },
+    "approximate_w4": {
+      "delay_accuracy_by_context_tokens": {
+        "128": 1.0,
+        "256": 1.0,
+        "512": 1.0,
+        "64": 1.0
+      },
+      "loss_by_context_tokens": {
+        "128": 1.2730934619903564,
+        "256": 1.2730934619903564,
+        "512": 1.2730934619903564,
+        "64": 1.2730934619903564
+      },
+      "mean_bpb": 1.8366856242016494,
+      "mean_loss": 1.2730934619903564,
+      "overwrite_correctness": 1.0,
+      "reset_correctness": 1.0,
+      "task_memory_semantics": "approximate_w4"
+    },
+    "approximate_w8": {
+      "delay_accuracy_by_context_tokens": {
+        "128": 1.0,
+        "256": 1.0,
+        "512": 1.0,
+        "64": 1.0
+      },
+      "loss_by_context_tokens": {
+        "128": 1.2730934619903564,
+        "256": 1.2730934619903564,
+        "512": 1.2730934619903564,
+        "64": 1.2730934619903564
+      },
+      "mean_bpb": 1.8366856242016494,
+      "mean_loss": 1.2730934619903564,
+      "overwrite_correctness": 1.0,
+      "reset_correctness": 1.0,
+      "task_memory_semantics": "approximate_w8"
+    },
+    "causal_convolution": {
+      "delay_accuracy_by_context_tokens": {
+        "128": 1.0,
+        "256": 1.0,
+        "512": 1.0,
+        "64": 1.0
+      },
+      "loss_by_context_tokens": {
+        "128": 1.2730934619903564,
+        "256": 1.2730934619903564,
+        "512": 1.2730934619903564,
+        "64": 1.2730934619903564
+      },
+      "mean_bpb": 1.8366856242016494,
+      "mean_loss": 1.2730934619903564,
+      "overwrite_correctness": 1.0,
+      "reset_correctness": 1.0,
+      "task_memory_semantics": "causal_convolution"
+    },
+    "exact_accelerated": {
+      "delay_accuracy_by_context_tokens": {
+        "128": 1.0,
+        "256": 1.0,
+        "512": 1.0,
+        "64": 1.0
+      },
+      "loss_by_context_tokens": {
+        "128": 1.2730934619903564,
+        "256": 1.2730934619903564,
+        "512": 1.2730934619903564,
+        "64": 1.2730934619903564
+      },
+      "mean_bpb": 1.8366856242016494,
+      "mean_loss": 1.2730934619903564,
+      "overwrite_correctness": 1.0,
+      "reset_correctness": 1.0,
+      "task_memory_semantics": "exact_accelerated"
+    },
+    "frozen_memory": {
+      "delay_accuracy_by_context_tokens": {
+        "128": 0.0,
+        "256": 0.0,
+        "512": 0.0,
+        "64": 0.0
+      },
+      "loss_by_context_tokens": {
+        "128": 2.995732307434082,
+        "256": 2.995732307434082,
+        "512": 2.995732307434082,
+        "64": 2.995732307434082
+      },
+      "mean_bpb": 4.3219281437660015,
+      "mean_loss": 2.995732307434082,
+      "overwrite_correctness": 0.0,
+      "reset_correctness": 1.0,
+      "task_memory_semantics": "frozen_memory"
+    },
+    "no_memory": {
+      "delay_accuracy_by_context_tokens": {
+        "128": 0.0,
+        "256": 0.0,
+        "512": 0.0,
+        "64": 0.0
+      },
+      "loss_by_context_tokens": {
+        "128": 2.995732307434082,
+        "256": 2.995732307434082,
+        "512": 2.995732307434082,
+        "64": 2.995732307434082
+      },
+      "mean_bpb": 4.3219281437660015,
+      "mean_loss": 2.995732307434082,
+      "overwrite_correctness": 0.0,
+      "reset_correctness": 1.0,
+      "task_memory_semantics": "no_memory"
+    },
+    "reference": {
+      "delay_accuracy_by_context_tokens": {
+        "128": 1.0,
+        "256": 1.0,
+        "512": 1.0,
+        "64": 1.0
+      },
+      "loss_by_context_tokens": {
+        "128": 1.2730934619903564,
+        "256": 1.2730934619903564,
+        "512": 1.2730934619903564,
+        "64": 1.2730934619903564
+      },
+      "mean_bpb": 1.8366856242016494,
+      "mean_loss": 1.2730934619903564,
+      "overwrite_correctness": 1.0,
+      "reset_correctness": 1.0,
+      "task_memory_semantics": "reference"
+    },
+    "sdpa": {
+      "delay_accuracy_by_context_tokens": {
+        "128": 1.0,
+        "256": 1.0,
+        "512": 1.0,
+        "64": 1.0
+      },
+      "loss_by_context_tokens": {
+        "128": 1.2730934619903564,
+        "256": 1.2730934619903564,
+        "512": 1.2730934619903564,
+        "64": 1.2730934619903564
+      },
+      "mean_bpb": 1.8366856242016494,
+      "mean_loss": 1.2730934619903564,
+      "overwrite_correctness": 1.0,
+      "reset_correctness": 1.0,
+      "task_memory_semantics": "reference (attention substitution is irrelevant to controlled memory task)"
+    }
+  },
+  "format_version": 1,
+  "hardware": {
+    "a100_available": true,
+    "cuda_available": true,
+    "device": "cuda",
+    "device_name": "NVIDIA A100-SXM4-40GB",
+    "machine": "x86_64",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.35",
+    "torch": "2.11.0+cu128"
+  },
+  "limitations": [
+    "No genomic corpus was loaded or trained.",
+    "Controlled recall isolates memory persistence and is not biology performance.",
+    "CPU tracemalloc excludes native tensor storage; CUDA peak is reported only when available.",
+    "A100 results are unavailable unless the named hardware is actually attached."
+  ],
+  "long_stream_scales": [
+    {
+      "available": true,
+      "device": "cuda",
+      "environment": "a100",
+      "parameter_count": 9498672,
+      "scale": {
+        "block_count": 8,
+        "d_model": 384,
+        "memory_depth": 1,
+        "name": "a100_pilot",
+        "num_heads": 8,
+        "persistent_tokens": 4,
+        "requires_a100": true,
+        "segment_count": 4
+      },
+      "variants": [
+        {
+          "available": true,
+          "cpu_tensor_memory_limitation": "tracemalloc excludes native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": 1059893248,
+          "finite_state_by_segment": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "first_nonfinite_context_tokens": null,
+          "gate_statistics": {
+            "alpha": {
+              "count": 1024,
+              "maximum": 0.00010197173105552793,
+              "mean": 0.00010002627310967682,
+              "minimum": 9.809183393372223e-05
+            },
+            "eta": {
+              "count": 1024,
+              "maximum": 0.010216227732598782,
+              "mean": 0.009998334032388811,
+              "minimum": 0.00979610811918974
+            },
+            "theta": {
+              "count": 1024,
+              "maximum": 0.001022059004753828,
+              "mean": 0.0010000635526807855,
+              "minimum": 0.0009759457898326218
+            }
+          },
+          "input_tokens": 128,
+          "latency_per_segment_seconds": 0.44766579899999215,
+          "mean_state_resume_seconds": 0.013816200000015044,
+          "memory_update_norm": {
+            "count": 32,
+            "maximum": 0.8946779988891621,
+            "mean": 0.8630298878521658,
+            "minimum": 0.8293699013677321
+          },
+          "python_tracemalloc_peak_bytes": 564386,
+          "reason": "measured",
+          "runtime_metadata": {
+            "attention": {
+              "activation_dtype": "float32",
+              "implementation": "multihead_attention",
+              "memory_state_dtype": "unchanged_fp32_island_for_mixed_precision"
+            },
+            "gates": {
+              "convolution_kernel_size": null,
+              "implementation": "token_wise"
+            },
+            "memory": {
+              "implementation": "reference"
+            }
+          },
+          "segment_latencies_seconds": [
+            0.4423580669999865,
+            0.44998842600000444,
+            0.4510160199999973,
+            0.4473006829999804
+          ],
+          "state_error_by_context": [],
+          "state_payload_bytes": 9461760,
+          "state_resume_seconds": [
+            0.01795389400001568,
+            0.012259213000021418,
+            0.012146294000018543,
+            0.012905399000004536
+          ],
+          "tokens_per_second": 64.38884701584921,
+          "total_seconds": 1.9879219139999975,
+          "variant": "reference"
+        },
+        {
+          "available": true,
+          "cpu_tensor_memory_limitation": "tracemalloc excludes native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": 1097740288,
+          "finite_state_by_segment": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "first_nonfinite_context_tokens": null,
+          "gate_statistics": {
+            "alpha": {
+              "count": 1024,
+              "maximum": 0.00010197173105552793,
+              "mean": 0.00010002627310967682,
+              "minimum": 9.809183393372223e-05
+            },
+            "eta": {
+              "count": 1024,
+              "maximum": 0.010216227732598782,
+              "mean": 0.009998334032388811,
+              "minimum": 0.00979610811918974
+            },
+            "theta": {
+              "count": 1024,
+              "maximum": 0.001022059004753828,
+              "mean": 0.0010000635526807855,
+              "minimum": 0.0009759457898326218
+            }
+          },
+          "input_tokens": 128,
+          "latency_per_segment_seconds": 0.4512751442500047,
+          "mean_state_resume_seconds": 0.012348924499988811,
+          "memory_update_norm": {
+            "count": 32,
+            "maximum": 0.8946779988891621,
+            "mean": 0.8630298878521658,
+            "minimum": 0.8293699013677321
+          },
+          "python_tracemalloc_peak_bytes": 673789,
+          "reason": "measured",
+          "runtime_metadata": {
+            "attention": {
+              "activation_dtype": "float32",
+              "implementation": "multihead_attention",
+              "memory_state_dtype": "unchanged_fp32_island_for_mixed_precision"
+            },
+            "gates": {
+              "convolution_kernel_size": null,
+              "implementation": "token_wise"
+            },
+            "memory": {
+              "accelerated_calls": 32,
+              "fallback_calls": 0,
+              "implementation": "exact_functional_loop",
+              "last_execution": "exact_functional_loop",
+              "stale_gradients": false,
+              "token_order_preserved": true
+            }
+          },
+          "segment_latencies_seconds": [
+            0.4451275140000064,
+            0.44596616500001574,
+            0.46544494799999825,
+            0.44856194999999843
+          ],
+          "state_error_by_context": [
+            {
+              "context_tokens": 32,
+              "fast_weight_relative_l2": 0.0,
+              "surprise_relative_l2": 0.0
+            },
+            {
+              "context_tokens": 64,
+              "fast_weight_relative_l2": 0.0,
+              "surprise_relative_l2": 0.0
+            },
+            {
+              "context_tokens": 96,
+              "fast_weight_relative_l2": 0.0,
+              "surprise_relative_l2": 0.0
+            },
+            {
+              "context_tokens": 128,
+              "fast_weight_relative_l2": 0.0,
+              "surprise_relative_l2": 0.0
+            }
+          ],
+          "state_payload_bytes": 9461760,
+          "state_resume_seconds": [
+            0.011485318999973515,
+            0.013074910000000273,
+            0.013126521000003777,
+            0.011708947999977681
+          ],
+          "tokens_per_second": 64.96870786246369,
+          "total_seconds": 1.9701792479999938,
+          "variant": "exact_accelerated"
+        },
+        {
+          "available": true,
+          "cpu_tensor_memory_limitation": "tracemalloc excludes native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": 1146302464,
+          "finite_state_by_segment": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "first_nonfinite_context_tokens": null,
+          "gate_statistics": {
+            "alpha": {
+              "count": 1024,
+              "maximum": 0.00010197173105552793,
+              "mean": 0.00010002628503258393,
+              "minimum": 9.80919212452136e-05
+            },
+            "eta": {
+              "count": 1024,
+              "maximum": 0.010216227732598782,
+              "mean": 0.00999833367040992,
+              "minimum": 0.00979609414935112
+            },
+            "theta": {
+              "count": 1024,
+              "maximum": 0.001022059004753828,
+              "mean": 0.0010000636185054645,
+              "minimum": 0.0009759457898326218
+            }
+          },
+          "input_tokens": 128,
+          "latency_per_segment_seconds": 0.44993070825000103,
+          "mean_state_resume_seconds": 0.011507354500011502,
+          "memory_update_norm": {
+            "count": 32,
+            "maximum": 0.8950567422359175,
+            "mean": 0.8634879268727772,
+            "minimum": 0.8296227413127452
+          },
+          "python_tracemalloc_peak_bytes": 645042,
+          "reason": "measured",
+          "runtime_metadata": {
+            "attention": {
+              "activation_dtype": "float32",
+              "implementation": "multihead_attention",
+              "memory_state_dtype": "unchanged_fp32_island_for_mixed_precision"
+            },
+            "gates": {
+              "convolution_kernel_size": null,
+              "implementation": "token_wise"
+            },
+            "memory": {
+              "exactness": "approximate_stale_within_window",
+              "implementation": "approximate_scan",
+              "published_states_per_segment": 1,
+              "staleness": "all surprise gradients in a window use its incoming fast-weight snapshot; gates/momentum/forgetting remain sequential",
+              "window_size": 2
+            }
+          },
+          "segment_latencies_seconds": [
+            0.4469881950000172,
+            0.45028381599999534,
+            0.45478607900000156,
+            0.44766474299999004
+          ],
+          "state_error_by_context": [
+            {
+              "context_tokens": 32,
+              "fast_weight_relative_l2": 0.0008434554996886144,
+              "surprise_relative_l2": 0.004806253605182317
+            },
+            {
+              "context_tokens": 64,
+              "fast_weight_relative_l2": 0.001130062867708727,
+              "surprise_relative_l2": 0.006242178825276545
+            },
+            {
+              "context_tokens": 96,
+              "fast_weight_relative_l2": 0.0013754730470746433,
+              "surprise_relative_l2": 0.017594879216260115
+            },
+            {
+              "context_tokens": 128,
+              "fast_weight_relative_l2": 0.0015746871937383055,
+              "surprise_relative_l2": 0.00776620249363046
+            }
+          ],
+          "state_payload_bytes": 9461760,
+          "state_resume_seconds": [
+            0.010810516000020698,
+            0.012324029000012615,
+            0.011614022000003388,
+            0.011280851000009307
+          ],
+          "tokens_per_second": 65.56648203164157,
+          "total_seconds": 1.9522169869999857,
+          "variant": "approximate_w2"
+        },
+        {
+          "available": true,
+          "cpu_tensor_memory_limitation": "tracemalloc excludes native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": 1167732736,
+          "finite_state_by_segment": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "first_nonfinite_context_tokens": null,
+          "gate_statistics": {
+            "alpha": {
+              "count": 1024,
+              "maximum": 0.00010197173105552793,
+              "mean": 0.00010002628250305179,
+              "minimum": 9.80919212452136e-05
+            },
+            "eta": {
+              "count": 1024,
+              "maximum": 0.010216222144663334,
+              "mean": 0.009998335240197775,
+              "minimum": 0.009796121157705784
+            },
+            "theta": {
+              "count": 1024,
+              "maximum": 0.001022059004753828,
+              "mean": 0.0010000634579796497,
+              "minimum": 0.0009759457898326218
+            }
+          },
+          "input_tokens": 128,
+          "latency_per_segment_seconds": 0.4637067742499994,
+          "mean_state_resume_seconds": 0.010424080000007052,
+          "memory_update_norm": {
+            "count": 32,
+            "maximum": 0.8960151763320916,
+            "mean": 0.8644015688961454,
+            "minimum": 0.830652391816707
+          },
+          "python_tracemalloc_peak_bytes": 560422,
+          "reason": "measured",
+          "runtime_metadata": {
+            "attention": {
+              "activation_dtype": "float32",
+              "implementation": "multihead_attention",
+              "memory_state_dtype": "unchanged_fp32_island_for_mixed_precision"
+            },
+            "gates": {
+              "convolution_kernel_size": null,
+              "implementation": "token_wise"
+            },
+            "memory": {
+              "exactness": "approximate_stale_within_window",
+              "implementation": "approximate_scan",
+              "published_states_per_segment": 1,
+              "staleness": "all surprise gradients in a window use its incoming fast-weight snapshot; gates/momentum/forgetting remain sequential",
+              "window_size": 4
+            }
+          },
+          "segment_latencies_seconds": [
+            0.45583985000001803,
+            0.4654672749999804,
+            0.46718333000001167,
+            0.4663366419999875
+          ],
+          "state_error_by_context": [
+            {
+              "context_tokens": 32,
+              "fast_weight_relative_l2": 0.0014522532016986117,
+              "surprise_relative_l2": 0.017144829871461528
+            },
+            {
+              "context_tokens": 64,
+              "fast_weight_relative_l2": 0.0019489814050782084,
+              "surprise_relative_l2": 0.013236024613883414
+            },
+            {
+              "context_tokens": 96,
+              "fast_weight_relative_l2": 0.00238711925640416,
+              "surprise_relative_l2": 0.023623868968346073
+            },
+            {
+              "context_tokens": 128,
+              "fast_weight_relative_l2": 0.00278352943289279,
+              "surprise_relative_l2": 0.01557258571796875
+            }
+          ],
+          "state_payload_bytes": 9461760,
+          "state_resume_seconds": [
+            0.010500203000020747,
+            0.01045576399999959,
+            0.01013101099999858,
+            0.010609342000009292
+          ],
+          "tokens_per_second": 64.0056810162359,
+          "total_seconds": 1.999822483999992,
+          "variant": "approximate_w4"
+        },
+        {
+          "available": true,
+          "cpu_tensor_memory_limitation": "tracemalloc excludes native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": 1210593280,
+          "finite_state_by_segment": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "first_nonfinite_context_tokens": null,
+          "gate_statistics": {
+            "alpha": {
+              "count": 1024,
+              "maximum": 0.00010197173105552793,
+              "mean": 0.00010002630747152352,
+              "minimum": 9.80919212452136e-05
+            },
+            "eta": {
+              "count": 1024,
+              "maximum": 0.010216222144663334,
+              "mean": 0.009998334649935714,
+              "minimum": 0.00979609414935112
+            },
+            "theta": {
+              "count": 1024,
+              "maximum": 0.001022059004753828,
+              "mean": 0.0010000633824915894,
+              "minimum": 0.0009759487002156675
+            }
+          },
+          "input_tokens": 128,
+          "latency_per_segment_seconds": 0.5037683107500044,
+          "mean_state_resume_seconds": 0.010453129500000102,
+          "memory_update_norm": {
+            "count": 32,
+            "maximum": 0.8984393082313886,
+            "mean": 0.8663630978897191,
+            "minimum": 0.8321383794078083
+          },
+          "python_tracemalloc_peak_bytes": 563054,
+          "reason": "measured",
+          "runtime_metadata": {
+            "attention": {
+              "activation_dtype": "float32",
+              "implementation": "multihead_attention",
+              "memory_state_dtype": "unchanged_fp32_island_for_mixed_precision"
+            },
+            "gates": {
+              "convolution_kernel_size": null,
+              "implementation": "token_wise"
+            },
+            "memory": {
+              "exactness": "approximate_stale_within_window",
+              "implementation": "approximate_scan",
+              "published_states_per_segment": 1,
+              "staleness": "all surprise gradients in a window use its incoming fast-weight snapshot; gates/momentum/forgetting remain sequential",
+              "window_size": 8
+            }
+          },
+          "segment_latencies_seconds": [
+            0.4911270540000032,
+            0.5059295080000084,
+            0.5167444980000084,
+            0.5012721829999975
+          ],
+          "state_error_by_context": [
+            {
+              "context_tokens": 32,
+              "fast_weight_relative_l2": 0.0021999744066449655,
+              "surprise_relative_l2": 0.02400934556103484
+            },
+            {
+              "context_tokens": 64,
+              "fast_weight_relative_l2": 0.002978682144827121,
+              "surprise_relative_l2": 0.022450745423844468
+            },
+            {
+              "context_tokens": 96,
+              "fast_weight_relative_l2": 0.003669619028791258,
+              "surprise_relative_l2": 0.02927455003868391
+            },
+            {
+              "context_tokens": 128,
+              "fast_weight_relative_l2": 0.004209960571017931,
+              "surprise_relative_l2": 0.032183547431978765
+            }
+          ],
+          "state_payload_bytes": 9461760,
+          "state_resume_seconds": [
+            0.010903204000015876,
+            0.010421754999981658,
+            0.009880151000004389,
+            0.010607407999998486
+          ],
+          "tokens_per_second": 59.15766200009185,
+          "total_seconds": 2.1637095799999884,
+          "variant": "approximate_w8"
+        },
+        {
+          "available": true,
+          "cpu_tensor_memory_limitation": "tracemalloc excludes native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": 1296314368,
+          "finite_state_by_segment": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "first_nonfinite_context_tokens": null,
+          "gate_statistics": {
+            "alpha": {
+              "count": 1024,
+              "maximum": 0.00010197173105552793,
+              "mean": 0.00010002627020355703,
+              "minimum": 9.80920231086202e-05
+            },
+            "eta": {
+              "count": 1024,
+              "maximum": 0.010216222144663334,
+              "mean": 0.00999833962032426,
+              "minimum": 0.009796074591577053
+            },
+            "theta": {
+              "count": 1024,
+              "maximum": 0.001022059004753828,
+              "mean": 0.00100006266956143,
+              "minimum": 0.0009759468375705183
+            }
+          },
+          "input_tokens": 128,
+          "latency_per_segment_seconds": 0.5913027364999976,
+          "mean_state_resume_seconds": 0.010563246499998513,
+          "memory_update_norm": {
+            "count": 32,
+            "maximum": 0.9033993641736651,
+            "mean": 0.8705516761696116,
+            "minimum": 0.8353106889883096
+          },
+          "python_tracemalloc_peak_bytes": 564914,
+          "reason": "measured",
+          "runtime_metadata": {
+            "attention": {
+              "activation_dtype": "float32",
+              "implementation": "multihead_attention",
+              "memory_state_dtype": "unchanged_fp32_island_for_mixed_precision"
+            },
+            "gates": {
+              "convolution_kernel_size": null,
+              "implementation": "token_wise"
+            },
+            "memory": {
+              "exactness": "approximate_stale_within_window",
+              "implementation": "approximate_scan",
+              "published_states_per_segment": 1,
+              "staleness": "all surprise gradients in a window use its incoming fast-weight snapshot; gates/momentum/forgetting remain sequential",
+              "window_size": 16
+            }
+          },
+          "segment_latencies_seconds": [
+            0.5965507349999939,
+            0.5967984190000095,
+            0.5896898290000081,
+            0.5821719629999791
+          ],
+          "state_error_by_context": [
+            {
+              "context_tokens": 32,
+              "fast_weight_relative_l2": 0.003307285390079324,
+              "surprise_relative_l2": 0.04363000160793129
+            },
+            {
+              "context_tokens": 64,
+              "fast_weight_relative_l2": 0.004439489510083849,
+              "surprise_relative_l2": 0.03236937692239897
+            },
+            {
+              "context_tokens": 96,
+              "fast_weight_relative_l2": 0.005441431935725921,
+              "surprise_relative_l2": 0.038542519404233685
+            },
+            {
+              "context_tokens": 128,
+              "fast_weight_relative_l2": 0.006173275183073411,
+              "surprise_relative_l2": 0.04028351301231576
+            }
+          ],
+          "state_payload_bytes": 9461760,
+          "state_resume_seconds": [
+            0.010592032000005247,
+            0.010678866999995762,
+            0.01047766899998237,
+            0.010504418000010673
+          ],
+          "tokens_per_second": 50.85290346670542,
+          "total_seconds": 2.5170637520000128,
+          "variant": "approximate_w16"
+        },
+        {
+          "available": true,
+          "cpu_tensor_memory_limitation": "tracemalloc excludes native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": 1467756544,
+          "finite_state_by_segment": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "first_nonfinite_context_tokens": null,
+          "gate_statistics": {
+            "alpha": {
+              "count": 1024,
+              "maximum": 0.00010197173105552793,
+              "mean": 0.00010002633573691355,
+              "minimum": 9.80920231086202e-05
+            },
+            "eta": {
+              "count": 1024,
+              "maximum": 0.010216254740953445,
+              "mean": 0.009998341095524665,
+              "minimum": 0.00979609414935112
+            },
+            "theta": {
+              "count": 1024,
+              "maximum": 0.001022059004753828,
+              "mean": 0.001000062516197886,
+              "minimum": 0.0009759462554939091
+            }
+          },
+          "input_tokens": 128,
+          "latency_per_segment_seconds": 0.764926220250004,
+          "mean_state_resume_seconds": 0.010857946000001562,
+          "memory_update_norm": {
+            "count": 32,
+            "maximum": 0.9123870941732029,
+            "mean": 0.8784436066673106,
+            "minimum": 0.8413221812346484
+          },
+          "python_tracemalloc_peak_bytes": 573080,
+          "reason": "measured",
+          "runtime_metadata": {
+            "attention": {
+              "activation_dtype": "float32",
+              "implementation": "multihead_attention",
+              "memory_state_dtype": "unchanged_fp32_island_for_mixed_precision"
+            },
+            "gates": {
+              "convolution_kernel_size": null,
+              "implementation": "token_wise"
+            },
+            "memory": {
+              "exactness": "approximate_stale_within_window",
+              "implementation": "approximate_scan",
+              "published_states_per_segment": 1,
+              "staleness": "all surprise gradients in a window use its incoming fast-weight snapshot; gates/momentum/forgetting remain sequential",
+              "window_size": 32
+            }
+          },
+          "segment_latencies_seconds": [
+            0.7525989929999923,
+            0.7809260650000169,
+            0.761282848999997,
+            0.7648969740000098
+          ],
+          "state_error_by_context": [
+            {
+              "context_tokens": 32,
+              "fast_weight_relative_l2": 0.004704965602342048,
+              "surprise_relative_l2": 0.06260757994490955
+            },
+            {
+              "context_tokens": 64,
+              "fast_weight_relative_l2": 0.006318536903368881,
+              "surprise_relative_l2": 0.0626178795938455
+            },
+            {
+              "context_tokens": 96,
+              "fast_weight_relative_l2": 0.00774800362198107,
+              "surprise_relative_l2": 0.06297236503776725
+            },
+            {
+              "context_tokens": 128,
+              "fast_weight_relative_l2": 0.00878783145437462,
+              "surprise_relative_l2": 0.05724913730200807
+            }
+          ],
+          "state_payload_bytes": 9461760,
+          "state_resume_seconds": [
+            0.010486530999997967,
+            0.013629648000005545,
+            0.00957237299999747,
+            0.009743232000005264
+          ],
+          "tokens_per_second": 39.78522995431203,
+          "total_seconds": 3.217274353999983,
+          "variant": "approximate_w32"
+        },
+        {
+          "available": true,
+          "cpu_tensor_memory_limitation": "tracemalloc excludes native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": 1137209344,
+          "finite_state_by_segment": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "first_nonfinite_context_tokens": null,
+          "gate_statistics": {
+            "alpha": {
+              "count": 1024,
+              "maximum": 0.00010103490785695612,
+              "mean": 0.00010002629370831073,
+              "minimum": 9.899326687445864e-05
+            },
+            "eta": {
+              "count": 1024,
+              "maximum": 0.010098339058458805,
+              "mean": 0.009998094777984079,
+              "minimum": 0.009899583645164967
+            },
+            "theta": {
+              "count": 1024,
+              "maximum": 0.0010133073665201664,
+              "mean": 0.001000071571297667,
+              "minimum": 0.000988381216302514
+            }
+          },
+          "input_tokens": 128,
+          "latency_per_segment_seconds": 0.4631916940000025,
+          "mean_state_resume_seconds": 0.01111961099998382,
+          "memory_update_norm": {
+            "count": 32,
+            "maximum": 0.8949439043146004,
+            "mean": 0.8630330840729412,
+            "minimum": 0.8293356346878668
+          },
+          "python_tracemalloc_peak_bytes": 564856,
+          "reason": "measured",
+          "runtime_metadata": {
+            "attention": {
+              "activation_dtype": "float32",
+              "implementation": "multihead_attention",
+              "memory_state_dtype": "unchanged_fp32_island_for_mixed_precision"
+            },
+            "gates": {
+              "convolution_kernel_size": 3,
+              "implementation": "causal_convolution"
+            },
+            "memory": {
+              "implementation": "reference"
+            }
+          },
+          "segment_latencies_seconds": [
+            0.4705535379999901,
+            0.46205242100000987,
+            0.4660160699999949,
+            0.45414474700001506
+          ],
+          "state_error_by_context": [
+            {
+              "context_tokens": 32,
+              "fast_weight_relative_l2": 0.000360417254096624,
+              "surprise_relative_l2": 0.003481601673041321
+            },
+            {
+              "context_tokens": 64,
+              "fast_weight_relative_l2": 0.0004883031246867619,
+              "surprise_relative_l2": 0.005172583613679111
+            },
+            {
+              "context_tokens": 96,
+              "fast_weight_relative_l2": 0.0005918147841170207,
+              "surprise_relative_l2": 0.004246691161118925
+            },
+            {
+              "context_tokens": 128,
+              "fast_weight_relative_l2": 0.0006678379622431817,
+              "surprise_relative_l2": 0.004100498203704945
+            }
+          ],
+          "state_payload_bytes": 9461760,
+          "state_resume_seconds": [
+            0.010492826999978888,
+            0.011491540999998051,
+            0.010598134999980857,
+            0.011895940999977483
+          ],
+          "tokens_per_second": 63.565993896039366,
+          "total_seconds": 2.01365529200001,
+          "variant": "causal_convolution"
+        },
+        {
+          "available": true,
+          "cpu_tensor_memory_limitation": "tracemalloc excludes native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": 1135587328,
+          "finite_state_by_segment": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "first_nonfinite_context_tokens": null,
+          "gate_statistics": {
+            "alpha": {
+              "count": 1024,
+              "maximum": 0.00010197173105552793,
+              "mean": 0.00010002627310967682,
+              "minimum": 9.809183393372223e-05
+            },
+            "eta": {
+              "count": 1024,
+              "maximum": 0.010216227732598782,
+              "mean": 0.009998334032388811,
+              "minimum": 0.00979610811918974
+            },
+            "theta": {
+              "count": 1024,
+              "maximum": 0.001022059004753828,
+              "mean": 0.0010000635526807855,
+              "minimum": 0.0009759457898326218
+            }
+          },
+          "input_tokens": 128,
+          "latency_per_segment_seconds": 0.4766005062500014,
+          "mean_state_resume_seconds": 0.011044648749987118,
+          "memory_update_norm": {
+            "count": 32,
+            "maximum": 0.8946779988891621,
+            "mean": 0.8630298878521658,
+            "minimum": 0.8293699013677321
+          },
+          "python_tracemalloc_peak_bytes": 664513,
+          "reason": "measured",
+          "runtime_metadata": {
+            "attention": {
+              "activation_dtype": "float32",
+              "implementation": "sdpa",
+              "memory_state_dtype": "unchanged_fp32_island_for_mixed_precision"
+            },
+            "gates": {
+              "convolution_kernel_size": null,
+              "implementation": "token_wise"
+            },
+            "memory": {
+              "implementation": "reference"
+            }
+          },
+          "segment_latencies_seconds": [
+            0.5327588160000118,
+            0.46550050700000156,
+            0.4539843919999953,
+            0.45415830999999685
+          ],
+          "state_error_by_context": [
+            {
+              "context_tokens": 32,
+              "fast_weight_relative_l2": 0.0,
+              "surprise_relative_l2": 0.0
+            },
+            {
+              "context_tokens": 64,
+              "fast_weight_relative_l2": 0.0,
+              "surprise_relative_l2": 0.0
+            },
+            {
+              "context_tokens": 96,
+              "fast_weight_relative_l2": 0.0,
+              "surprise_relative_l2": 0.0
+            },
+            {
+              "context_tokens": 128,
+              "fast_weight_relative_l2": 0.0,
+              "surprise_relative_l2": 0.0
+            }
+          ],
+          "state_payload_bytes": 9461760,
+          "state_resume_seconds": [
+            0.010279515999997102,
+            0.010645837999987862,
+            0.011569771999973,
+            0.01168346899999051
+          ],
+          "tokens_per_second": 62.17772541094153,
+          "total_seconds": 2.058615029000009,
+          "variant": "sdpa"
+        },
+        {
+          "available": true,
+          "cpu_tensor_memory_limitation": "tracemalloc excludes native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": 268858368,
+          "finite_state_by_segment": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "first_nonfinite_context_tokens": null,
+          "gate_statistics": {
+            "alpha": {
+              "count": 1024,
+              "maximum": 0.00010197173105552793,
+              "mean": 0.00010002650721219197,
+              "minimum": 9.808977483771741e-05
+            },
+            "eta": {
+              "count": 1024,
+              "maximum": 0.010216371156275272,
+              "mean": 0.00999829053216672,
+              "minimum": 0.009796454571187496
+            },
+            "theta": {
+              "count": 1024,
+              "maximum": 0.001022059004753828,
+              "mean": 0.0010000577216828788,
+              "minimum": 0.0009759142412804067
+            }
+          },
+          "input_tokens": 128,
+          "latency_per_segment_seconds": 0.057133637250011304,
+          "mean_state_resume_seconds": 0.010194787750002376,
+          "memory_update_norm": {
+            "count": 32,
+            "maximum": 0.0,
+            "mean": 0.0,
+            "minimum": 0.0
+          },
+          "python_tracemalloc_peak_bytes": 175356,
+          "reason": "measured",
+          "runtime_metadata": {
+            "control": "frozen_memory"
+          },
+          "segment_latencies_seconds": [
+            0.05691257400002314,
+            0.057779801000009456,
+            0.05670648200000983,
+            0.05713569200000279
+          ],
+          "state_error_by_context": [
+            {
+              "context_tokens": 32,
+              "fast_weight_relative_l2": 0.07826027072967146,
+              "surprise_relative_l2": 1.0
+            },
+            {
+              "context_tokens": 64,
+              "fast_weight_relative_l2": 0.11617435650035252,
+              "surprise_relative_l2": 1.0
+            },
+            {
+              "context_tokens": 96,
+              "fast_weight_relative_l2": 0.14821926402116403,
+              "surprise_relative_l2": 1.0
+            },
+            {
+              "context_tokens": 128,
+              "fast_weight_relative_l2": 0.17702891348732486,
+              "surprise_relative_l2": 1.0
+            }
+          ],
+          "state_payload_bytes": 9461760,
+          "state_resume_seconds": [
+            0.010412232000021504,
+            0.009994040999998788,
+            0.01026277399998321,
+            0.010110104000006004
+          ],
+          "tokens_per_second": 353.36425936840965,
+          "total_seconds": 0.36223244600000726,
+          "variant": "frozen_memory"
+        },
+        {
+          "available": true,
+          "cpu_tensor_memory_limitation": "tracemalloc excludes native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": 268465152,
+          "finite_state_by_segment": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "first_nonfinite_context_tokens": null,
+          "gate_statistics": {
+            "alpha": {
+              "count": 1024,
+              "maximum": 0.00010196813673246652,
+              "mean": 0.00010002573707623696,
+              "minimum": 9.80534969130531e-05
+            },
+            "eta": {
+              "count": 1024,
+              "maximum": 0.010219207033514977,
+              "mean": 0.009998584639106411,
+              "minimum": 0.009796454571187496
+            },
+            "theta": {
+              "count": 1024,
+              "maximum": 0.0010223181452602148,
+              "mean": 0.0010000808166523711,
+              "minimum": 0.0009765625
+            }
+          },
+          "input_tokens": 128,
+          "latency_per_segment_seconds": 0.05343988799999977,
+          "mean_state_resume_seconds": 0.011319630499997402,
+          "memory_update_norm": {
+            "count": 32,
+            "maximum": 0.0,
+            "mean": 0.0,
+            "minimum": 0.0
+          },
+          "python_tracemalloc_peak_bytes": 170559,
+          "reason": "measured",
+          "runtime_metadata": {
+            "control": "no_memory"
+          },
+          "segment_latencies_seconds": [
+            0.05290658499998813,
+            0.053451936000016076,
+            0.05403877699998816,
+            0.053362254000006715
+          ],
+          "state_error_by_context": [
+            {
+              "context_tokens": 32,
+              "fast_weight_relative_l2": 0.07826027072967146,
+              "surprise_relative_l2": 1.0
+            },
+            {
+              "context_tokens": 64,
+              "fast_weight_relative_l2": 0.11617435650035252,
+              "surprise_relative_l2": 1.0
+            },
+            {
+              "context_tokens": 96,
+              "fast_weight_relative_l2": 0.14821926402116403,
+              "surprise_relative_l2": 1.0
+            },
+            {
+              "context_tokens": 128,
+              "fast_weight_relative_l2": 0.17702891348732486,
+              "surprise_relative_l2": 1.0
+            }
+          ],
+          "state_payload_bytes": 9461760,
+          "state_resume_seconds": [
+            0.010540196999983209,
+            0.01067852099998845,
+            0.012191870999998855,
+            0.011867933000019093
+          ],
+          "tokens_per_second": 364.3194615918383,
+          "total_seconds": 0.35134000100001117,
+          "variant": "no_memory"
+        }
+      ]
+    }
+  ],
+  "protocol": {
+    "dtype": "float32",
+    "rerun_command": "/Users/gonzalovidal/opt/anaconda3/envs/seqtrainer/bin/seqtrainer-titans-stage-b-long-context",
+    "scales": [
+      {
+        "block_count": 8,
+        "d_model": 384,
+        "memory_depth": 1,
+        "name": "a100_pilot",
+        "num_heads": 8,
+        "persistent_tokens": 4,
+        "requires_a100": true,
+        "segment_count": 4
+      }
+    ],
+    "seed": 20260738,
+    "segment_length": 32,
+    "stable_gate_initialization": {
+      "bias_gate_values": {
+        "alpha": 0.0001,
+        "eta": 0.01,
+        "theta": 0.001
+      },
+      "projection_weight_multiplier": 0.01,
+      "reason": "untrained default sigmoid gates near 0.5 make the random reference recurrence non-finite and prevent interpretable backend comparison"
+    },
+    "state_resume": "serialize/detach/restore after every segment",
+    "timing_measurement": {
+      "per_segment_samples": "one sample for every segment in the stream",
+      "stream_repetitions": 1,
+      "warmup_streams": 0
+    },
+    "variants": [
+      "reference",
+      "exact_accelerated",
+      "approximate_w2",
+      "approximate_w4",
+      "approximate_w8",
+      "approximate_w16",
+      "approximate_w32",
+      "causal_convolution",
+      "sdpa",
+      "frozen_memory",
+      "no_memory"
+    ]
+  }
+}

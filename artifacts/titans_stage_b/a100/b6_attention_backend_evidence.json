@@ -1,0 +1,229 @@
+{
+  "causality": {
+    "future_perturb_position": 19,
+    "passed": true,
+    "prefix_maximum_error": 0.0
+  },
+  "flash_probe": {
+    "activation_dtype": "float16",
+    "available": false,
+    "device": "NVIDIA A100-SXM4-40GB",
+    "reason": "forced Flash SDP rejected the exact mask: No available kernel. Aborting execution."
+  },
+  "format_version": 1,
+  "hardware": {
+    "cuda_device": "NVIDIA A100-SXM4-40GB",
+    "device": "cuda",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.35",
+    "python": "3.12.13",
+    "torch": "2.11.0+cu128"
+  },
+  "mask": {
+    "allowed_edges": 2384,
+    "blocked_edges": 2240,
+    "boolean_complement_mismatches": 0,
+    "layout": "[persistent, retrieval, sequence]",
+    "persistent_queries_restricted_to_persistent_keys": true,
+    "shape": [
+      68,
+      68
+    ]
+  },
+  "mixed_precision_behavioral": {
+    "bfloat16": {
+      "available": true,
+      "classification": "behavioral_parity_not_numerical_parity",
+      "fast_weights": {
+        "maximum_absolute_error": 0.1973867416381836,
+        "maximum_relative_error": 0.055659053380617704
+      },
+      "memory_state_dtypes": [
+        "float32"
+      ],
+      "published_sequence_dtype": "float32",
+      "sequence": {
+        "maximum_absolute_error": 0.008179545402526855,
+        "maximum_relative_error": 0.07752143320145265,
+        "tensor_exact": false
+      },
+      "surprise": {
+        "maximum_absolute_error": 0.15624237060546875,
+        "maximum_relative_error": 0.9220684603967494
+      }
+    },
+    "float16": {
+      "available": true,
+      "classification": "behavioral_parity_not_numerical_parity",
+      "fast_weights": {
+        "maximum_absolute_error": 0.023639678955078125,
+        "maximum_relative_error": 0.022390435671346378
+      },
+      "memory_state_dtypes": [
+        "float32"
+      ],
+      "published_sequence_dtype": "float32",
+      "sequence": {
+        "maximum_absolute_error": 0.0010881423950195312,
+        "maximum_relative_error": 0.02699389410484741,
+        "tensor_exact": false
+      },
+      "surprise": {
+        "maximum_absolute_error": 0.015446662902832031,
+        "maximum_relative_error": 0.22188460275859842
+      }
+    }
+  },
+  "parity": {
+    "fp32_numerical": {
+      "attention_gradient": {
+        "attention.in_proj_bias": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        },
+        "attention.in_proj_weight": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        },
+        "attention.out_proj.bias": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        },
+        "attention.out_proj.weight": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        }
+      },
+      "dtype": "float32",
+      "fast_weights": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0
+      },
+      "input_gradient": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "persistent_token_gradient": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "retrieval": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "sequence": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "surprise": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0
+      }
+    },
+    "fp64_oracle": {
+      "attention_gradient": {
+        "attention.in_proj_bias": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        },
+        "attention.in_proj_weight": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        },
+        "attention.out_proj.bias": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        },
+        "attention.out_proj.weight": {
+          "maximum_absolute_error": 0.0,
+          "maximum_relative_error": 0.0,
+          "tensor_exact": true
+        }
+      },
+      "dtype": "float64",
+      "fast_weights": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0
+      },
+      "input_gradient": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "persistent_token_gradient": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "retrieval": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "sequence": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0,
+        "tensor_exact": true
+      },
+      "surprise": {
+        "maximum_absolute_error": 0.0,
+        "maximum_relative_error": 0.0
+      }
+    }
+  },
+  "seed": 20260735,
+  "timing": {
+    "geometry": {
+      "d_model": 64,
+      "num_heads": 4,
+      "persistent_tokens": 4,
+      "segment_length": 32
+    },
+    "multihead_attention": {
+      "mean_seconds": 0.005025764899997398,
+      "repetitions": 10,
+      "samples_seconds": [
+        0.005011660000008078,
+        0.005043591999992714,
+        0.005007583999997678,
+        0.004939028999984885,
+        0.00499004799999625,
+        0.005039700999986962,
+        0.004952265000014222,
+        0.005059173000006467,
+        0.0051510509999843634,
+        0.005063546000002361
+      ],
+      "tokens_per_second": 6367.189997291072,
+      "warmup_runs": 2
+    },
+    "sdpa": {
+      "mean_seconds": 0.005082512500004554,
+      "repetitions": 10,
+      "samples_seconds": [
+        0.00514095900001621,
+        0.005157512000010911,
+        0.005151636000022108,
+        0.005056437000007463,
+        0.004924246000001631,
+        0.005024848000005022,
+        0.004909115999993219,
+        0.005014740000007123,
+        0.005389543999996249,
+        0.0050560869999856095
+      ],
+      "tokens_per_second": 6296.098632314495,
+      "warmup_runs": 2
+    }
+  }
+}

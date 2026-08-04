@@ -1,0 +1,32 @@
+{
+  "amendment_id": "adaptive_exploration_5m_v1",
+  "changes": {
+    "run_matrix_additions": {
+      "adaptive_exploration_5m": {
+        "block_count": 4,
+        "budget_bases": 5000000,
+        "d_model": 128,
+        "gradient_horizon": 3,
+        "memory_architecture": "paper_residual_mlp_v2",
+        "memory_depth": 2,
+        "memory_mode": "adaptive",
+        "memory_recurrence_policy": "paper_exact",
+        "num_heads": 4,
+        "phase": "exploratory",
+        "seed": 20260741
+      },
+      "adaptive_exploration_5m_behavior": {
+        "phase": "analysis"
+      },
+      "adaptive_exploration_5m_trace": {
+        "phase": "analysis"
+      }
+    }
+  },
+  "classification": "exploratory",
+  "created_at": "2026-07-27T00:00:00+00:00",
+  "expected_impact": "Creates one fresh five-million-base adaptive-only scale gate. It cannot support a memory-benefit claim without a later matched no-memory control.",
+  "format_version": 1,
+  "preceding_protocol_hash": "41587632b18790f761e9412617f284646098ae843701f6b2113991831ccc439e",
+  "rationale": "The completed one-million-base adaptive run was finite, used memory, and directionally beat no-memory. A predeclared larger adaptive-only exploratory run is needed before allocating equal-budget controls."
+}

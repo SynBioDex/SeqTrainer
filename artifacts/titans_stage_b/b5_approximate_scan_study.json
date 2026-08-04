@@ -1,0 +1,763 @@
+{
+  "classification": "experimental_approximation_not_parity_equivalent",
+  "decision": {
+    "approximate_scan_status": "experimental_only",
+    "fastest_observed_speedup": 1.1871418849573716,
+    "fastest_observed_window": 2,
+    "promotion_allowed": false,
+    "reason": "every supported window changes dense-update state/gradients and no approximation may be described as parity-equivalent; task controls do not exercise dense writes",
+    "recommended_default": "reference"
+  },
+  "dense_mechanism": {
+    "approximate_windows": {
+      "16": {
+        "backend": "approximate_scan",
+        "dtype": "float32",
+        "fast_weights": {
+          "maximum_absolute_error": 0.5424348264932632,
+          "relative_l2_error": 1.0945142355565
+        },
+        "gate_statistics": {
+          "alpha": {
+            "maximum": 0.7798659801483154,
+            "mean": 0.55794358253479,
+            "minimum": 0.32417044043540955
+          },
+          "eta": {
+            "maximum": 0.7032582759857178,
+            "mean": 0.5051794648170471,
+            "minimum": 0.3308650851249695
+          },
+          "theta": {
+            "maximum": 0.5867424607276917,
+            "mean": 0.40462929010391235,
+            "minimum": 0.2721400260925293
+          }
+        },
+        "gradient_cosine": 0.6470262182557069,
+        "gradient_relative_l2_error": 1.4218173847578726,
+        "memory_update_norm": 2.3949484405785504,
+        "seed": 20260736,
+        "sequence_maximum_absolute_error": 0.0,
+        "speedup_over_reference": 0.9141561750326553,
+        "staleness": "within-window gradients use incoming fast-weight snapshot",
+        "surprise": {
+          "maximum_absolute_error": 0.35855652391910553,
+          "relative_l2_error": 0.8139497108124399
+        },
+        "timing": {
+          "cpu_tensor_memory_limitation": "tracemalloc covers Python allocations, not native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": null,
+          "mean_seconds": 0.10600256167041759,
+          "python_tracemalloc_peak_bytes": 43475,
+          "repetitions": 3,
+          "samples_seconds": [
+            0.1002052589901723,
+            0.10286472301231697,
+            0.11493770300876349
+          ],
+          "tokens_per_second": 301.87949702096984,
+          "warmup_runs": 1
+        },
+        "window_size": 16
+      },
+      "2": {
+        "backend": "approximate_scan",
+        "dtype": "float32",
+        "fast_weights": {
+          "maximum_absolute_error": 0.5439975559711456,
+          "relative_l2_error": 0.7560600822283302
+        },
+        "gate_statistics": {
+          "alpha": {
+            "maximum": 0.7798659801483154,
+            "mean": 0.55794358253479,
+            "minimum": 0.32417044043540955
+          },
+          "eta": {
+            "maximum": 0.7032582759857178,
+            "mean": 0.5051794648170471,
+            "minimum": 0.3308650851249695
+          },
+          "theta": {
+            "maximum": 0.5867424607276917,
+            "mean": 0.40462929010391235,
+            "minimum": 0.2721400260925293
+          }
+        },
+        "gradient_cosine": 0.7409787468161504,
+        "gradient_relative_l2_error": 1.1668330393529516,
+        "memory_update_norm": 2.3450580520548443,
+        "seed": 20260736,
+        "sequence_maximum_absolute_error": 0.0,
+        "speedup_over_reference": 1.1871418849573716,
+        "staleness": "within-window gradients use incoming fast-weight snapshot",
+        "surprise": {
+          "maximum_absolute_error": 0.5347476601600647,
+          "relative_l2_error": 0.9457772211511635
+        },
+        "timing": {
+          "cpu_tensor_memory_limitation": "tracemalloc covers Python allocations, not native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": null,
+          "mean_seconds": 0.0816270553235275,
+          "python_tracemalloc_peak_bytes": 40337,
+          "repetitions": 3,
+          "samples_seconds": [
+            0.08913884003413841,
+            0.07882539997808635,
+            0.07691692595835775
+          ],
+          "tokens_per_second": 392.02688217979346,
+          "warmup_runs": 1
+        },
+        "window_size": 2
+      },
+      "32": {
+        "backend": "approximate_scan",
+        "dtype": "float32",
+        "fast_weights": {
+          "maximum_absolute_error": 0.5816037580370903,
+          "relative_l2_error": 0.9849535385703472
+        },
+        "gate_statistics": {
+          "alpha": {
+            "maximum": 0.7798659801483154,
+            "mean": 0.55794358253479,
+            "minimum": 0.32417044043540955
+          },
+          "eta": {
+            "maximum": 0.7032582759857178,
+            "mean": 0.5051794648170471,
+            "minimum": 0.3308650851249695
+          },
+          "theta": {
+            "maximum": 0.5867424607276917,
+            "mean": 0.40462929010391235,
+            "minimum": 0.2721400260925293
+          }
+        },
+        "gradient_cosine": 0.6091653016622636,
+        "gradient_relative_l2_error": 1.602784481220199,
+        "memory_update_norm": 3.2041539930774987,
+        "seed": 20260736,
+        "sequence_maximum_absolute_error": 0.0,
+        "speedup_over_reference": 0.6901872662742572,
+        "staleness": "within-window gradients use incoming fast-weight snapshot",
+        "surprise": {
+          "maximum_absolute_error": 0.35279813408851624,
+          "relative_l2_error": 0.7202915221446051
+        },
+        "timing": {
+          "cpu_tensor_memory_limitation": "tracemalloc covers Python allocations, not native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": null,
+          "mean_seconds": 0.14040087532096854,
+          "python_tracemalloc_peak_bytes": 49769,
+          "repetitions": 3,
+          "samples_seconds": [
+            0.13953275000676513,
+            0.128808619978372,
+            0.15286125597776845
+          ],
+          "tokens_per_second": 227.91880696502236,
+          "warmup_runs": 1
+        },
+        "window_size": 32
+      },
+      "4": {
+        "backend": "approximate_scan",
+        "dtype": "float32",
+        "fast_weights": {
+          "maximum_absolute_error": 6.40127357840538,
+          "relative_l2_error": 11.104770749937474
+        },
+        "gate_statistics": {
+          "alpha": {
+            "maximum": 0.7798659801483154,
+            "mean": 0.55794358253479,
+            "minimum": 0.32417044043540955
+          },
+          "eta": {
+            "maximum": 0.7032582759857178,
+            "mean": 0.5051794648170471,
+            "minimum": 0.3308650851249695
+          },
+          "theta": {
+            "maximum": 0.5867424607276917,
+            "mean": 0.40462929010391235,
+            "minimum": 0.2721400260925293
+          }
+        },
+        "gradient_cosine": 0.2981221494980589,
+        "gradient_relative_l2_error": 809.638174465138,
+        "memory_update_norm": 18.595993618094724,
+        "seed": 20260736,
+        "sequence_maximum_absolute_error": 0.0,
+        "speedup_over_reference": 1.1073901454934456,
+        "staleness": "within-window gradients use incoming fast-weight snapshot",
+        "surprise": {
+          "maximum_absolute_error": 5.308599591255188,
+          "relative_l2_error": 12.111446591565985
+        },
+        "timing": {
+          "cpu_tensor_memory_limitation": "tracemalloc covers Python allocations, not native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": null,
+          "mean_seconds": 0.08750565165731435,
+          "python_tracemalloc_peak_bytes": 39497,
+          "repetitions": 3,
+          "samples_seconds": [
+            0.07944217300973833,
+            0.09065242897486314,
+            0.09242235298734158
+          ],
+          "tokens_per_second": 365.6906656191413,
+          "warmup_runs": 1
+        },
+        "window_size": 4
+      },
+      "8": {
+        "backend": "approximate_scan",
+        "dtype": "float32",
+        "fast_weights": {
+          "maximum_absolute_error": 1.2961162589490414,
+          "relative_l2_error": 1.7969524622410769
+        },
+        "gate_statistics": {
+          "alpha": {
+            "maximum": 0.7798659801483154,
+            "mean": 0.55794358253479,
+            "minimum": 0.32417044043540955
+          },
+          "eta": {
+            "maximum": 0.7032582759857178,
+            "mean": 0.5051794648170471,
+            "minimum": 0.3308650851249695
+          },
+          "theta": {
+            "maximum": 0.5867424607276917,
+            "mean": 0.40462929010391235,
+            "minimum": 0.2721400260925293
+          }
+        },
+        "gradient_cosine": 0.3820312501660892,
+        "gradient_relative_l2_error": 6.5466382475322975,
+        "memory_update_norm": 3.578560568428316,
+        "seed": 20260736,
+        "sequence_maximum_absolute_error": 0.0,
+        "speedup_over_reference": 1.0390940494601184,
+        "staleness": "within-window gradients use incoming fast-weight snapshot",
+        "surprise": {
+          "maximum_absolute_error": 0.8083353042602539,
+          "relative_l2_error": 1.5321626582251717
+        },
+        "timing": {
+          "cpu_tensor_memory_limitation": "tracemalloc covers Python allocations, not native PyTorch tensor storage",
+          "cuda_peak_allocated_bytes": null,
+          "mean_seconds": 0.09325709869153798,
+          "python_tracemalloc_peak_bytes": 40755,
+          "repetitions": 3,
+          "samples_seconds": [
+            0.1027487920364365,
+            0.0927697450388223,
+            0.08425275899935514
+          ],
+          "tokens_per_second": 343.1374174082432,
+          "warmup_runs": 1
+        },
+        "window_size": 8
+      }
+    },
+    "exact_accelerated": {
+      "fast_weights": {
+        "maximum_absolute_error": 0.0,
+        "relative_l2_error": 0.0
+      },
+      "gradient_cosine": 1.0,
+      "gradient_relative_l2_error": 0.0,
+      "surprise": {
+        "maximum_absolute_error": 0.0,
+        "relative_l2_error": 0.0
+      },
+      "timing": {
+        "cpu_tensor_memory_limitation": "tracemalloc covers Python allocations, not native PyTorch tensor storage",
+        "cuda_peak_allocated_bytes": null,
+        "mean_seconds": 0.07604924133435513,
+        "python_tracemalloc_peak_bytes": 40839,
+        "repetitions": 3,
+        "samples_seconds": [
+          0.07167359499726444,
+          0.07435360999079421,
+          0.08212051901500672
+        ],
+        "tokens_per_second": 420.7800030418456,
+        "warmup_runs": 1
+      }
+    },
+    "reference": {
+      "memory_update_norm": 2.339200082196071,
+      "timing": {
+        "cpu_tensor_memory_limitation": "tracemalloc covers Python allocations, not native PyTorch tensor storage",
+        "cuda_peak_allocated_bytes": null,
+        "mean_seconds": 0.0969028963202921,
+        "python_tracemalloc_peak_bytes": 41012,
+        "repetitions": 3,
+        "samples_seconds": [
+          0.098064907011576,
+          0.09196508798049763,
+          0.10067869396880269
+        ],
+        "tokens_per_second": 330.2274876720995,
+        "warmup_runs": 1
+      }
+    }
+  },
+  "format_version": 1,
+  "protocol": {
+    "dense_mechanism_geometry": {
+      "d_model": 8,
+      "memory_depth": 1,
+      "num_heads": 2,
+      "persistent_tokens": 3,
+      "segment_length": 32
+    },
+    "device": "cpu",
+    "dtype": "float32",
+    "repetitions": 3,
+    "seed": 20260736,
+    "synthetic_config": {
+      "evaluation_seed": 20260827,
+      "learning_rate": 0.05,
+      "num_streams": 8,
+      "seed": 20260727,
+      "train_epochs": 3,
+      "train_seeds": [
+        20260727,
+        20260737,
+        20260747
+      ]
+    },
+    "warmup_runs": 1,
+    "windows": [
+      2,
+      4,
+      8,
+      16,
+      32
+    ]
+  },
+  "synthetic_task_comparison": {
+    "approximate_windows": {
+      "16": {
+        "alpha": {
+          "count": 288,
+          "maximum": 9.999999747378752e-05,
+          "mean": 9.999999747378752e-05,
+          "minimum": 9.999999747378752e-05
+        },
+        "delayed_accuracy_by_delay": {
+          ">32": 1.0
+        },
+        "eta": {
+          "count": 288,
+          "maximum": 0.009999998845160007,
+          "mean": 0.009999998845160007,
+          "minimum": 0.009999998845160007
+        },
+        "evaluation_accuracy": 1.0,
+        "evaluation_bpb": 0.04941287544043854,
+        "evaluation_loss": 0.03425039529489974,
+        "gradient_norm": {
+          "count": 216,
+          "maximum": 1.8268754482269287,
+          "mean": 0.3777145489325954,
+          "minimum": 0.04505226016044617
+        },
+        "memory_update_norm": {
+          "count": 288,
+          "maximum": 3.149193525314331,
+          "mean": 1.847852498292923,
+          "minimum": 1.4140721559524536
+        },
+        "overwrite_correctness": 1.0,
+        "reset_correctness": 1.0,
+        "staleness": "within-window gradients use incoming fast-weight snapshot",
+        "theta": {
+          "count": 288,
+          "maximum": 0.9998999834060669,
+          "mean": 0.9998999834060669,
+          "minimum": 0.9998999834060669
+        },
+        "train_accuracy": 1.0,
+        "train_bpb": 0.37150756782650696,
+        "train_eval_gap": 0.0,
+        "train_loss": 0.2575094231956259,
+        "window_size": 16
+      },
+      "2": {
+        "alpha": {
+          "count": 288,
+          "maximum": 9.999999747378752e-05,
+          "mean": 9.999999747378752e-05,
+          "minimum": 9.999999747378752e-05
+        },
+        "delayed_accuracy_by_delay": {
+          ">32": 1.0
+        },
+        "eta": {
+          "count": 288,
+          "maximum": 0.009999998845160007,
+          "mean": 0.009999998845160007,
+          "minimum": 0.009999998845160007
+        },
+        "evaluation_accuracy": 1.0,
+        "evaluation_bpb": 0.04941287544043854,
+        "evaluation_loss": 0.03425039529489974,
+        "gradient_norm": {
+          "count": 216,
+          "maximum": 1.8268754482269287,
+          "mean": 0.3777145489325954,
+          "minimum": 0.04505226016044617
+        },
+        "memory_update_norm": {
+          "count": 288,
+          "maximum": 3.149193525314331,
+          "mean": 1.847852498292923,
+          "minimum": 1.4140721559524536
+        },
+        "overwrite_correctness": 1.0,
+        "reset_correctness": 1.0,
+        "staleness": "within-window gradients use incoming fast-weight snapshot",
+        "theta": {
+          "count": 288,
+          "maximum": 0.9998999834060669,
+          "mean": 0.9998999834060669,
+          "minimum": 0.9998999834060669
+        },
+        "train_accuracy": 1.0,
+        "train_bpb": 0.37150756782650696,
+        "train_eval_gap": 0.0,
+        "train_loss": 0.2575094231956259,
+        "window_size": 2
+      },
+      "32": {
+        "alpha": {
+          "count": 288,
+          "maximum": 9.999999747378752e-05,
+          "mean": 9.999999747378752e-05,
+          "minimum": 9.999999747378752e-05
+        },
+        "delayed_accuracy_by_delay": {
+          ">32": 1.0
+        },
+        "eta": {
+          "count": 288,
+          "maximum": 0.009999998845160007,
+          "mean": 0.009999998845160007,
+          "minimum": 0.009999998845160007
+        },
+        "evaluation_accuracy": 1.0,
+        "evaluation_bpb": 0.04941287544043854,
+        "evaluation_loss": 0.03425039529489974,
+        "gradient_norm": {
+          "count": 216,
+          "maximum": 1.8268754482269287,
+          "mean": 0.3777145489325954,
+          "minimum": 0.04505226016044617
+        },
+        "memory_update_norm": {
+          "count": 288,
+          "maximum": 3.149193525314331,
+          "mean": 1.847852498292923,
+          "minimum": 1.4140721559524536
+        },
+        "overwrite_correctness": 1.0,
+        "reset_correctness": 1.0,
+        "staleness": "within-window gradients use incoming fast-weight snapshot",
+        "theta": {
+          "count": 288,
+          "maximum": 0.9998999834060669,
+          "mean": 0.9998999834060669,
+          "minimum": 0.9998999834060669
+        },
+        "train_accuracy": 1.0,
+        "train_bpb": 0.37150756782650696,
+        "train_eval_gap": 0.0,
+        "train_loss": 0.2575094231956259,
+        "window_size": 32
+      },
+      "4": {
+        "alpha": {
+          "count": 288,
+          "maximum": 9.999999747378752e-05,
+          "mean": 9.999999747378752e-05,
+          "minimum": 9.999999747378752e-05
+        },
+        "delayed_accuracy_by_delay": {
+          ">32": 1.0
+        },
+        "eta": {
+          "count": 288,
+          "maximum": 0.009999998845160007,
+          "mean": 0.009999998845160007,
+          "minimum": 0.009999998845160007
+        },
+        "evaluation_accuracy": 1.0,
+        "evaluation_bpb": 0.04941287544043854,
+        "evaluation_loss": 0.03425039529489974,
+        "gradient_norm": {
+          "count": 216,
+          "maximum": 1.8268754482269287,
+          "mean": 0.3777145489325954,
+          "minimum": 0.04505226016044617
+        },
+        "memory_update_norm": {
+          "count": 288,
+          "maximum": 3.149193525314331,
+          "mean": 1.847852498292923,
+          "minimum": 1.4140721559524536
+        },
+        "overwrite_correctness": 1.0,
+        "reset_correctness": 1.0,
+        "staleness": "within-window gradients use incoming fast-weight snapshot",
+        "theta": {
+          "count": 288,
+          "maximum": 0.9998999834060669,
+          "mean": 0.9998999834060669,
+          "minimum": 0.9998999834060669
+        },
+        "train_accuracy": 1.0,
+        "train_bpb": 0.37150756782650696,
+        "train_eval_gap": 0.0,
+        "train_loss": 0.2575094231956259,
+        "window_size": 4
+      },
+      "8": {
+        "alpha": {
+          "count": 288,
+          "maximum": 9.999999747378752e-05,
+          "mean": 9.999999747378752e-05,
+          "minimum": 9.999999747378752e-05
+        },
+        "delayed_accuracy_by_delay": {
+          ">32": 1.0
+        },
+        "eta": {
+          "count": 288,
+          "maximum": 0.009999998845160007,
+          "mean": 0.009999998845160007,
+          "minimum": 0.009999998845160007
+        },
+        "evaluation_accuracy": 1.0,
+        "evaluation_bpb": 0.04941287544043854,
+        "evaluation_loss": 0.03425039529489974,
+        "gradient_norm": {
+          "count": 216,
+          "maximum": 1.8268754482269287,
+          "mean": 0.3777145489325954,
+          "minimum": 0.04505226016044617
+        },
+        "memory_update_norm": {
+          "count": 288,
+          "maximum": 3.149193525314331,
+          "mean": 1.847852498292923,
+          "minimum": 1.4140721559524536
+        },
+        "overwrite_correctness": 1.0,
+        "reset_correctness": 1.0,
+        "staleness": "within-window gradients use incoming fast-weight snapshot",
+        "theta": {
+          "count": 288,
+          "maximum": 0.9998999834060669,
+          "mean": 0.9998999834060669,
+          "minimum": 0.9998999834060669
+        },
+        "train_accuracy": 1.0,
+        "train_bpb": 0.37150756782650696,
+        "train_eval_gap": 0.0,
+        "train_loss": 0.2575094231956259,
+        "window_size": 8
+      }
+    },
+    "exact_accelerated": {
+      "alpha": {
+        "count": 288,
+        "maximum": 9.999999747378752e-05,
+        "mean": 9.999999747378752e-05,
+        "minimum": 9.999999747378752e-05
+      },
+      "delayed_accuracy_by_delay": {
+        ">32": 1.0
+      },
+      "eta": {
+        "count": 288,
+        "maximum": 0.009999998845160007,
+        "mean": 0.009999998845160007,
+        "minimum": 0.009999998845160007
+      },
+      "evaluation_accuracy": 1.0,
+      "evaluation_bpb": 0.04941287544043854,
+      "evaluation_loss": 0.03425039529489974,
+      "gradient_norm": {
+        "count": 216,
+        "maximum": 1.8268754482269287,
+        "mean": 0.3777145489325954,
+        "minimum": 0.04505226016044617
+      },
+      "memory_update_norm": {
+        "count": 288,
+        "maximum": 3.149193525314331,
+        "mean": 1.847852498292923,
+        "minimum": 1.4140721559524536
+      },
+      "name": "adaptive",
+      "overwrite_correctness": 1.0,
+      "provenance": "B3 tensor-exact backend; same task semantics as reference",
+      "reset_correctness": 1.0,
+      "theta": {
+        "count": 288,
+        "maximum": 0.9998999834060669,
+        "mean": 0.9998999834060669,
+        "minimum": 0.9998999834060669
+      },
+      "train_accuracy": 1.0,
+      "train_bpb": 0.37150756782650696,
+      "train_eval_gap": 0.0,
+      "train_loss": 0.2575094231956259
+    },
+    "frozen_memory": {
+      "alpha": {
+        "count": 288,
+        "maximum": 9.999999747378752e-05,
+        "mean": 9.999999747378752e-05,
+        "minimum": 9.999999747378752e-05
+      },
+      "delayed_accuracy_by_delay": {
+        ">32": 0.125
+      },
+      "eta": {
+        "count": 288,
+        "maximum": 0.009999998845160007,
+        "mean": 0.009999998845160007,
+        "minimum": 0.009999998845160007
+      },
+      "evaluation_accuracy": 0.4166666666666667,
+      "evaluation_bpb": 2.1120682738150722,
+      "evaluation_loss": 1.4639741691450279,
+      "gradient_norm": {
+        "count": 216,
+        "maximum": 1.3300811052322388,
+        "mean": 0.7405827322422907,
+        "minimum": 0.08594472706317902
+      },
+      "memory_update_norm": {
+        "count": 288,
+        "maximum": 0.0,
+        "mean": 0.0,
+        "minimum": 0.0
+      },
+      "name": "frozen_memory",
+      "overwrite_correctness": 0.125,
+      "reset_correctness": 1.0,
+      "theta": {
+        "count": 288,
+        "maximum": 0.9998999834060669,
+        "mean": 0.9998999834060669,
+        "minimum": 0.9998999834060669
+      },
+      "train_accuracy": 0.35185185185185186,
+      "train_bpb": 2.4492858158559345,
+      "train_eval_gap": -0.06481481481481483,
+      "train_loss": 1.6977155576460063
+    },
+    "no_memory": {
+      "alpha": {
+        "count": 288,
+        "maximum": 9.999999747378752e-05,
+        "mean": 9.999999747378752e-05,
+        "minimum": 9.999999747378752e-05
+      },
+      "delayed_accuracy_by_delay": {
+        ">32": 0.25
+      },
+      "eta": {
+        "count": 288,
+        "maximum": 0.009999998845160007,
+        "mean": 0.009999998845160007,
+        "minimum": 0.009999998845160007
+      },
+      "evaluation_accuracy": 0.5,
+      "evaluation_bpb": 2.292287304606175,
+      "evaluation_loss": 1.5888924822211266,
+      "gradient_norm": {
+        "count": 216,
+        "maximum": 1.4801357984542847,
+        "mean": 0.9633959991408995,
+        "minimum": 0.057563748210668564
+      },
+      "memory_update_norm": {
+        "count": 288,
+        "maximum": 0.0,
+        "mean": 0.0,
+        "minimum": 0.0
+      },
+      "name": "no_memory",
+      "overwrite_correctness": 0.25,
+      "reset_correctness": 1.0,
+      "theta": {
+        "count": 288,
+        "maximum": 0.9998999834060669,
+        "mean": 0.9998999834060669,
+        "minimum": 0.9998999834060669
+      },
+      "train_accuracy": 0.4583333333333333,
+      "train_bpb": 2.1773026683523264,
+      "train_eval_gap": -0.041666666666666685,
+      "train_loss": 1.5091912057940606
+    },
+    "reference": {
+      "alpha": {
+        "count": 288,
+        "maximum": 9.999999747378752e-05,
+        "mean": 9.999999747378752e-05,
+        "minimum": 9.999999747378752e-05
+      },
+      "delayed_accuracy_by_delay": {
+        ">32": 1.0
+      },
+      "eta": {
+        "count": 288,
+        "maximum": 0.009999998845160007,
+        "mean": 0.009999998845160007,
+        "minimum": 0.009999998845160007
+      },
+      "evaluation_accuracy": 1.0,
+      "evaluation_bpb": 0.04941287544043854,
+      "evaluation_loss": 0.03425039529489974,
+      "gradient_norm": {
+        "count": 216,
+        "maximum": 1.8268754482269287,
+        "mean": 0.3777145489325954,
+        "minimum": 0.04505226016044617
+      },
+      "memory_update_norm": {
+        "count": 288,
+        "maximum": 3.149193525314331,
+        "mean": 1.847852498292923,
+        "minimum": 1.4140721559524536
+      },
+      "name": "adaptive",
+      "overwrite_correctness": 1.0,
+      "reset_correctness": 1.0,
+      "theta": {
+        "count": 288,
+        "maximum": 0.9998999834060669,
+        "mean": 0.9998999834060669,
+        "minimum": 0.9998999834060669
+      },
+      "train_accuracy": 1.0,
+      "train_bpb": 0.37150756782650696,
+      "train_eval_gap": 0.0,
+      "train_loss": 0.2575094231956259
+    },
+    "sparse_fixture_limitation": "the controlled Stage A fixture has at most one valid memory write in each segment, so within-window staleness may be inactive; dense mechanism drift is decisive"
+  }
+}
