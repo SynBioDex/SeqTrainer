@@ -1,0 +1,96 @@
+{
+  "classification": "contextual_sequence_embedding_pca",
+  "coloring": "GTDB taxonomy",
+  "embedding_dimension": 128,
+  "pca_explained_variance": [
+    0.5861111283302307,
+    0.23939695954322815
+  ],
+  "rows": [
+    {
+      "accession": "GCA_000249155.2",
+      "clade_group": "ani99:ani99_000007",
+      "contig_id": "AIFA01000001.1",
+      "pc1": -3.2141506671905518,
+      "pc2": -2.7947657108306885,
+      "segments_aggregated": 22,
+      "stream_id": "GCA_000249155.2:AIFA01000001.1",
+      "taxonomy_label": "Escherichia coli"
+    },
+    {
+      "accession": "GCA_000249155.2",
+      "clade_group": "ani99:ani99_000007",
+      "contig_id": "AIFA01000002.1",
+      "pc1": 20.726411819458008,
+      "pc2": 5.839471817016602,
+      "segments_aggregated": 4,
+      "stream_id": "GCA_000249155.2:AIFA01000002.1",
+      "taxonomy_label": "Escherichia coli"
+    },
+    {
+      "accession": "GCA_000249155.2",
+      "clade_group": "ani99:ani99_000007",
+      "contig_id": "AIFA01000003.1",
+      "pc1": -5.7391862869262695,
+      "pc2": 2.698239803314209,
+      "segments_aggregated": 30,
+      "stream_id": "GCA_000249155.2:AIFA01000003.1",
+      "taxonomy_label": "Escherichia coli"
+    },
+    {
+      "accession": "GCA_000249155.2",
+      "clade_group": "ani99:ani99_000007",
+      "contig_id": "AIFA01000004.1",
+      "pc1": -10.575583457946777,
+      "pc2": 11.136601448059082,
+      "segments_aggregated": 87,
+      "stream_id": "GCA_000249155.2:AIFA01000004.1",
+      "taxonomy_label": "Escherichia coli"
+    },
+    {
+      "accession": "GCA_000249155.2",
+      "clade_group": "ani99:ani99_000007",
+      "contig_id": "AIFA01000005.1",
+      "pc1": -0.5438203811645508,
+      "pc2": -4.522373199462891,
+      "segments_aggregated": 15,
+      "stream_id": "GCA_000249155.2:AIFA01000005.1",
+      "taxonomy_label": "Escherichia coli"
+    },
+    {
+      "accession": "GCA_000249155.2",
+      "clade_group": "ani99:ani99_000007",
+      "contig_id": "AIFA01000006.1",
+      "pc1": -1.954724907875061,
+      "pc2": -3.5039236545562744,
+      "segments_aggregated": 20,
+      "stream_id": "GCA_000249155.2:AIFA01000006.1",
+      "taxonomy_label": "Escherichia coli"
+    },
+    {
+      "accession": "GCA_000249155.2",
+      "clade_group": "ani99:ani99_000007",
+      "contig_id": "AIFA01000007.1",
+      "pc1": -1.6427900791168213,
+      "pc2": -4.360854148864746,
+      "segments_aggregated": 17,
+      "stream_id": "GCA_000249155.2:AIFA01000007.1",
+      "taxonomy_label": "Escherichia coli"
+    },
+    {
+      "accession": "GCA_000249155.2",
+      "clade_group": "ani99:ani99_000007",
+      "contig_id": "AIFA01000008.1",
+      "pc1": 2.9438395500183105,
+      "pc2": -4.492387294769287,
+      "segments_aggregated": 11,
+      "stream_id": "GCA_000249155.2:AIFA01000008.1",
+      "taxonomy_label": "Escherichia coli"
+    }
+  ],
+  "streams": 8,
+  "taxonomy_manifest": "/content/drive/MyDrive/SeqTrainerStageC/stage_c_dataset/manifests/accession_manifest.parquet",
+  "taxonomy_manifest_sha256": "5b7c8b1136ac31972ee8d2ca615c798fdcec38a1d4c57f986892c88af3eb301a",
+  "taxonomy_rank": "species",
+  "unit": "held-out stream mean of final-layer valid-token hidden states"
+}
