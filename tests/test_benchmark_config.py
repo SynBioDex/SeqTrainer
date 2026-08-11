@@ -11,9 +11,6 @@ from seqtrainer.benchmarks.config import parse_benchmark_config
 
 
 CONFIG_DIR = Path(__file__).resolve().parents[1] / "config-examples" / "benchmarks"
-COLAB_CONFIG_DIR = Path(__file__).resolve().parents[1] / "notebooks" / "colab_benchmarks" / "config"
-
-
 def test_example_benchmark_configs_load():
     for name in (
         "cnn.toml",
@@ -51,7 +48,13 @@ def test_model_examples_share_dataset_and_split_contract():
 
 
 def test_t4_profiles_preserve_the_shared_scientific_contract():
-    dnabert2 = load_benchmark_config(COLAB_CONFIG_DIR / "dnabert2_finetune_t4.toml")
+    dnabert2 = load_benchmark_config(
+        Path(__file__).resolve().parents[1]
+        / "notebooks"
+        / "benchmarks"
+        / "dnabert2"
+        / "config.toml"
+    )
     ipromp = load_benchmark_config(
         Path(__file__).resolve().parents[1]
         / "notebooks"
