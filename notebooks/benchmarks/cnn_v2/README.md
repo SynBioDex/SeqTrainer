@@ -35,7 +35,7 @@ Task: binary bacterial promoter prediction from fixed-length DNA sequence window
 
 Source accession: [GSE144621](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE144621)
 
-Benchmark config: [`config-examples/benchmarks/cnn.toml`](../../../config-examples/benchmarks/cnn.toml)
+Benchmark config: [`config.toml`](config.toml)
 
 Bundled repo data archive: [`data/data_DNABERT/promoter_classification_DNABERT.zip`](../../../data/data_DNABERT/promoter_classification_DNABERT.zip)
 
@@ -94,7 +94,7 @@ The older SBOL tutorial baseline uses `data/sbol_data`, the first 40 `sample_des
 
 Open:
 
-- [CNN-v2 final benchmark in Colab](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-model-baselines-clean/notebooks/benchmark_sg/cnn_benchmark/cnn_v2_final_benchmark_colab.ipynb)
+- [CNN-v2 final benchmark in Colab](https://colab.research.google.com/github/simplyshree/SeqTrainer/blob/issue-3-model-baselines-clean/notebooks/benchmarks/cnn_v2/cnn_v2_final_benchmark_colab.ipynb)
 
 The URL uses the clean model-baselines branch; after merge, replace the branch
 name with the target repository's final default branch.
@@ -172,14 +172,14 @@ Run the notebook from the repository root so relative paths resolve correctly.
 The shared CSV benchmark can also be run without opening the notebooks:
 
 ```bash
-seqtrainer benchmark run config-examples/benchmarks/cnn.toml
+seqtrainer benchmark run notebooks/benchmarks/cnn_v2/config.toml
 seqtrainer benchmark run config-examples/benchmarks/cnn_v2.toml
 ```
 
 For a quick smoke test:
 
 ```bash
-seqtrainer benchmark run config-examples/benchmarks/cnn.toml \
+seqtrainer benchmark run notebooks/benchmarks/cnn_v2/config.toml \
   --output-dir outputs/cnn_csv_smoke
 ```
 
@@ -195,7 +195,7 @@ The older direct CNN command is still available for manual overrides:
 
 ```bash
 seqtrainer run-cnn-benchmark \
-  --config config-examples/benchmarks/cnn.toml \
+  --config notebooks/benchmarks/cnn_v2/config.toml \
   --cycles 1 \
   --output-dir outputs/cnn_csv_smoke
 ```

@@ -3,7 +3,7 @@
 This is the project-level summary of the CNN, CNN-v2, DNABERT2, and iPro-MP
 promoter-classification experiments.
 
-![CNN-v2 held-out test comparison](notebooks/benchmark_sg/cnn_benchmark/assets/cnn_v2_mcc_comparison.svg)
+![CNN-v2 held-out test comparison](notebooks/benchmarks/cnn_v2/assets/cnn_v2_mcc_comparison.svg)
 
 ## Fixed Scientific Contract
 
@@ -91,8 +91,8 @@ specificity at the selected threshold.
 
 | Setting | Value |
 | --- | --- |
-| Notebook | `notebooks/final_training/dnabert2-finetune-kaggle.ipynb` |
-| TOML | `notebooks/final_training/config/dnabert2_final_training_t4.toml` |
+| Notebook | `notebooks/benchmarks/dnabert2/dnabert2-finetune-kaggle.ipynb` |
+| TOML | `notebooks/benchmarks/dnabert2/config.toml` |
 | Backbone | `zhihan1996/DNABERT-2-117M` |
 | Mode | Full encoder fine-tuning |
 | Seed | 42 |
@@ -118,9 +118,9 @@ claim.
 
 ## Reproduction Links
 
-- CNN notebooks: `notebooks/benchmark_sg/cnn_benchmark/`
-- Final DNABERT2 notebook: `notebooks/final_training/dnabert2-finetune-kaggle.ipynb`
-- iPro-MP T4/A100 notebooks: `notebooks/colab_benchmarks/`
+- CNN-v2 benchmark: `notebooks/benchmarks/cnn_v2/`
+- DNABERT2 benchmark: `notebooks/benchmarks/dnabert2/`
+- iPro-MP benchmark: `notebooks/benchmarks/ipromp/`
 
 For full per-split metrics, confusion counts, histories, and model-specific
 notes, see the detailed result files in the model benchmark folders.
