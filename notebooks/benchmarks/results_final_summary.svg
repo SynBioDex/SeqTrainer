@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1260" viewBox="0 0 1700 1260" role="img" aria-labelledby="title desc">
+  <title id="title">SeqTrainer best completed promoter benchmark runs</title>
+  <desc id="desc">Five selected benchmark rows followed by the fixed scientific contract and model configuration differences.</desc>
+  <rect width="1700" height="1260" fill="#171c23"/>
+  <text x="42" y="54" fill="#f4f7fb" font-family="Arial, sans-serif" font-size="30" font-weight="700">SeqTrainer promoter benchmark — selected best completed runs</text>
+  <text x="42" y="86" fill="#aab4c2" font-family="Arial, sans-serif" font-size="16">Held-out test summary | values shown: MCC, AUPRC, recall/sensitivity, specificity, validation-selected threshold</text>
+
+  <rect x="28" y="112" width="1644" height="390" rx="8" fill="#202731" stroke="#3a4654"/>
+  <rect x="28" y="112" width="1644" height="48" rx="8" fill="#2b3440"/>
+  <text x="48" y="143" fill="#dce4ee" font-family="Arial, sans-serif" font-size="15" font-weight="700">MODEL / RUN</text>
+  <text x="570" y="143" fill="#dce4ee" font-family="Arial, sans-serif" font-size="15" font-weight="700">MCC</text>
+  <text x="690" y="143" fill="#dce4ee" font-family="Arial, sans-serif" font-size="15" font-weight="700">AUPRC</text>
+  <text x="825" y="143" fill="#dce4ee" font-family="Arial, sans-serif" font-size="15" font-weight="700">RECALL</text>
+  <text x="965" y="143" fill="#dce4ee" font-family="Arial, sans-serif" font-size="15" font-weight="700">SPECIFICITY</text>
+  <text x="1130" y="143" fill="#dce4ee" font-family="Arial, sans-serif" font-size="15" font-weight="700">THRESHOLD</text>
+  <text x="1290" y="143" fill="#dce4ee" font-family="Arial, sans-serif" font-size="15" font-weight="700">STATUS</text>
+
+  <rect x="28" y="160" width="1644" height="65" fill="#203829"/>
+  <rect x="28" y="225" width="1644" height="65" fill="#252c35"/>
+  <rect x="28" y="290" width="1644" height="65" fill="#252c35"/>
+  <rect x="28" y="355" width="1644" height="65" fill="#1d2f46"/>
+  <rect x="28" y="420" width="1644" height="65" fill="#38282d"/>
+
+  <g font-family="Arial, sans-serif" font-size="17">
+    <text x="48" y="199" fill="#74dc88" font-weight="700">CNN-v2, 50 cycles</text>
+    <text x="570" y="199" fill="#74dc88" font-weight="700">0.220884</text><text x="690" y="199" fill="#74dc88" font-weight="700">0.645976</text><text x="825" y="199" fill="#74dc88">0.216152</text><text x="965" y="199" fill="#74dc88">0.936814</text><text x="1130" y="199" fill="#74dc88">0.630</text><text x="1290" y="199" fill="#c8d2dd">Current best completed model</text>
+    <text x="48" y="264" fill="#e4e9ef" font-weight="700">DNABERT2 frozen v1</text>
+    <text x="570" y="264" fill="#e4e9ef">0.124165</text><text x="690" y="264" fill="#e4e9ef">0.575073</text><text x="825" y="264" fill="#e4e9ef">0.344586</text><text x="965" y="264" fill="#e4e9ef">0.767876</text><text x="1130" y="264" fill="#e4e9ef">0.505220</text><text x="1290" y="264" fill="#aab4c2">Frozen encoder baseline</text>
+    <text x="48" y="329" fill="#e4e9ef" font-weight="700">DNABERT2 full fine-tuning, T4</text>
+    <text x="570" y="329" fill="#e4e9ef">0.147631</text><text x="690" y="329" fill="#e4e9ef">0.365169</text><text x="825" y="329" fill="#e4e9ef">0.078098</text><text x="965" y="329" fill="#e4e9ef">0.981870</text><text x="1130" y="329" fill="#e4e9ef">0.750244</text><text x="1290" y="329" fill="#aab4c2">Completed T4 workflow check</text>
+    <text x="48" y="394" fill="#62adff" font-weight="700">DNABERT2 final training, canonical split</text>
+    <text x="570" y="394" fill="#62adff" font-weight="700">0.192182</text><text x="690" y="394" fill="#62adff" font-weight="700">0.624236</text><text x="825" y="394" fill="#62adff">0.221718</text><text x="965" y="394" fill="#62adff">0.916399</text><text x="1130" y="394" fill="#62adff">0.677002</text><text x="1290" y="394" fill="#c8d2dd">Full fine-tuning; canonical shared split</text>
+    <text x="48" y="459" fill="#f0a35b" font-weight="700">iPro-MP E. coli pretrained ensemble, T4</text>
+    <text x="570" y="459" fill="#f0a35b" font-weight="700">0.068364</text><text x="690" y="459" fill="#f0a35b" font-weight="700">0.372180</text><text x="825" y="459" fill="#f0a35b">0.234484</text><text x="965" y="459" fill="#f0a35b">0.823207</text><text x="1130" y="459" fill="#f0a35b">0.327886</text><text x="1290" y="459" fill="#c8d2dd">Pretrained inference; explicit data path</text>
+  </g>
+
+  <rect x="28" y="532" width="792" height="680" rx="8" fill="#202731" stroke="#3a4654"/>
+  <text x="52" y="574" fill="#f4f7fb" font-family="Arial, sans-serif" font-size="23" font-weight="700">Fixed scientific contract</text>
+  <g fill="#d7e0ea" font-family="Arial, sans-serif" font-size="16">
+    <text x="52" y="612"><tspan fill="#8fa1b5">Dataset:</tspan> GSE144621 / EP_DNA_BERT2_genomic_order</text>
+    <text x="52" y="642"><tspan fill="#8fa1b5">Splits:</tspan> predefined train / eval / test CSV files</text>
+    <text x="52" y="672"><tspan fill="#8fa1b5">Rows:</tspan> 136,484 train | 19,498 validation | 38,996 test</text>
+    <text x="52" y="702"><tspan fill="#8fa1b5">Sequence:</tspan> 300 bp | labels: 0 background, 1 promoter</text>
+    <text x="52" y="732"><tspan fill="#8fa1b5">Seed:</tspan> 42 | no new split generated</text>
+    <text x="52" y="762"><tspan fill="#8fa1b5">Primary metric:</tspan> MCC | <tspan fill="#8fa1b5">secondary:</tspan> AUPRC</text>
+    <text x="52" y="792"><tspan fill="#8fa1b5">Threshold:</tspan> selected on validation MCC only</text>
+    <text x="52" y="822"><tspan fill="#8fa1b5">Test:</tspan> held out until final evaluation</text>
+  </g>
+  <rect x="52" y="854" width="744" height="300" rx="6" fill="#18202a" stroke="#344252"/>
+  <text x="72" y="890" fill="#f0c674" font-family="Arial, sans-serif" font-size="17" font-weight="700">Interpretation note</text>
+  <g fill="#c7d1dc" font-family="Arial, sans-serif" font-size="15">
+    <text x="72" y="924">CNN-v2 and DNABERT2 final are the canonical shared-split</text>
+    <text x="72" y="950">claim-bearing runs. The frozen DNABERT2, earlier DNABERT2 T4,</text>
+    <text x="72" y="976">and earlier iPro-MP rows are retained as selected historical</text>
+    <text x="72" y="1002">baselines from the supplied results record, not new retraining.</text>
+    <text x="72" y="1044">No external reported score is substituted for a SeqTrainer result.</text>
+    <text x="72" y="1078">The displayed threshold is always the validation-selected value</text>
+    <text x="72" y="1104">for that run; the test split is not used for selection.</text>
+  </g>
+
+  <rect x="848" y="532" width="824" height="680" rx="8" fill="#202731" stroke="#3a4654"/>
+  <text x="872" y="574" fill="#f4f7fb" font-family="Arial, sans-serif" font-size="23" font-weight="700">Configuration differences</text>
+  <text x="872" y="604" fill="#8fa1b5" font-family="Arial, sans-serif" font-size="14">All rows use the same benchmark family; training mode and checkpoint policy differ.</text>
+  <g font-family="Arial, sans-serif" font-size="14">
+    <text x="872" y="642" fill="#74dc88" font-weight="700">CNN-v2</text>
+    <text x="1010" y="642" fill="#d7e0ea">5-channel one-hot CNN-v2</text>
+    <text x="1010" y="666" fill="#d7e0ea">50 cycles; validation-MCC selection</text>
+    <text x="1010" y="690" fill="#d7e0ea">Predefined shared split; test once</text>
+    <line x1="872" y1="710" x2="1648" y2="710" stroke="#394654"/>
+    <text x="872" y="748" fill="#62adff" font-weight="700">DNABERT2</text>
+    <text x="1010" y="748" fill="#d7e0ea">Native transformer tokenization</text>
+    <text x="1010" y="772" fill="#d7e0ea">Frozen v1: head-only training</text>
+    <text x="1010" y="796" fill="#d7e0ea">Final: full fine-tuning, max 6 epochs, early stop 2</text>
+    <text x="1010" y="820" fill="#d7e0ea">Earlier T4: separate workflow check, historical split</text>
+    <line x1="872" y1="840" x2="1648" y2="840" stroke="#394654"/>
+    <text x="872" y="878" fill="#f0a35b" font-weight="700">iPro-MP</text>
+    <text x="1010" y="878" fill="#d7e0ea">Five official E. coli pretrained folds</text>
+    <text x="1010" y="902" fill="#d7e0ea">Inference-only; no SeqTrainer epochs</text>
+    <text x="1010" y="926" fill="#d7e0ea">Probabilities averaged; threshold from validation</text>
+  </g>
+  <rect x="872" y="976" width="776" height="178" rx="6" fill="#18202a" stroke="#344252"/>
+  <text x="892" y="1010" fill="#f0c674" font-family="Arial, sans-serif" font-size="17" font-weight="700">Paths</text>
+  <g fill="#c7d1dc" font-family="monospace" font-size="13">
+    <text x="892" y="1038">notebooks/benchmarks/cnn_v2/</text>
+    <text x="892" y="1064">notebooks/benchmarks/dnabert2/</text>
+    <text x="892" y="1090">notebooks/benchmarks/ipromp/</text>
+    <text x="892" y="1128">Results_Final.md is a selected-run summary; no new metrics are generated here.</text>
+  </g>
+</svg>
