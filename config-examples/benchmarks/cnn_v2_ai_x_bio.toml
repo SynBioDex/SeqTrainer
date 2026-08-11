@@ -1,0 +1,89 @@
+[experiment]
+name = "cnn_v2_ai_x_bio"
+task = "bacterial_promoter_prediction"
+description = "Regularized CNN-v2 benchmark on prepared ai x bio train/validation/test CSV splits."
+seed = 42
+
+[dataset]
+name = "ai_x_bio"
+format = "csv"
+source_accession = "ai_x_bio_drive_file"
+source_url = ""
+version = "prepared_sequence_label_id_splits"
+sequence_field = "sequence"
+label_field = "label"
+id_field = "id"
+
+[dataset.split_files]
+train = "data/benchmarks/ai_x_bio/train.csv"
+validation = "data/benchmarks/ai_x_bio/validation.csv"
+test = "data/benchmarks/ai_x_bio/test.csv"
+
+[label]
+source = "provided_binary"
+positive_label = 1
+negative_label = 0
+
+[split]
+strategy = "predefined"
+seed = 42
+validation_name = "validation"
+
+[preprocessing]
+encoding = "one_hot"
+sequence_length = 300
+pad_or_trim = true
+
+[model]
+family = "cnn"
+name = "enhanced_dna_cnn"
+version = "cnn_v2_regularized_ai_x_bio_v1"
+
+[model.params]
+variant = "enhanced"
+dropout = 0.25
+input_channels = 5
+conv_channels = [64, 128]
+kernel_sizes = [15, 7, 7, 7]
+pooling = "adaptive_max_plus_avg"
+
+[training]
+seed = 42
+batch_size = 16
+max_epochs = 50
+learning_rate = 0.0003
+
+[training.params]
+optimizer = "adamw"
+scheduler = "one_cycle"
+weight_decay = 0.0001
+loss = "cross_entropy"
+class_weighting = false
+select_best_by_mcc = true
+early_stopping_patience = 8
+
+[evaluation]
+primary_metric = "mcc"
+threshold_strategy = "validation_mcc"
+metrics = [
+  "accuracy",
+  "balanced_accuracy",
+  "auroc",
+  "auprc",
+  "f1",
+  "mcc",
+  "precision",
+  "sensitivity",
+  "specificity",
+  "confusion_matrix",
+]
+
+[outputs]
+output_dir = "outputs/benchmarks/cnn_v2_ai_x_bio"
+save_json = true
+save_csv = true
+save_predictions = true
+
+[environment]
+device = "auto"
+precision = "float32"

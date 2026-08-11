@@ -1,0 +1,96 @@
+[experiment]
+name = "dnabert2_finetune_ep_genomic_order"
+task = "bacterial_promoter_prediction"
+description = "Optional full DNABERT2 fine-tuning benchmark on the shared E. coli promoter classification split."
+seed = 42
+
+[dataset]
+name = "ep_dnabert2_genomic_order"
+format = "csv"
+source_accession = "GSE144621"
+source_url = "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE144621"
+version = "EP_DNA_BERT2_genomic_order"
+sequence_field = "sequence"
+label_field = "label"
+
+[dataset.split_files]
+train = "data/promoter_classification/train_EP_DNA_BERT2_genomic_order.csv"
+validation = "data/promoter_classification/eval_EP_DNA_BERT2_genomic_order.csv"
+test = "data/promoter_classification/test_EP_DNA_BERT2_genomic_order.csv"
+
+[label]
+source = "provided_binary"
+positive_label = 1
+negative_label = 0
+
+[split]
+strategy = "predefined"
+seed = 42
+validation_name = "eval"
+
+[preprocessing]
+encoding = "dnabert2_tokenizer"
+sequence_length = 300
+pad_or_trim = false
+
+[preprocessing.params]
+model_max_length = 104
+padding = "longest"
+pad_to_multiple_of = 8
+
+[model]
+family = "dnabert2"
+name = "zhihan1996/DNABERT-2-117M"
+version = "pin_model_revision_before_final_report"
+
+[model.params]
+mode = "full_finetune"
+pooling = "mean"
+trust_remote_code = true
+allow_download = false
+require_model_files = true
+classifier_dropout = 0.1
+fine_tuning_scope = "all_encoder_layers"
+
+disable_flash_attention = true
+
+[training]
+seed = 42
+batch_size = 8
+max_epochs = 5
+learning_rate = 0.00002
+
+[training.params]
+optimizer = "adamw"
+loss = "bce_with_logits"
+warmup_ratio = 0.1
+weight_decay = 0.01
+early_stopping_patience = 2
+early_stopping_metric = "validation_mcc"
+diagnostics = ["train_loss", "validation_loss", "validation_mcc", "learning_rate"]
+
+[evaluation]
+primary_metric = "mcc"
+threshold_strategy = "validation_mcc"
+metrics = [
+  "accuracy",
+  "balanced_accuracy",
+  "auroc",
+  "auprc",
+  "f1",
+  "mcc",
+  "precision",
+  "sensitivity",
+  "specificity",
+  "confusion_matrix",
+]
+
+[outputs]
+output_dir = "outputs/benchmarks/dnabert2_finetune_ep_genomic_order"
+save_json = true
+save_csv = true
+save_predictions = true
+
+[environment]
+device = "auto"
+precision = "bf16"
