@@ -52,7 +52,13 @@ def test_model_examples_share_dataset_and_split_contract():
 
 def test_t4_profiles_preserve_the_shared_scientific_contract():
     dnabert2 = load_benchmark_config(COLAB_CONFIG_DIR / "dnabert2_finetune_t4.toml")
-    ipromp = load_benchmark_config(COLAB_CONFIG_DIR / "ipromp_external_t4.toml")
+    ipromp = load_benchmark_config(
+        Path(__file__).resolve().parents[1]
+        / "notebooks"
+        / "benchmarks"
+        / "ipromp"
+        / "config.toml"
+    )
     assert dnabert2.dataset.split_files == ipromp.dataset.split_files
     assert dnabert2.training.seed == ipromp.training.seed == 42
     assert dnabert2.evaluation.threshold_strategy == "validation_mcc"
