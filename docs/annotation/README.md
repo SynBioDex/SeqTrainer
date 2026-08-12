@@ -201,21 +201,30 @@ seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-f
 Observed sample output on `pAN1717_cyan.gb`:
 
 ```text
-threshold = 0.750244140625
+threshold = 0.677001953125
 threshold_source = benchmark_manifest
 window_size = 300
 step_size = 300
 scan_both_strands = false
 total_windows_scanned = 20
-predicted_promoters_added = 2
+windows_above_threshold = 6
+predicted_promoters_added = 5
 ```
 
-Predicted promoter regions from that quick check:
+Predicted promoter regions from the verified Kaggle-checkpoint run:
 
 | Region | Location | Strand | Score |
 | --- | ---: | ---: | ---: |
-| `predicted_promoter_0` | `900-1200` | `+` | `0.769360` |
-| `predicted_promoter_1` | `2700-3000` | `+` | `0.755906` |
+| `predicted_promoter_0` | `901-1200` | `+` | `0.877948` |
+| `predicted_promoter_1` | `2701-3300` | `+` | `0.906066` |
+| `predicted_promoter_2` | `3901-4200` | `+` | `0.702515` |
+| `predicted_promoter_3` | `5101-5400` | `+` | `0.858647` |
+| `predicted_promoter_4` | `join(5701-5969,1-31)` | `+` | `0.848701` |
+
+The pAN1717 file contains no labelled promoter gold features in this run, so
+these predictions demonstrate end-to-end annotation and SBOL export, not
+biological precision or recall. Use a curated plasmid with trusted promoter
+annotations for that evaluation.
 
 ## 7. Run A Denser Real DNABERT2 Annotation
 

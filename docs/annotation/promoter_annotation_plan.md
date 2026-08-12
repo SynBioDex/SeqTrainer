@@ -29,12 +29,14 @@ Input file:
 C:\Users\Sgoff\Downloads\pAN1717_cyan.gb
 ```
 
-Real DNABERT2 quick-check output:
+Real DNABERT2 verification output:
 
 ```text
-outputs\annotations\pAN1717_cyan_dnabert2_smoke_annotated.gb
-outputs\annotations\pAN1717_cyan_dnabert2_smoke_predictions.csv
-outputs\annotations\pAN1717_cyan_dnabert2_smoke_manifest.json
+outputs\annotations\pAN1717_kaggle_dnabert2\annotated.gb
+outputs\annotations\pAN1717_kaggle_dnabert2\predictions.csv
+outputs\annotations\pAN1717_kaggle_dnabert2\manifest.json
+outputs\annotations\pAN1717_kaggle_dnabert2\annotated.nt
+outputs\annotations\pAN1717_kaggle_dnabert2\annotated.rdf
 ```
 
 Comparison:
@@ -46,7 +48,7 @@ Comparison:
 | Topology | circular | circular |
 | Existing features | 20 | 20 preserved |
 | Original feature types | 19 `misc_feature`, 1 `CDS` | unchanged |
-| New predicted promoter features | 0 | 2 |
+| New predicted promoter features | 0 | 5 |
 
 The quick-check run used:
 
@@ -62,15 +64,22 @@ The quick-check run used:
 | Strand scan | plus strand only |
 | Device used locally | CPU |
 | Windows scanned | 20 |
-| Windows above threshold | 2 |
-| Promoter features added | 2 |
+| Windows above threshold | 6 |
+| Promoter features added | 5 |
 
 Predicted promoter features:
 
 | Region ID | Location | Strand | Score | Threshold |
 | --- | ---: | ---: | ---: | ---: |
-| `predicted_promoter_0` | `900-1200` | `+` | `0.769360` | `0.750244` |
-| `predicted_promoter_1` | `2700-3000` | `+` | `0.755906` | `0.750244` |
+| `predicted_promoter_0` | `901-1200` | `+` | `0.877948` | `0.677002` |
+| `predicted_promoter_1` | `2701-3300` | `+` | `0.906066` | `0.677002` |
+| `predicted_promoter_2` | `3901-4200` | `+` | `0.702515` | `0.677002` |
+| `predicted_promoter_3` | `5101-5400` | `+` | `0.858647` | `0.677002` |
+| `predicted_promoter_4` | `join(5701-5969,1-31)` | `+` | `0.848701` | `0.677002` |
+
+The input contains no labelled promoter gold features, so the run verifies
+model loading, window scoring, GenBank writing, and SBOL export only. It does
+not establish biological precision or recall.
 
 Important interpretation note: this is an actual DNABERT2 checkpoint run, but it
 is still a coarse local scan. It verifies model loading and GenBank writing. A
