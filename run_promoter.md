@@ -108,7 +108,7 @@ The plasmid does not need to be copied into the repository. A scientist can
 keep the file anywhere on their computer and pass its full path:
 
 ~~~powershell
-seqtrainer annotate promoters C:\Users\Scientist\Downloads\my_plasmid.gb --model-family dnabert2 --model-bundle models\dnabert2_finetune_t4_seed42 --step-size 25 --scan-both-strands --output outputs\annotations\my_plasmid\annotated.gb --predictions-csv outputs\annotations\my_plasmid\predictions.csv --manifest outputs\annotations\my_plasmid\manifest.json --clean-output --open-output-folder
+seqtrainer annotate promoters C:\Users\Scientist\Downloads\my_plasmid.gb --model-family dnabert2 --model-bundle outputs\models\dnabert2_kaggle_best --step-size 25 --scan-both-strands --output outputs\annotations\my_plasmid\annotated.gb --predictions-csv outputs\annotations\my_plasmid\predictions.csv --manifest outputs\annotations\my_plasmid\manifest.json --clean-output --open-output-folder
 ~~~
 
 For a plasmid downloaded to the current Windows user's Downloads folder, use
@@ -116,7 +116,7 @@ this shorter version. Replace only `my_plasmid.gb` with the downloaded file's
 actual name:
 
 ~~~powershell
-seqtrainer annotate promoters "$env:USERPROFILE\Downloads\my_plasmid.gb" --model-family dnabert2 --model-bundle "models\dnabert2_finetune_t4_seed42" --step-size 25 --scan-both-strands --output "outputs\annotations\my_plasmid\annotated.gb" --predictions-csv "outputs\annotations\my_plasmid\predictions.csv" --manifest "outputs\annotations\my_plasmid\manifest.json" --clean-output --open-output-folder
+seqtrainer annotate promoters "$env:USERPROFILE\Downloads\my_plasmid.gb" --model-family dnabert2 --model-bundle "outputs\models\dnabert2_kaggle_best" --step-size 25 --scan-both-strands --output "outputs\annotations\my_plasmid\annotated.gb" --predictions-csv "outputs\annotations\my_plasmid\predictions.csv" --manifest "outputs\annotations\my_plasmid\manifest.json" --clean-output --open-output-folder
 ~~~
 
 `$env:USERPROFILE` automatically means the current user's Windows folder, so
@@ -133,7 +133,7 @@ Copy-Item C:\Users\Scientist\Downloads\my_plasmid.gb external\plasmids\my_plasmi
 Then use:
 
 ~~~powershell
-seqtrainer annotate promoters external\plasmids\my_plasmid\input.gb --model-family dnabert2 --model-bundle models\dnabert2_finetune_t4_seed42 --output outputs\annotations\my_plasmid\annotated.gb --predictions-csv outputs\annotations\my_plasmid\predictions.csv --manifest outputs\annotations\my_plasmid\manifest.json --clean-output --open-output-folder
+seqtrainer annotate promoters external\plasmids\my_plasmid\input.gb --model-family dnabert2 --model-bundle outputs\models\dnabert2_kaggle_best --output outputs\annotations\my_plasmid\annotated.gb --predictions-csv outputs\annotations\my_plasmid\predictions.csv --manifest outputs\annotations\my_plasmid\manifest.json --clean-output --open-output-folder
 ~~~
 
 Do not commit private, unpublished, or very large plasmid files to Git.
@@ -168,31 +168,68 @@ Use one line in Windows PowerShell or Command Prompt:
 seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dummy --threshold 0.80 --window-size 300 --step-size 300 --no-scan-both-strands --output outputs\annotations\pAN1717_smoke\annotated.gb --predictions-csv outputs\annotations\pAN1717_smoke\predictions.csv --manifest outputs\annotations\pAN1717_smoke\manifest.json --sbol-output outputs\annotations\pAN1717_smoke\annotated.nt --sbol2-output outputs\annotations\pAN1717_smoke\annotated.rdf --clean-output --open-output-folder
 ~~~
 
-## 4. Prepare The DNABERT2 Model Bundle
+## 4. Prepare The Kaggle DNABERT2 Model Bundle
+
+Use the completed Kaggle full-fine-tuning archive as the annotation model. It
+contains the complete fine-tuned classifier checkpoint and its matching
+benchmark manifest. Prepare it with the repository helper:
+
+~~~powershell
+.\scripts\prepare_dnabert2_annotation_bundle.ps1 `
+  -Archive "C:\Users\Scientist\Downloads\dnabert2_final_training_t4_seed42.zip"
+~~~
+
+If Windows blocks local PowerShell scripts, run the same helper with a
+temporary policy bypass:
+
+~~~powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\prepare_dnabert2_annotation_bundle.ps1 -Archive "C:\Users\Scientist\Downloads\dnabert2_final_training_t4_seed42.zip"
+~~~
+
+The helper creates this local, Git-ignored directory:
+
+~~~text
+outputs\models\dnabert2_kaggle_best\
+|-- manifest.json
+|-- metrics.csv
+|-- metrics.json
+|-- history.csv
+|-- input_split_audit.json
+|-- config.json
+|-- checkpoints\
+    |-- best_model.pt
+~~~
+
+`best_model.pt` is the full fine-tuned DNABERT2 model. For every new GenBank
+sequence, annotation tokenizes each sliding window, runs the DNABERT2 encoder
+and trained classifier head, applies the validation-selected threshold from
+`manifest.json`, and merges passing windows into predicted promoter regions.
+The Kaggle bundle threshold is `0.677001953125`; do not tune it on the new
+plasmid.
 
 Keep the trained checkpoint and matching benchmark manifest together:
 
 ~~~text
-models\dnabert2_finetune_t4_seed42\
+outputs\models\dnabert2_kaggle_best\
 |-- manifest.json
 |-- checkpoints\
 |-- best_model.pt
 ~~~
 
-The original benchmark output directory can also be used:
+The original benchmark output directory can also be used when it contains the
+same Kaggle checkpoint and manifest:
 
 ~~~text
-outputs\benchmarks\dnabert2_finetune_t4_seed42\
+outputs\models\dnabert2_kaggle_best\
 |-- manifest.json
 |-- checkpoints\
 |-- best_model.pt
 ~~~
 
-For the current `annotation-sbol3-labeled-promoters` branch, the verified
-local T4 bundle is stored here:
+The selected Kaggle bundle is stored here after preparation:
 
 ~~~text
-outputs\validation\dnabert2_finetune_t4_seed42_bundle\
+outputs\models\dnabert2_kaggle_best\
 |-- manifest.json
 |-- checkpoints\
 |-- best_model.pt
@@ -201,12 +238,11 @@ outputs\validation\dnabert2_finetune_t4_seed42_bundle\
 Check the bundle before starting annotation:
 
 ~~~powershell
-Test-Path "outputs\validation\dnabert2_finetune_t4_seed42_bundle\manifest.json"
-Test-Path "outputs\validation\dnabert2_finetune_t4_seed42_bundle\checkpoints\best_model.pt"
+Test-Path "outputs\models\dnabert2_kaggle_best\manifest.json"
+Test-Path "outputs\models\dnabert2_kaggle_best\checkpoints\best_model.pt"
 ~~~
 
-Both commands must print `True`. A path such as
-`models\dnabert2_finetune_t4_seed42` is only valid after that directory has
+Both commands must print `True`. The bundle path is valid only after it has
 actually been created and populated with these two files. Relative paths are
 resolved from the repository directory shown by `Get-Location`.
 
@@ -220,7 +256,7 @@ storage, Google Drive, or HPC storage rather than being committed to Git.
 The model-bundle option automatically finds the checkpoint and manifest:
 
 ~~~powershell
-seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --model-bundle outputs\validation\dnabert2_finetune_t4_seed42_bundle --step-size 25 --scan-both-strands --output outputs\annotations\pAN1717_dnabert2\annotated.gb --predictions-csv outputs\annotations\pAN1717_dnabert2\predictions.csv --manifest outputs\annotations\pAN1717_dnabert2\manifest.json --sbol-output outputs\annotations\pAN1717_dnabert2\annotated.nt --sbol2-output outputs\annotations\pAN1717_dnabert2\annotated.rdf --clean-output --open-output-folder
+seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --model-bundle outputs\models\dnabert2_kaggle_best --step-size 25 --scan-both-strands --output outputs\annotations\pAN1717_dnabert2\annotated.gb --predictions-csv outputs\annotations\pAN1717_dnabert2\predictions.csv --manifest outputs\annotations\pAN1717_dnabert2\manifest.json --sbol-output outputs\annotations\pAN1717_dnabert2\annotated.nt --sbol2-output outputs\annotations\pAN1717_dnabert2\annotated.rdf --clean-output --open-output-folder
 ~~~
 
 Do not add --threshold for this run. The threshold comes from the validation
@@ -229,7 +265,7 @@ benchmark manifest and is not tuned on the plasmid.
 The equivalent explicit-path form is:
 
 ~~~powershell
-seqtrainer annotate promoters "C:\Users\Sgoff\Downloads\pAN1717_cyan.gb" --model-family dnabert2 --checkpoint "outputs\validation\dnabert2_finetune_t4_seed42_bundle\checkpoints\best_model.pt" --benchmark-manifest "outputs\validation\dnabert2_finetune_t4_seed42_bundle\manifest.json" --step-size 25 --scan-both-strands --output "outputs\annotations\pAN1717_dnabert2\annotated.gb" --predictions-csv "outputs\annotations\pAN1717_dnabert2\predictions.csv" --manifest "outputs\annotations\pAN1717_dnabert2\manifest.json" --sbol-output "outputs\annotations\pAN1717_dnabert2\annotated.nt" --sbol2-output "outputs\annotations\pAN1717_dnabert2\annotated.rdf" --clean-output
+seqtrainer annotate promoters "C:\Users\Sgoff\Downloads\pAN1717_cyan.gb" --model-family dnabert2 --checkpoint "outputs\models\dnabert2_kaggle_best\checkpoints\best_model.pt" --benchmark-manifest "outputs\models\dnabert2_kaggle_best\manifest.json" --step-size 25 --scan-both-strands --output "outputs\annotations\pAN1717_dnabert2\annotated.gb" --predictions-csv "outputs\annotations\pAN1717_dnabert2\predictions.csv" --manifest "outputs\annotations\pAN1717_dnabert2\manifest.json" --sbol-output "outputs\annotations\pAN1717_dnabert2\annotated.nt" --sbol2-output "outputs\annotations\pAN1717_dnabert2\annotated.rdf" --clean-output
 ~~~
 
 ## 6. Optional Evaluation Against Existing Annotations
@@ -238,7 +274,7 @@ Evaluation requires a GenBank file containing explicit promoter annotations.
 Add an evaluation directory:
 
 ~~~powershell
-seqtrainer annotate promoters "C:\Users\Sgoff\Downloads\pAN1717_cyan.gb" --model-family dnabert2 --model-bundle "outputs\validation\dnabert2_finetune_t4_seed42_bundle" --step-size 25 --scan-both-strands --evaluation-dir "outputs\annotations\pAN1717_dnabert2\evaluation" --promoter-label-mode labelled --annotation-completeness partial --iou-threshold 0.50 --output "outputs\annotations\pAN1717_dnabert2\annotated.gb" --predictions-csv "outputs\annotations\pAN1717_dnabert2\predictions.csv" --manifest "outputs\annotations\pAN1717_dnabert2\manifest.json" --sbol-output "outputs\annotations\pAN1717_dnabert2\annotated.nt" --sbol2-output "outputs\annotations\pAN1717_dnabert2\annotated.rdf" --clean-output --open-output-folder
+seqtrainer annotate promoters "C:\Users\Sgoff\Downloads\pAN1717_cyan.gb" --model-family dnabert2 --model-bundle "outputs\models\dnabert2_kaggle_best" --step-size 25 --scan-both-strands --evaluation-dir "outputs\annotations\pAN1717_dnabert2\evaluation" --promoter-label-mode labelled --annotation-completeness partial --iou-threshold 0.50 --output "outputs\annotations\pAN1717_dnabert2\annotated.gb" --predictions-csv "outputs\annotations\pAN1717_dnabert2\predictions.csv" --manifest "outputs\annotations\pAN1717_dnabert2\manifest.json" --sbol-output "outputs\annotations\pAN1717_dnabert2\annotated.nt" --sbol2-output "outputs\annotations\pAN1717_dnabert2\annotated.rdf" --clean-output --open-output-folder
 ~~~
 
 The evaluator recognizes a gold promoter when:
@@ -400,10 +436,10 @@ python -m pip install -e ".[annotation,torch]"
 ~~~
 
 Model bundle directory not found means the path passed to --model-bundle is
-wrong or the command was launched outside the repository root. On the current
-SBOL branch, use
-`outputs\validation\dnabert2_finetune_t4_seed42_bundle`, or provide the
-explicit checkpoint and manifest paths shown above. Model bundle is incomplete
+wrong or the command was launched outside the repository root. Run the Kaggle
+bundle preparation script first and use
+`outputs\models\dnabert2_kaggle_best`, or provide the explicit checkpoint and
+manifest paths shown above. Model bundle is incomplete
 when the folder does not contain both `checkpoints\best_model.pt` and
 `manifest.json`.
 

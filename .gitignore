@@ -8,6 +8,7 @@ testvenv/
 seqtrainer-data
 dnabert-out
 dnabertvenv
+outputs/models/
 outputs/
 data/promoter_classification/
 external/
