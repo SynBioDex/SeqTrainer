@@ -1,0 +1,79 @@
+[experiment]
+name = "dnabert2_alpine_full_finetune_seed42"
+task = "binary_promoter_classification"
+seed = 42
+description = "Offline Alpine DNABERT2 full fine-tuning on the shared CNN split files."
+
+[dataset]
+name = "ecoli_promoter_shared_split"
+format = "csv"
+sequence_field = "sequence"
+label_field = "label"
+
+[dataset.split_files]
+train = "/data/promoter_classification/train_EP_DNA_BERT2_genomic_order.csv"
+validation = "/data/promoter_classification/eval_EP_DNA_BERT2_genomic_order.csv"
+test = "/data/promoter_classification/test_EP_DNA_BERT2_genomic_order.csv"
+
+[label]
+source = "provided_binary"
+positive_label = 1
+negative_label = 0
+
+[split]
+strategy = "predefined"
+seed = 42
+validation_name = "validation"
+
+[preprocessing]
+encoding = "dnabert2_tokenizer"
+sequence_length = 104
+pad_or_trim = true
+
+[model]
+family = "dnabert2"
+name = "/models/DNABERT-2-117M"
+version = "117M"
+
+[model.params]
+mode = "full_finetune"
+pooling = "mean"
+trust_remote_code = true
+allow_download = false
+disable_flash_attention = true
+classifier_dropout = 0.10
+
+[training]
+seed = 42
+batch_size = 4
+max_epochs = 5
+learning_rate = 0.00002
+
+[training.params]
+optimizer = "adamw"
+loss = "bce"
+weight_decay = 0.01
+warmup_ratio = 0.10
+early_stopping_patience = 2
+gradient_accumulation_steps = 8
+gradient_checkpointing = true
+max_grad_norm = 1.0
+class_weighting = "auto_if_imbalanced"
+
+[evaluation]
+primary_metric = "mcc"
+threshold_strategy = "validation_mcc"
+metrics = ["accuracy", "balanced_accuracy", "precision", "recall", "f1", "mcc", "auroc", "auprc", "sensitivity", "specificity", "confusion_matrix"]
+
+[outputs]
+output_dir = "/work/outputs/dnabert2"
+save_json = true
+save_csv = true
+save_predictions = true
+
+[environment]
+device = "cuda"
+precision = "bf16"
+
+[environment.params]
+offline = true

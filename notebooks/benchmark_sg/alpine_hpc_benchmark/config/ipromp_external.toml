@@ -1,0 +1,76 @@
+[experiment]
+name = "ipromp_ecoli_species10_alpine_seed42"
+task = "binary_promoter_classification"
+seed = 42
+description = "Offline official iPro-MP E. coli species-10 five-fold ensemble."
+
+[dataset]
+name = "ecoli_promoter_shared_split"
+format = "csv"
+sequence_field = "sequence"
+label_field = "label"
+
+[dataset.split_files]
+train = "/data/promoter_classification/train_EP_DNA_BERT2_genomic_order.csv"
+validation = "/data/promoter_classification/eval_EP_DNA_BERT2_genomic_order.csv"
+test = "/data/promoter_classification/test_EP_DNA_BERT2_genomic_order.csv"
+
+[label]
+source = "provided_binary"
+positive_label = 1
+negative_label = 0
+
+[split]
+strategy = "predefined"
+seed = 42
+validation_name = "validation"
+
+[preprocessing]
+encoding = "dnabert6_overlapping_kmers"
+sequence_length = 300
+pad_or_trim = true
+
+[model]
+family = "ipromp"
+name = "official_ipromp_ecoli_species10"
+version = "five_fold_pretrained"
+
+[model.params]
+adapter_mode = "offline_external_inference"
+species_id = 10
+dnabert6_path = "/models/DNABERT-6"
+ipromp_model_dir = "/models/ipromp_ecoli"
+fasta_output_dir = "/work/outputs/ipromp/ipromp_fasta"
+mapping_csv = "/work/outputs/ipromp/ipromp_id_mapping.csv"
+validation_predictions_csv = "/work/external_predictions/validation_predictions.csv"
+test_predictions_csv = "/work/external_predictions/test_predictions.csv"
+train_predictions_csv = "/work/external_predictions/train_predictions.csv"
+inference_batch_size = 16
+max_length = 300
+kmer_size = 6
+
+[training]
+seed = 42
+max_epochs = 0
+learning_rate = 0.0
+
+[training.params]
+mode = "inference_only"
+
+[evaluation]
+primary_metric = "mcc"
+threshold_strategy = "validation_mcc"
+metrics = ["accuracy", "balanced_accuracy", "precision", "recall", "f1", "mcc", "auroc", "auprc", "sensitivity", "specificity", "confusion_matrix"]
+
+[outputs]
+output_dir = "/work/outputs/ipromp"
+save_json = true
+save_csv = true
+save_predictions = true
+
+[environment]
+device = "cuda"
+precision = "float32"
+
+[environment.params]
+offline = true

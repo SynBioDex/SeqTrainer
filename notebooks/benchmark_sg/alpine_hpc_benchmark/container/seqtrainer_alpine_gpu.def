@@ -1,0 +1,31 @@
+Bootstrap: docker
+From: nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+
+%labels
+    org.opencontainers.image.title SeqTrainer Alpine benchmark runtime
+    org.opencontainers.image.description Offline CUDA runtime for SeqTrainer model benchmarks
+
+%files
+    /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+%environment
+    export PYTHONPATH=/repo/src
+    export HF_HUB_OFFLINE=1
+    export TRANSFORMERS_OFFLINE=1
+    export TOKENIZERS_PARALLELISM=false
+
+%post
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-dev build-essential ca-certificates git
+    python3 -m pip install --no-cache-dir --upgrade pip
+    python3 -m pip install --no-cache-dir \
+        numpy pandas scipy scikit-learn biopython rdflib tomli \
+        torch==2.2.2 transformers==4.40.2 tokenizers safetensors
+    rm -rf /var/lib/apt/lists/*
+
+%runscript
+    exec python3 "$@"
+
+%test
+    python3 -c "import torch, transformers, pandas; print(torch.__version__, transformers.__version__)"
