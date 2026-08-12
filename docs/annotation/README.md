@@ -67,7 +67,7 @@ one folder. The folder may contain `manifest.json` and either
 typing two paths for every annotation run:
 
 ```powershell
-seqtrainer annotate promoters C:\\Users\\Sgoff\\Downloads\\pAN1717_cyan.gb --model-family dnabert2 --model-bundle models\\dnabert2_finetune_t4_seed42 --output outputs\\annotations\\pAN1717_dnabert2\\annotated.gb --predictions-csv outputs\\annotations\\pAN1717_dnabert2\\predictions.csv --manifest outputs\\annotations\\pAN1717_dnabert2\\manifest.json --sbol-output outputs\\annotations\\pAN1717_dnabert2\\annotated.nt --sbol2-output outputs\\annotations\\pAN1717_dnabert2\\annotated.rdf --clean-output --open-output-folder
+seqtrainer annotate promoters C:\\Users\\Sgoff\\Downloads\\pAN1717_cyan.gb --model-family dnabert2 --model-bundle outputs\\models\\dnabert2_kaggle_best --output outputs\\annotations\\pAN1717_dnabert2\\annotated.gb --predictions-csv outputs\\annotations\\pAN1717_dnabert2\\predictions.csv --manifest outputs\\annotations\\pAN1717_dnabert2\\manifest.json --sbol-output outputs\\annotations\\pAN1717_dnabert2\\annotated.nt --sbol2-output outputs\\annotations\\pAN1717_dnabert2\\annotated.rdf --clean-output --open-output-folder
 ```
 
 The bundle is only a convenience for locating files. The checkpoint still
@@ -134,19 +134,26 @@ C:\Users\Sgoff\anaconda3\python.exe -c "from Bio import SeqIO; r=SeqIO.read('out
 Real DNABERT2 annotation needs both files from a completed benchmark run:
 
 ```text
-outputs\benchmarks\dnabert2_finetune_t4_seed42\manifest.json
-outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt
+outputs\models\dnabert2_kaggle_best\manifest.json
+outputs\models\dnabert2_kaggle_best\checkpoints\best_model.pt
 ```
 
 The manifest stores the model settings and validation-selected threshold. The
 checkpoint stores the trained weights.
 
-If `best_model.pt` was downloaded to `Downloads`, copy it into the expected
-benchmark folder:
+The combined annotation branch includes this bundle through Git LFS. After
+cloning it, download the large-file content with:
 
 ```powershell
-mkdir outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints
-copy C:\Users\Sgoff\Downloads\best_model.pt outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt
+git lfs install
+git lfs pull
+```
+
+If Git LFS is unavailable, use the repository helper with the supplied Kaggle
+archive instead:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\prepare_dnabert2_annotation_bundle.ps1 -Archive "C:\Users\Scientist\Downloads\dnabert2_final_training_t4_seed42.zip"
 ```
 
 Install the DNABERT2 runtime dependencies:
@@ -168,8 +175,8 @@ real, but the scan is intentionally lightweight.
 ```powershell
 seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb `
   --model-family dnabert2 `
-  --checkpoint outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt `
-  --benchmark-manifest outputs\benchmarks\dnabert2_finetune_t4_seed42\manifest.json `
+  --checkpoint outputs\models\dnabert2_kaggle_best\checkpoints\best_model.pt `
+  --benchmark-manifest outputs\models\dnabert2_kaggle_best\manifest.json `
   --step-size 300 `
   --no-scan-both-strands `
   --output outputs\annotations\pAN1717_cyan_dnabert2_smoke_annotated.gb `
@@ -180,7 +187,7 @@ seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb `
 Equivalent one-line command for Windows Command Prompt:
 
 ```bat
-seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --checkpoint outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt --benchmark-manifest outputs\benchmarks\dnabert2_finetune_t4_seed42\manifest.json --output outputs\annotations\pAN1717_cyan_dnabert2_annotated.gb --predictions-csv outputs\annotations\pAN1717_cyan_dnabert2_predictions.csv --manifest outputs\annotations\pAN1717_cyan_dnabert2_manifest.json --clean-output --open-output-folder
+seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --checkpoint outputs\models\dnabert2_kaggle_best\checkpoints\best_model.pt --benchmark-manifest outputs\models\dnabert2_kaggle_best\manifest.json --output outputs\annotations\pAN1717_cyan_dnabert2_annotated.gb --predictions-csv outputs\annotations\pAN1717_cyan_dnabert2_predictions.csv --manifest outputs\annotations\pAN1717_cyan_dnabert2_manifest.json --clean-output --open-output-folder
 ```
 
 `--clean-output` removes only this run's three target files before rerunning: the annotated GenBank, predictions CSV, and manifest JSON. `--open-output-folder` opens the output folder after a successful run so users can immediately view or copy/download the results.
@@ -188,7 +195,7 @@ seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-f
 Equivalent one-line command for Windows Command Prompt without auto-opening the folder:
 
 ```bat
-seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --checkpoint outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt --benchmark-manifest outputs\benchmarks\dnabert2_finetune_t4_seed42\manifest.json --step-size 300 --no-scan-both-strands --output outputs\annotations\pAN1717_cyan_dnabert2_smoke_annotated.gb --predictions-csv outputs\annotations\pAN1717_cyan_dnabert2_smoke_predictions.csv --manifest outputs\annotations\pAN1717_cyan_dnabert2_smoke_manifest.json
+seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --checkpoint outputs\models\dnabert2_kaggle_best\checkpoints\best_model.pt --benchmark-manifest outputs\models\dnabert2_kaggle_best\manifest.json --step-size 300 --no-scan-both-strands --output outputs\annotations\pAN1717_cyan_dnabert2_smoke_annotated.gb --predictions-csv outputs\annotations\pAN1717_cyan_dnabert2_smoke_predictions.csv --manifest outputs\annotations\pAN1717_cyan_dnabert2_smoke_manifest.json
 ```
 
 Observed sample output on `pAN1717_cyan.gb`:
@@ -217,8 +224,8 @@ For a more complete scan, use a smaller step size and both strands:
 ```powershell
 seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb `
   --model-family dnabert2 `
-  --checkpoint outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt `
-  --benchmark-manifest outputs\benchmarks\dnabert2_finetune_t4_seed42\manifest.json `
+  --checkpoint outputs\models\dnabert2_kaggle_best\checkpoints\best_model.pt `
+  --benchmark-manifest outputs\models\dnabert2_kaggle_best\manifest.json `
   --step-size 25 `
   --scan-both-strands `
   --output outputs\annotations\pAN1717_cyan_dnabert2_full_annotated.gb `

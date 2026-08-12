@@ -170,9 +170,19 @@ seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-f
 
 ## 4. Prepare The Kaggle DNABERT2 Model Bundle
 
-Use the completed Kaggle full-fine-tuning archive as the annotation model. It
-contains the complete fine-tuned classifier checkpoint and its matching
-benchmark manifest. Prepare it with the repository helper:
+The combined annotation branch includes the completed Kaggle full-fine-tuning
+model. The 468 MB checkpoint is stored with Git LFS; after cloning the branch,
+run:
+
+~~~powershell
+git lfs install
+git lfs pull
+~~~
+
+The bundle is then ready at `outputs\models\dnabert2_kaggle_best`. It contains
+the complete fine-tuned classifier checkpoint and its matching benchmark
+manifest. If the model is being reproduced from the downloaded Kaggle archive
+instead, prepare it with the repository helper:
 
 ~~~powershell
 .\scripts\prepare_dnabert2_annotation_bundle.ps1 `
@@ -186,7 +196,7 @@ temporary policy bypass:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\prepare_dnabert2_annotation_bundle.ps1 -Archive "C:\Users\Scientist\Downloads\dnabert2_final_training_t4_seed42.zip"
 ~~~
 
-The helper creates this local, Git-ignored directory:
+The helper creates the same bundle directory:
 
 ~~~text
 outputs\models\dnabert2_kaggle_best\
@@ -208,25 +218,6 @@ The Kaggle bundle threshold is `0.677001953125`; do not tune it on the new
 plasmid.
 
 Keep the trained checkpoint and matching benchmark manifest together:
-
-~~~text
-outputs\models\dnabert2_kaggle_best\
-|-- manifest.json
-|-- checkpoints\
-|-- best_model.pt
-~~~
-
-The original benchmark output directory can also be used when it contains the
-same Kaggle checkpoint and manifest:
-
-~~~text
-outputs\models\dnabert2_kaggle_best\
-|-- manifest.json
-|-- checkpoints\
-|-- best_model.pt
-~~~
-
-The selected Kaggle bundle is stored here after preparation:
 
 ~~~text
 outputs\models\dnabert2_kaggle_best\

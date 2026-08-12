@@ -64,7 +64,7 @@ seqtrainer benchmark run config-examples/benchmarks/dnabert2_frozen.toml
 seqtrainer benchmark run config-examples/benchmarks/ipromp_external.toml
 seqtrainer benchmark compare outputs/benchmarks/* --output-dir outputs/benchmarks/comparison
 seqtrainer annotate promoters pAN1717_cyan.gb --model-family dummy --output annotated.gb
-seqtrainer annotate promoter-collection --manifest data-manifests/addgene_article_18115.csv --input-dir data/addgene_18115/raw --output-dir outputs/addgene_18115 --predictor dnabert2 --model-path outputs/benchmarks/dnabert2_finetune_t4_seed42/checkpoints/best_model.pt --benchmark-manifest outputs/benchmarks/dnabert2_finetune_t4_seed42/manifest.json --promoter-label-mode strict --continue-on-error
+seqtrainer annotate promoter-collection --manifest data-manifests/addgene_article_18115.csv --input-dir data/addgene_18115/raw --output-dir outputs/addgene_18115 --predictor dnabert2 --model-path outputs/models/dnabert2_kaggle_best/checkpoints/best_model.pt --benchmark-manifest outputs/models/dnabert2_kaggle_best/manifest.json --promoter-label-mode strict --continue-on-error
 ```
 
 Benchmark configs for CNN, CNN-v2, DNABERT2, and iPro-MP live in

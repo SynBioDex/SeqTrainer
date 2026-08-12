@@ -79,8 +79,8 @@ DNABERT2 example:
 ```bash
 seqtrainer annotate promoters pAN1717_cyan.gb \
   --model-family dnabert2 \
-  --checkpoint outputs/benchmarks/dnabert2_finetune/checkpoints/best.pt \
-  --benchmark-manifest outputs/benchmarks/dnabert2_finetune/manifest.json \
+  --checkpoint outputs/models/dnabert2_kaggle_best/checkpoints/best_model.pt \
+  --benchmark-manifest outputs/models/dnabert2_kaggle_best/manifest.json \
   --output outputs/annotations/pAN1717_cyan_dnabert2_annotated.gb \
   --predictions-csv outputs/annotations/pAN1717_cyan_dnabert2_predictions.csv \
   --manifest outputs/annotations/pAN1717_cyan_dnabert2_manifest.json \

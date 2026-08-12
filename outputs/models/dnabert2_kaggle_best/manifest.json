@@ -1,0 +1,214 @@
+{
+  "dataset": {
+    "format": "csv",
+    "group_field": null,
+    "id_field": null,
+    "label_field": "label",
+    "name": "ep_dnabert2_genomic_order",
+    "params": {},
+    "sequence_field": "sequence",
+    "source_accession": "GSE144621",
+    "source_url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE144621",
+    "split_files": {
+      "test": "data/promoter_classification/test_EP_DNA_BERT2_genomic_order.csv",
+      "train": "data/promoter_classification/train_EP_DNA_BERT2_genomic_order.csv",
+      "validation": "data/promoter_classification/eval_EP_DNA_BERT2_genomic_order.csv"
+    },
+    "split_summary": {
+      "test": {
+        "class_counts": {
+          "0": 19593,
+          "1": 19403
+        },
+        "rows": 38996,
+        "sequence_length": {
+          "max": 499,
+          "median": 244.0,
+          "min": 48
+        }
+      },
+      "train": {
+        "class_counts": {
+          "0": 68138,
+          "1": 68346
+        },
+        "rows": 136484,
+        "sequence_length": {
+          "max": 498,
+          "median": 244.0,
+          "min": 48
+        }
+      },
+      "validation": {
+        "class_counts": {
+          "0": 9758,
+          "1": 9740
+        },
+        "rows": 19498,
+        "sequence_length": {
+          "max": 470,
+          "median": 245.0,
+          "min": 48
+        }
+      }
+    },
+    "version": "EP_DNA_BERT2_genomic_order"
+  },
+  "environment": {
+    "device": "auto",
+    "git": {
+      "branch": null,
+      "commit": null,
+      "is_dirty": false
+    },
+    "params": {
+      "gpu": "NVIDIA T4",
+      "platform": "Google Colab",
+      "python": "3.10",
+      "torch": "2.2.2",
+      "transformers": "4.29.2"
+    },
+    "precision": "fp16",
+    "runtime": {
+      "packages": {
+        "numpy": "2.0.2",
+        "pandas": "2.3.3",
+        "scikit-learn": "1.6.1",
+        "seqtrainer": "0.1.0",
+        "torch": "2.10.0+cu128",
+        "transformers": "4.41.2"
+      },
+      "platform": "Linux-6.12.90+-x86_64-with-glibc2.35",
+      "python": "3.12.13 (main, Mar  4 2026, 09:23:07) [GCC 11.4.0]"
+    }
+  },
+  "evaluation": {
+    "metrics": [
+      "accuracy",
+      "balanced_accuracy",
+      "auroc",
+      "auprc",
+      "f1",
+      "mcc",
+      "precision",
+      "sensitivity",
+      "specificity",
+      "confusion_matrix"
+    ],
+    "primary_metric": "mcc",
+    "selected_threshold": 0.677001953125,
+    "threshold_strategy": "validation_mcc"
+  },
+  "experiment": {
+    "description": "Final resource-constrained DNABERT2 fine-tuning profile on a Colab T4 using the shared benchmark split.",
+    "name": "dnabert2_final_training_t4_ep_genomic_order",
+    "seed": 42,
+    "task": "bacterial_promoter_prediction"
+  },
+  "extra": {
+    "imbalance_policy": {
+      "apply_to_training": false,
+      "class_counts": {
+        "0": 68138,
+        "1": 68346
+      },
+      "imbalance_ratio": 1.0030526284892425,
+      "reason": "Training class ratio 1.003 is below threshold 1.500.",
+      "strategy": "none"
+    },
+    "status": "completed"
+  },
+  "label": {
+    "negative_label": 0,
+    "positive_label": 1,
+    "source": "provided_binary",
+    "target_field": null,
+    "threshold_strategy": null,
+    "threshold_value": null
+  },
+  "model": {
+    "family": "dnabert2",
+    "metadata": {
+      "checkpoint": "/kaggle/working/dnabert2_final_training_t4_seed42/checkpoints/best_model.pt",
+      "early_stopping_metric": "validation_mcc",
+      "effective_batch_size": 32,
+      "freeze_encoder": false,
+      "gradient_accumulation_steps": 16,
+      "gradient_checkpointing": true,
+      "max_grad_norm": 1.0,
+      "mode": "full_finetune",
+      "optimizer": "adamw",
+      "optimizer_steps_per_epoch": 4266,
+      "peak_memory_mb": 2253.17236328125,
+      "physical_batch_size": 2,
+      "pooling": "mean",
+      "pos_weight": 0.9969566464424133,
+      "precision": "fp16",
+      "resolved_device": "cuda",
+      "runtime_seconds": 17570.155417054997,
+      "warmup_ratio": 0.08
+    },
+    "name": "zhihan1996/DNABERT-2-117M",
+    "params": {
+      "allow_download": true,
+      "classifier_dropout": 0.2,
+      "disable_flash_attention": true,
+      "fine_tuning_scope": "all_encoder_layers",
+      "mode": "full_finetune",
+      "pooling": "mean",
+      "require_model_files": true,
+      "revision": "7bce263b15377fc15361f52cfab88f8b586abda0",
+      "trust_remote_code": true
+    },
+    "version": "7bce263b15377fc15361f52cfab88f8b586abda0"
+  },
+  "outputs": {
+    "output_dir": "outputs/benchmarks/dnabert2_final_training_t4_ep_genomic_order",
+    "save_csv": true,
+    "save_json": true,
+    "save_predictions": true
+  },
+  "preprocessing": {
+    "encoding": "dnabert2_tokenizer",
+    "pad_or_trim": false,
+    "params": {
+      "model_max_length": 104,
+      "padding": "longest"
+    },
+    "sequence_length": 300
+  },
+  "split": {
+    "group_field": null,
+    "n_splits": null,
+    "seed": 42,
+    "strategy": "predefined",
+    "test_size": null,
+    "train_size": null,
+    "validation_name": "eval",
+    "validation_size": null
+  },
+  "training": {
+    "batch_size": 2,
+    "learning_rate": 1e-05,
+    "max_epochs": 6,
+    "params": {
+      "diagnostics": [
+        "train_loss",
+        "validation_loss",
+        "validation_mcc",
+        "learning_rate"
+      ],
+      "early_stopping_metric": "validation_mcc",
+      "early_stopping_patience": 2,
+      "gradient_accumulation_steps": 16,
+      "gradient_checkpointing": true,
+      "loss": "bce_with_logits",
+      "max_grad_norm": 1.0,
+      "optimizer": "adamw",
+      "resource_profile": "colab_t4_reduced_epochs",
+      "warmup_ratio": 0.08,
+      "weight_decay": 0.01
+    },
+    "seed": 42
+  }
+}

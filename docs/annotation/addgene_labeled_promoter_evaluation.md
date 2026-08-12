@@ -7,8 +7,8 @@ This workflow evaluates an already-trained SeqTrainer model against locally down
 ```powershell
 seqtrainer annotate promoter data/addgene_18115/raw/pAN1717.gb `
   --model-family dnabert2 `
-  --checkpoint outputs/benchmarks/dnabert2_finetune_t4_seed42/checkpoints/best_model.pt `
-  --benchmark-manifest outputs/benchmarks/dnabert2_finetune_t4_seed42/manifest.json `
+  --checkpoint outputs/models/dnabert2_kaggle_best/checkpoints/best_model.pt `
+  --benchmark-manifest outputs/models/dnabert2_kaggle_best/manifest.json `
   --evaluation-dir outputs/addgene_18115/plasmids/pAN1717 `
   --sbol-output outputs/addgene_18115/plasmids/pAN1717/annotated.nt `
   --sbol2-output outputs/addgene_18115/plasmids/pAN1717/annotated_sbol2.rdf `
@@ -28,8 +28,8 @@ seqtrainer annotate promoter-collection `
   --input-dir data/addgene_18115/raw `
   --output-dir outputs/addgene_18115 `
   --predictor dnabert2 `
-  --model-path outputs/benchmarks/dnabert2_finetune_t4_seed42/checkpoints/best_model.pt `
-  --benchmark-manifest outputs/benchmarks/dnabert2_finetune_t4_seed42/manifest.json `
+  --model-path outputs/models/dnabert2_kaggle_best/checkpoints/best_model.pt `
+  --benchmark-manifest outputs/models/dnabert2_kaggle_best/manifest.json `
   --promoter-label-mode strict `
   --annotation-completeness unknown `
   --write-sbol3 `

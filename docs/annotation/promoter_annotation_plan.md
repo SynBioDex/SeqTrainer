@@ -52,10 +52,10 @@ The quick-check run used:
 
 | Setting | Value |
 | --- | --- |
-| Model | DNABERT2 full fine-tuned T4 checkpoint |
-| Checkpoint | `outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt` |
-| Benchmark manifest | `outputs\benchmarks\dnabert2_finetune_t4_seed42\manifest.json` |
-| Threshold | `0.750244140625` |
+| Model | DNABERT2 full fine-tuned Kaggle checkpoint |
+| Checkpoint | `outputs\models\dnabert2_kaggle_best\checkpoints\best_model.pt` |
+| Benchmark manifest | `outputs\models\dnabert2_kaggle_best\manifest.json` |
+| Threshold | `0.677001953125` |
 | Threshold source | validation MCC from benchmark manifest |
 | Window size | 300 bp |
 | Step size | 300 bp |
@@ -90,11 +90,10 @@ Install dependencies:
 C:\Users\Sgoff\anaconda3\python.exe -m pip install -e ".[annotation,torch]"
 ```
 
-Copy the T4 checkpoint if needed:
+Prepare the Kaggle checkpoint bundle if needed:
 
 ```powershell
-mkdir outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints
-copy C:\Users\Sgoff\Downloads\best_model.pt outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\prepare_dnabert2_annotation_bundle.ps1 -Archive "C:\Users\Sgoff\Downloads\dnabert2_final_training_t4_seed42.zip"
 ```
 
 Run the quick check:
@@ -102,8 +101,8 @@ Run the quick check:
 ```powershell
 seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb `
   --model-family dnabert2 `
-  --checkpoint outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt `
-  --benchmark-manifest outputs\benchmarks\dnabert2_finetune_t4_seed42\manifest.json `
+  --checkpoint outputs\models\dnabert2_kaggle_best\checkpoints\best_model.pt `
+  --benchmark-manifest outputs\models\dnabert2_kaggle_best\manifest.json `
   --step-size 300 `
   --no-scan-both-strands `
   --output outputs\annotations\pAN1717_cyan_dnabert2_smoke_annotated.gb `
@@ -114,7 +113,7 @@ seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb `
 Windows Command Prompt one-line form:
 
 ```bat
-seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --checkpoint outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt --benchmark-manifest outputs\benchmarks\dnabert2_finetune_t4_seed42\manifest.json --step-size 300 --no-scan-both-strands --output outputs\annotations\pAN1717_cyan_dnabert2_smoke_annotated.gb --predictions-csv outputs\annotations\pAN1717_cyan_dnabert2_smoke_predictions.csv --manifest outputs\annotations\pAN1717_cyan_dnabert2_smoke_manifest.json
+seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb --model-family dnabert2 --checkpoint outputs\models\dnabert2_kaggle_best\checkpoints\best_model.pt --benchmark-manifest outputs\models\dnabert2_kaggle_best\manifest.json --step-size 300 --no-scan-both-strands --output outputs\annotations\pAN1717_cyan_dnabert2_smoke_annotated.gb --predictions-csv outputs\annotations\pAN1717_cyan_dnabert2_smoke_predictions.csv --manifest outputs\annotations\pAN1717_cyan_dnabert2_smoke_manifest.json
 ```
 
 Open the outputs:
@@ -132,8 +131,8 @@ Use a smaller stride and both strands:
 ```powershell
 seqtrainer annotate promoters C:\Users\Sgoff\Downloads\pAN1717_cyan.gb `
   --model-family dnabert2 `
-  --checkpoint outputs\benchmarks\dnabert2_finetune_t4_seed42\checkpoints\best_model.pt `
-  --benchmark-manifest outputs\benchmarks\dnabert2_finetune_t4_seed42\manifest.json `
+  --checkpoint outputs\models\dnabert2_kaggle_best\checkpoints\best_model.pt `
+  --benchmark-manifest outputs\models\dnabert2_kaggle_best\manifest.json `
   --step-size 25 `
   --scan-both-strands `
   --output outputs\annotations\pAN1717_cyan_dnabert2_full_annotated.gb `

@@ -1,0 +1,29 @@
+{
+  "train": {
+    "path": "/kaggle/working/SeqTrainer/data/promoter_classification/train_EP_DNA_BERT2_genomic_order.csv",
+    "rows": 136484,
+    "label_counts": {
+      "0": 68138,
+      "1": 68346
+    },
+    "sha256": "38c4f65d447c23bef58e49fa4751e9ba6534184fb4ab5c1414f8a0e1aaf07540"
+  },
+  "validation": {
+    "path": "/kaggle/working/SeqTrainer/data/promoter_classification/eval_EP_DNA_BERT2_genomic_order.csv",
+    "rows": 19498,
+    "label_counts": {
+      "0": 9758,
+      "1": 9740
+    },
+    "sha256": "35c7f4b55d0c46f67c33bd5d61f604d69a6e96efadb6cc77be6a84fdd2845438"
+  },
+  "test": {
+    "path": "/kaggle/working/SeqTrainer/data/promoter_classification/test_EP_DNA_BERT2_genomic_order.csv",
+    "rows": 38996,
+    "label_counts": {
+      "0": 19593,
+      "1": 19403
+    },
+    "sha256": "097487e8a047ea384a836ffe6d80477b8bbdf891612a743d5a22c521ee93f3c8"
+  }
+}
