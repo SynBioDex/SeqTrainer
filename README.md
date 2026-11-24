@@ -4,6 +4,11 @@ SeqTrainer is a synthetic biology ML domain toolkit focused on connecting **SBOL
 
 It is designed to be complementary to Keras and PyTorch rather than replacing them.
 
+## AI coding agents
+
+Repository guidance for AI coding agents and contributors is in
+[AGENTS.md](AGENTS.md).
+
 ## What this refactor introduces
 
 - Clear package layering under `seqtrainer/`
